@@ -1,0 +1,191 @@
+<?php
+
+use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\CajaController;
+use App\Http\Controllers\CargoController;
+use App\Http\Controllers\CategoriaController;
+use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\ComprobanteController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DevolucionController;
+use App\Http\Controllers\EmpleadoController;
+use App\Http\Controllers\PerfilController;
+use App\Http\Controllers\PosController;
+use App\Http\Controllers\ProductoController;
+use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\RolController;
+use App\Http\Controllers\UnidadMedidaController;
+use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\VentaController;
+use App\Support\Menu;
+use Illuminate\Support\Facades\Route;
+
+/*
+|------------------------------------------------------------------------------
+| Acceso
+|------------------------------------------------------------------------------
+*/
+
+Route::middleware('guest')->group(function () {
+    Route::get('login', [LoginController::class, 'create'])->name('login');
+    Route::post('login', [LoginController::class, 'store'])->name('login.store');
+});
+
+Route::post('logout', [LoginController::class, 'destroy'])
+    ->middleware('auth')
+    ->name('logout');
+
+/*
+|------------------------------------------------------------------------------
+| Módulo de personal, seguridad y usuarios
+|------------------------------------------------------------------------------
+| `cuenta.vigente` corta la sesión si la cuenta dejó de tener acceso mientras
+| el usuario seguía navegando (por ejemplo, si se cesa al empleado).
+*/
+
+Route::middleware(['auth', 'cuenta.vigente'])->group(function () {
+    // La raíz manda a cada quien a su pantalla de trabajo: el cajero al
+    // mostrador, el resto a la portada.
+    Route::get('/', fn () => redirect(Menu::inicio()))->name('raiz');
+
+    Route::get('inicio', DashboardController::class)->name('inicio');
+
+    Route::get('perfil', [PerfilController::class, 'edit'])->name('perfil.edit');
+    Route::put('perfil/password', [PerfilController::class, 'actualizarPassword'])->name('perfil.password');
+
+    // ---- Empleados y cargos ----
+    Route::middleware('permiso:empleados.gestionar')->group(function () {
+        Route::get('empleados', [EmpleadoController::class, 'index'])->name('empleados.index');
+        Route::get('empleados/nuevo', [EmpleadoController::class, 'create'])->name('empleados.create');
+        Route::post('empleados', [EmpleadoController::class, 'store'])->name('empleados.store');
+        Route::get('empleados/{empleado}', [EmpleadoController::class, 'show'])->name('empleados.show');
+        Route::get('empleados/{empleado}/editar', [EmpleadoController::class, 'edit'])->name('empleados.edit');
+        Route::put('empleados/{empleado}', [EmpleadoController::class, 'update'])->name('empleados.update');
+        Route::delete('empleados/{empleado}', [EmpleadoController::class, 'destroy'])->name('empleados.destroy');
+        Route::post('empleados/{empleado}/reactivar', [EmpleadoController::class, 'reactivar'])->name('empleados.reactivar');
+
+        Route::get('cargos', [CargoController::class, 'index'])->name('cargos.index');
+        Route::post('cargos', [CargoController::class, 'store'])->name('cargos.store');
+        Route::put('cargos/{cargo}', [CargoController::class, 'update'])->name('cargos.update');
+        Route::delete('cargos/{cargo}', [CargoController::class, 'destroy'])->name('cargos.destroy');
+    });
+
+    // ---- Punto de venta ----
+    // Registrar la venta y consultarla son permisos distintos: el cajero vende,
+    // pero el listado general de ventas es información de gestión.
+    Route::middleware('permiso:ventas.registrar')->group(function () {
+        Route::get('pos', [PosController::class, 'index'])->name('pos.index');
+        Route::get('pos/productos', [PosController::class, 'buscar'])->name('pos.productos');
+        Route::post('pos', [PosController::class, 'store'])->name('pos.store');
+    });
+
+    Route::middleware('permiso:ventas.registrar,reportes.ver')->group(function () {
+        Route::get('ventas', [VentaController::class, 'index'])->name('ventas.index');
+        Route::get('ventas/{venta}', [VentaController::class, 'show'])->name('ventas.show');
+
+        Route::get('comprobantes', [ComprobanteController::class, 'index'])->name('comprobantes.index');
+        Route::get('comprobantes/{comprobante}/imprimir', [ComprobanteController::class, 'imprimir'])
+            ->name('comprobantes.imprimir');
+
+        Route::get('clientes', [ClienteController::class, 'index'])->name('clientes.index');
+        Route::get('clientes/buscar', [ClienteController::class, 'buscar'])->name('clientes.buscar');
+        Route::post('clientes', [ClienteController::class, 'store'])->name('clientes.store');
+        Route::put('clientes/{cliente}', [ClienteController::class, 'update'])->name('clientes.update');
+        Route::delete('clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy');
+    });
+
+    Route::post('ventas/{venta}/anular', [VentaController::class, 'anular'])
+        ->middleware('permiso:ventas.anular')
+        ->name('ventas.anular');
+
+    // Sustituir un documento ya emitido es corregir algo entregado al cliente:
+    // se pide el mismo permiso que para anular una venta.
+    Route::post('comprobantes/{comprobante}/sustituir', [ComprobanteController::class, 'sustituir'])
+        ->middleware('permiso:ventas.anular')
+        ->name('comprobantes.sustituir');
+
+    // ---- Devoluciones ----
+    // Consultarlas es información de gestión; registrarlas exige su permiso.
+    Route::middleware('permiso:devoluciones.registrar,reportes.ver')->group(function () {
+        Route::get('devoluciones', [DevolucionController::class, 'index'])->name('devoluciones.index');
+        Route::get('devoluciones/{devolucion}', [DevolucionController::class, 'show'])->name('devoluciones.show');
+    });
+
+    Route::middleware('permiso:devoluciones.registrar')->group(function () {
+        Route::get('ventas/{venta}/devolver', [DevolucionController::class, 'create'])->name('devoluciones.create');
+        Route::post('ventas/{venta}/devolver', [DevolucionController::class, 'store'])->name('devoluciones.store');
+    });
+
+    // ---- Reportes ----
+    Route::middleware('permiso:reportes.ver')->group(function () {
+        Route::get('reportes/ventas', [ReporteController::class, 'ventas'])->name('reportes.ventas');
+        Route::get('reportes/productos', [ReporteController::class, 'productos'])->name('reportes.productos');
+    });
+
+    // ---- Caja ----
+    Route::middleware('permiso:caja.abrir,caja.cerrar,reportes.ver')->group(function () {
+        Route::get('caja', [CajaController::class, 'index'])->name('caja.index');
+        Route::get('caja/{sesion}', [CajaController::class, 'show'])->name('caja.show');
+    });
+
+    Route::post('caja/abrir', [CajaController::class, 'abrir'])
+        ->middleware('permiso:caja.abrir')->name('caja.abrir');
+
+    Route::post('caja/{sesion}/movimiento', [CajaController::class, 'movimiento'])
+        ->middleware('permiso:caja.abrir')->name('caja.movimiento');
+
+    Route::post('caja/{sesion}/cerrar', [CajaController::class, 'cerrar'])
+        ->middleware('permiso:caja.cerrar')->name('caja.cerrar');
+
+    // ---- Catálogo: productos y sus tablas de apoyo ----
+    Route::middleware('permiso:productos.gestionar')->group(function () {
+        Route::get('productos', [ProductoController::class, 'index'])->name('productos.index');
+        Route::get('productos/nuevo', [ProductoController::class, 'create'])->name('productos.create');
+        Route::post('productos', [ProductoController::class, 'store'])->name('productos.store');
+        Route::get('productos/{producto}', [ProductoController::class, 'show'])->name('productos.show');
+        Route::get('productos/{producto}/editar', [ProductoController::class, 'edit'])->name('productos.edit');
+        Route::put('productos/{producto}', [ProductoController::class, 'update'])->name('productos.update');
+        Route::delete('productos/{producto}', [ProductoController::class, 'destroy'])->name('productos.destroy');
+
+        Route::get('categorias', [CategoriaController::class, 'index'])->name('categorias.index');
+        Route::post('categorias', [CategoriaController::class, 'store'])->name('categorias.store');
+        Route::put('categorias/{categoria}', [CategoriaController::class, 'update'])->name('categorias.update');
+        Route::delete('categorias/{categoria}', [CategoriaController::class, 'destroy'])->name('categorias.destroy');
+
+        Route::get('unidades', [UnidadMedidaController::class, 'index'])->name('unidades.index');
+        Route::post('unidades', [UnidadMedidaController::class, 'store'])->name('unidades.store');
+        Route::put('unidades/{unidad}', [UnidadMedidaController::class, 'update'])->name('unidades.update');
+        Route::delete('unidades/{unidad}', [UnidadMedidaController::class, 'destroy'])->name('unidades.destroy');
+
+        Route::get('proveedores', [ProveedorController::class, 'index'])->name('proveedores.index');
+        Route::post('proveedores', [ProveedorController::class, 'store'])->name('proveedores.store');
+        Route::put('proveedores/{proveedor}', [ProveedorController::class, 'update'])->name('proveedores.update');
+        Route::delete('proveedores/{proveedor}', [ProveedorController::class, 'destroy'])->name('proveedores.destroy');
+    });
+
+    // ---- Movimientos de stock: permisos propios, distintos del catálogo ----
+    Route::post('productos/{producto}/ingreso', [ProductoController::class, 'ingresar'])
+        ->middleware('permiso:inventario.ingresar')
+        ->name('productos.ingreso');
+
+    Route::post('productos/{producto}/ajuste', [ProductoController::class, 'ajustar'])
+        ->middleware('permiso:inventario.ajustar')
+        ->name('productos.ajuste');
+
+    // ---- Usuarios y roles ----
+    Route::middleware('permiso:usuarios.gestionar')->group(function () {
+        Route::get('usuarios', [UsuarioController::class, 'index'])->name('usuarios.index');
+        Route::get('usuarios/nuevo', [UsuarioController::class, 'create'])->name('usuarios.create');
+        Route::post('usuarios', [UsuarioController::class, 'store'])->name('usuarios.store');
+        Route::get('usuarios/{usuario}/editar', [UsuarioController::class, 'edit'])->name('usuarios.edit');
+        Route::put('usuarios/{usuario}', [UsuarioController::class, 'update'])->name('usuarios.update');
+        Route::patch('usuarios/{usuario}/acceso', [UsuarioController::class, 'alternarAcceso'])->name('usuarios.acceso');
+        Route::delete('usuarios/{usuario}', [UsuarioController::class, 'destroy'])->name('usuarios.destroy');
+
+        Route::get('roles', [RolController::class, 'index'])->name('roles.index');
+        Route::post('roles', [RolController::class, 'store'])->name('roles.store');
+        Route::put('roles/{rol}', [RolController::class, 'update'])->name('roles.update');
+        Route::delete('roles/{rol}', [RolController::class, 'destroy'])->name('roles.destroy');
+    });
+});

@@ -1,0 +1,121 @@
+<?php
+
+namespace App\Http\Controllers\Auth;
+
+use App\Http\Controllers\Controller;
+use App\Models\Usuario;
+use App\Services\Auditor;
+use App\Support\Menu;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+
+/**
+ * Ingreso al sistema con nombre de usuario (no correo): la cuenta vive en
+ * `usuarios` y la persona en `empleados`.
+ */
+class LoginController extends Controller
+{
+    /** Cuántos intentos seguidos se toleran antes de bloquear temporalmente. */
+    private const MAX_INTENTOS = 5;
+
+    private const BLOQUEO_SEGUNDOS = 60;
+
+    public function create(): View
+    {
+        return view('auth.login', ['title' => 'Ingresar']);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $datos = $request->validate([
+            'usuario' => ['required', 'string', 'max:40'],
+            'password' => ['required', 'string'],
+        ], [], [
+            'usuario' => 'usuario',
+            'password' => 'contraseña',
+        ]);
+
+        $this->verificarBloqueo($request);
+
+        $cuenta = Usuario::with(['empleado', 'rol'])
+            ->where('usuario', $datos['usuario'])
+            ->first();
+
+        if (! $cuenta || ! Auth::validate(['usuario' => $datos['usuario'], 'password' => $datos['password']])) {
+            RateLimiter::hit($this->claveThrottle($request), self::BLOQUEO_SEGUNDOS);
+            $cuenta?->increment('intentos_fallidos');
+
+            Auditor::registrar('LOGIN_FALLIDO', 'usuarios', $cuenta?->id, [
+                'usuario' => $datos['usuario'],
+            ], $cuenta?->id);
+
+            throw ValidationException::withMessages([
+                'usuario' => 'Usuario o contraseña incorrectos.',
+            ]);
+        }
+
+        // La cuenta existe y la contraseña es correcta, pero el acceso puede
+        // estar cerrado: cuenta desactivada o vínculo laboral no vigente.
+        if (! $cuenta->puedeIngresar()) {
+            RateLimiter::hit($this->claveThrottle($request), self::BLOQUEO_SEGUNDOS);
+
+            Auditor::registrar('LOGIN_BLOQUEADO', 'usuarios', $cuenta->id, [
+                'activo' => $cuenta->activo,
+                'estado_empleado' => $cuenta->empleado?->estado,
+            ], $cuenta->id);
+
+            throw ValidationException::withMessages([
+                'usuario' => $cuenta->activo
+                    ? 'El empleado no se encuentra activo en el negocio.'
+                    : 'La cuenta está desactivada. Comunícate con el administrador.',
+            ]);
+        }
+
+        RateLimiter::clear($this->claveThrottle($request));
+
+        Auth::login($cuenta);
+        $request->session()->regenerate();
+
+        $cuenta->forceFill([
+            'ultimo_acceso' => now(),
+            'intentos_fallidos' => 0,
+        ])->save();
+
+        Auditor::registrar('LOGIN', 'usuarios', $cuenta->id);
+
+        return redirect()->intended(Menu::inicio());
+    }
+
+    public function destroy(Request $request): RedirectResponse
+    {
+        Auditor::registrar('LOGOUT', 'usuarios', Auth::id());
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login');
+    }
+
+    private function claveThrottle(Request $request): string
+    {
+        return 'login:'.mb_strtolower((string) $request->input('usuario')).'|'.$request->ip();
+    }
+
+    private function verificarBloqueo(Request $request): void
+    {
+        if (! RateLimiter::tooManyAttempts($this->claveThrottle($request), self::MAX_INTENTOS)) {
+            return;
+        }
+
+        $segundos = RateLimiter::availableIn($this->claveThrottle($request));
+
+        throw ValidationException::withMessages([
+            'usuario' => "Demasiados intentos. Vuelve a intentarlo en {$segundos} segundos.",
+        ]);
+    }
+}

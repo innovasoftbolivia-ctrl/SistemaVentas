@@ -1,0 +1,18 @@
+# Lo que no debe entrar en el contexto de build.
+#
+# La imagen de desarrollo no copia el código (llega por bind mount), así que
+# esto es sobre todo para que el contexto no pese cientos de megas.
+
+vendor/
+node_modules/
+public/build/
+public/storage/
+public/hot
+public/_diag-*.html
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+.git/
+.env
+.phpunit.result.cache

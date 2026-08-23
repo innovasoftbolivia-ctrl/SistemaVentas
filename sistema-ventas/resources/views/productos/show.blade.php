@@ -1,0 +1,351 @@
+@extends('layouts.app')
+
+@php
+    use App\Support\Config;
+
+    $unidad = $producto->unidadMedida;
+    $paso = $unidad?->permite_decimal ? '0.001' : '1';
+@endphp
+
+@section('content')
+    <div x-data="{ ingresando: false, ajustando: false, borrando: false }"
+        @keydown.escape.window="ingresando = false; ajustando = false; borrando = false" class="space-y-6">
+
+        {{-- Cabecera --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div class="flex items-start gap-4">
+                    <x-ui.foto-producto :producto="$producto" size="lg" />
+                    <div>
+                    <h2 class="mb-1 text-lg font-semibold text-gray-800 dark:text-white/90">{{ $producto->nombre }}</h2>
+                    <p class="font-mono text-theme-sm text-gray-500 dark:text-gray-400">
+                        {{ $producto->codigo }}
+                        @if ($producto->codigo_barras)
+                            · {{ $producto->codigo_barras }}
+                        @endif
+                    </p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <x-ui.estado estado="INDEFINIDO" :texto="$producto->categoria?->nombre" />
+                        <x-ui.estado estado="PRACTICAS" :texto="$unidad?->etiqueta" />
+                        <x-ui.estado :estado="$producto->activo ? 'ACTIVO' : 'CESADO'"
+                            :texto="$producto->activo ? 'En catálogo' : 'Descatalogado'" />
+                        @if ($producto->sin_stock)
+                            <x-ui.estado estado="CESADO" texto="Agotado" />
+                        @elseif ($producto->bajo_minimo)
+                            <x-ui.estado estado="SUSPENDIDO" texto="Bajo el mínimo" />
+                        @endif
+                    </div>
+                    @if ($producto->descripcion)
+                        <p class="mt-3 max-w-2xl text-theme-sm text-gray-500 dark:text-gray-400">
+                            {{ $producto->descripcion }}
+                        </p>
+                    @endif
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    @puede('inventario.ingresar')
+                        <x-ui.button size="sm" @click="ingresando = true">Ingresar mercadería</x-ui.button>
+                    @endpuede
+                    @puede('inventario.ajustar')
+                        <x-ui.button size="sm" variant="outline" @click="ajustando = true">Ajustar stock</x-ui.button>
+                    @endpuede
+                    @puede('productos.gestionar')
+                        <x-ui.button size="sm" variant="outline" :href="route('productos.edit', $producto)">Editar</x-ui.button>
+                    @endpuede
+                </div>
+            </div>
+        </div>
+
+        {{-- Cifras --}}
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            @php
+                $cifras = [
+                    ['Stock actual', Config::cantidad($producto->stock_actual).' '.$unidad?->codigo,
+                        $producto->bajo_minimo ? 'text-error-500' : 'text-gray-800 dark:text-white/90',
+                        'mínimo '.Config::cantidad($producto->stock_minimo)],
+                    ['Precio de estante', Config::importe($producto->precio_estante), 'text-gray-800 dark:text-white/90',
+                        $producto->afecto_impuesto ? 'incluye impuesto' : 'exonerado'],
+                    ['Ganancia por unidad', Config::importe($producto->margen),
+                        $producto->margen >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500',
+                        $producto->margen_porcentaje !== null ? $producto->margen_porcentaje.'% de margen' : null],
+                    ['Valor en inventario', Config::importe($producto->valor_inventario), 'text-gray-800 dark:text-white/90',
+                        'al precio de compra'],
+                ];
+            @endphp
+
+            @foreach ($cifras as [$etiqueta, $valor, $clase, $nota])
+                <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
+                    <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
+                    @if ($nota)
+                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+            {{-- Kardex --}}
+            <div class="lg:col-span-2">
+                <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="px-6 py-5">
+                        <h2 class="text-base font-medium text-gray-800 dark:text-white/90">Kardex</h2>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Cada movimiento de stock, con su responsable. No se edita ni se borra: una corrección es
+                            otro movimiento.
+                        </p>
+                    </div>
+
+                    <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+                        <table class="min-w-full">
+                            <thead class="border-b border-gray-100 dark:border-gray-800">
+                                <tr>
+                                    @foreach (['Fecha', 'Movimiento', 'Cantidad', 'Stock', 'Responsable'] as $columna)
+                                        <th class="px-5 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                                            {{ $columna }}
+                                        </th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                @forelse ($movimientos as $movimiento)
+                                    <tr>
+                                        <td class="px-5 py-4 whitespace-nowrap text-theme-xs text-gray-500 dark:text-gray-400">
+                                            {{ $movimiento->fecha?->format('d/m/Y H:i') }}
+                                        </td>
+                                        <td class="px-5 py-4">
+                                            <span class="block text-theme-sm text-gray-800 dark:text-white/90">
+                                                {{ $movimiento->etiqueta_origen }}
+                                            </span>
+                                            @if ($movimiento->motivo)
+                                                <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+                                                    {{ $movimiento->motivo }}
+                                                </span>
+                                            @endif
+                                            @if ($movimiento->proveedor || $movimiento->documento_externo)
+                                                <span class="block text-theme-xs text-gray-400 dark:text-gray-500">
+                                                    {{ $movimiento->proveedor?->razon_social }}
+                                                    @if ($movimiento->documento_externo)
+                                                        · {{ $movimiento->documento_externo }}
+                                                    @endif
+                                                </span>
+                                            @endif
+                                        </td>
+                                        <td class="px-5 py-4 whitespace-nowrap text-theme-sm font-medium {{ $movimiento->variacion >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500' }}">
+                                            {{ $movimiento->variacion > 0 ? '+' : '' }}{{ Config::cantidad($movimiento->variacion) }}
+                                        </td>
+                                        <td class="px-5 py-4 whitespace-nowrap text-theme-xs text-gray-500 dark:text-gray-400">
+                                            {{ Config::cantidad($movimiento->stock_anterior) }}
+                                            → <b class="text-gray-800 dark:text-white/90">{{ Config::cantidad($movimiento->stock_resultante) }}</b>
+                                        </td>
+                                        <td class="px-5 py-4 whitespace-nowrap text-theme-xs text-gray-500 dark:text-gray-400">
+                                            {{ $movimiento->usuario?->usuario ?? 'sistema' }}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-5 py-10 text-center text-theme-sm text-gray-500 dark:text-gray-400">
+                                            Este producto todavía no tiene movimientos de inventario.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <x-common.paginacion :paginador="$movimientos" />
+                </div>
+            </div>
+
+            {{-- Datos --}}
+            <div class="space-y-6">
+                <x-common.component-card title="Precios">
+                    <dl class="space-y-4">
+                        @foreach ([
+                            'Precio de compra' => Config::importe($producto->precio_compra).' (sin impuesto)',
+                            'Precio de venta base' => Config::importe($producto->precio_venta).' (sin impuesto)',
+                            'Precio de estante' => Config::importe($producto->precio_estante),
+                        ] as $etiqueta => $valor)
+                            <div>
+                                <dt class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    {{ $etiqueta }}
+                                </dt>
+                                <dd class="text-theme-sm font-medium text-gray-800 dark:text-white/90">{{ $valor }}</dd>
+                            </div>
+                        @endforeach
+                    </dl>
+                </x-common.component-card>
+
+                <x-common.component-card title="Proveedor">
+                    @if ($producto->proveedor)
+                        <dl class="space-y-3">
+                            <div>
+                                <dt class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Razón social
+                                </dt>
+                                <dd class="text-theme-sm font-medium text-gray-800 dark:text-white/90">
+                                    {{ $producto->proveedor->razon_social }}
+                                </dd>
+                            </div>
+                            @if ($producto->proveedor->telefono || $producto->proveedor->email)
+                                <div>
+                                    <dt class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                        Contacto
+                                    </dt>
+                                    <dd class="text-theme-sm text-gray-500 dark:text-gray-400">
+                                        {{ collect([$producto->proveedor->telefono, $producto->proveedor->email])->filter()->implode(' · ') }}
+                                    </dd>
+                                </div>
+                            @endif
+                        </dl>
+                    @else
+                        <p class="text-theme-sm text-gray-500 dark:text-gray-400">
+                            Este producto no tiene proveedor habitual asignado.
+                        </p>
+                    @endif
+                </x-common.component-card>
+
+                @puede('productos.gestionar')
+                    <x-common.component-card title="Retirar del catálogo">
+                        <p class="text-theme-sm text-gray-500 dark:text-gray-400">
+                            Si el producto tiene movimientos, se descataloga en lugar de eliminarse.
+                        </p>
+                        <x-ui.button variant="outline" size="sm" class="w-full" @click="borrando = true">
+                            Eliminar producto
+                        </x-ui.button>
+                    </x-common.component-card>
+                @endpuede
+            </div>
+        </div>
+
+        {{-- Ingreso de mercadería --}}
+        @puede('inventario.ingresar')
+            <div x-show="ingresando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+                <div @click="ingresando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
+
+                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Ingresar mercadería</h2>
+                    <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                        Entrada de <b>{{ $producto->nombre }}</b>. Stock actual:
+                        {{ Config::cantidad($producto->stock_actual) }} {{ $unidad?->codigo }}.
+                    </p>
+
+                    <form method="POST" action="{{ route('productos.ingreso', $producto) }}" class="space-y-5">
+                        @csrf
+
+                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                            <x-form.campo label="Cantidad que ingresa" for="cantidad" name="cantidad" required
+                                :help="$unidad?->permite_decimal ? 'Admite decimales.' : 'Solo números enteros.'">
+                                <x-form.input id="cantidad" name="cantidad" type="number" step="{{ $paso }}"
+                                    min="{{ $paso }}" required autofocus />
+                            </x-form.campo>
+
+                            <x-form.campo label="Costo unitario" for="costo_unitario" name="costo_unitario"
+                                help="Opcional. Lo que costó esta compra, sin impuesto.">
+                                <x-form.input id="costo_unitario" name="costo_unitario" type="number" step="0.01"
+                                    min="0" :value="$producto->precio_compra" />
+                            </x-form.campo>
+
+                            <x-form.campo label="Proveedor" for="ingreso_proveedor" name="proveedor_id">
+                                <x-form.select id="ingreso_proveedor" name="proveedor_id"
+                                    :value="$producto->proveedor_id" placeholder="Sin especificar"
+                                    :opciones="$proveedores" />
+                            </x-form.campo>
+
+                            <x-form.campo label="Guía o factura" for="documento_externo" name="documento_externo"
+                                help="El documento con el que llegó la mercadería.">
+                                <x-form.input id="documento_externo" name="documento_externo"
+                                    placeholder="F001-00123" />
+                            </x-form.campo>
+                        </div>
+
+                        <x-form.campo label="Observación" for="ingreso_motivo" name="motivo">
+                            <x-form.input id="ingreso_motivo" name="motivo" placeholder="Opcional" />
+                        </x-form.campo>
+
+                        <div class="flex justify-end gap-3">
+                            <x-ui.button type="button" variant="outline" size="sm" @click="ingresando = false">Cancelar</x-ui.button>
+                            <x-ui.button type="submit" size="sm">Registrar ingreso</x-ui.button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endpuede
+
+        {{-- Ajuste por conteo --}}
+        @puede('inventario.ajustar')
+            <div x-show="ajustando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+                <div @click="ajustando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
+
+                <div x-data="{ contado: {{ (float) $producto->stock_actual }}, sistema: {{ (float) $producto->stock_actual }} }"
+                    class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Ajustar inventario</h2>
+                    <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
+                        Indica cuántas unidades hay <b>realmente</b> en el estante y el sistema calcula la diferencia.
+                    </p>
+
+                    <form method="POST" action="{{ route('productos.ajuste', $producto) }}" class="space-y-5">
+                        @csrf
+
+                        <x-form.campo label="Stock contado" for="stock_contado" name="stock_contado" required>
+                            <x-form.input id="stock_contado" name="stock_contado" type="number" step="{{ $paso }}"
+                                min="0" :value="Config::cantidad($producto->stock_actual)" x-model.number="contado"
+                                required />
+                        </x-form.campo>
+
+                        <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/[0.03]">
+                            <p class="text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Diferencia frente al sistema ({{ Config::cantidad($producto->stock_actual) }})
+                            </p>
+                            <p class="text-lg font-semibold"
+                                :class="(contado - sistema) === 0
+                                    ? 'text-gray-500 dark:text-gray-400'
+                                    : ((contado - sistema) > 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500')">
+                                <span x-text="(contado - sistema) > 0 ? '+' : ''"></span><span
+                                    x-text="Math.round((contado - sistema) * 1000) / 1000"></span>
+                                {{ $unidad?->codigo }}
+                            </p>
+                            <p x-show="(contado - sistema) < 0" class="mt-1 text-theme-xs text-error-500">
+                                Faltan unidades: puede ser merma, rotura o un faltante sin explicar.
+                            </p>
+                        </div>
+
+                        <x-form.campo label="Motivo" for="ajuste_motivo" name="motivo" required
+                            help="Obligatorio: un ajuste sin explicación es un descuadre sin responsable.">
+                            <x-form.textarea id="ajuste_motivo" name="motivo"
+                                placeholder="Conteo físico mensual, merma por rotura, producto vencido..." required />
+                        </x-form.campo>
+
+                        <div class="flex justify-end gap-3">
+                            <x-ui.button type="button" variant="outline" size="sm" @click="ajustando = false">Cancelar</x-ui.button>
+                            <x-ui.button type="submit" size="sm">Registrar ajuste</x-ui.button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endpuede
+
+        {{-- Baja --}}
+        @puede('productos.gestionar')
+            <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+                <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
+
+                <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar producto</h2>
+                    <p class="mb-6 text-theme-sm text-gray-500 dark:text-gray-400">
+                        ¿Eliminar <b>{{ $producto->nombre }}</b>? Si tiene movimientos de inventario o ventas, se
+                        descatalogará en lugar de eliminarse, para no romper el histórico.
+                    </p>
+
+                    <form method="POST" action="{{ route('productos.destroy', $producto) }}" class="flex justify-end gap-3">
+                        @csrf
+                        @method('DELETE')
+                        <x-ui.button type="button" variant="outline" size="sm" @click="borrando = false">Cancelar</x-ui.button>
+                        <x-ui.button type="submit" variant="danger" size="sm">Eliminar</x-ui.button>
+                    </form>
+                </div>
+            </div>
+        @endpuede
+    </div>
+@endsection

@@ -1,0 +1,21 @@
+{
+    "printWidth": 100,
+    "tabWidth": 4,
+    "useTabs": false,
+    "semi": true,
+    "singleQuote": true,
+    "trailingComma": "all",
+    "bracketSpacing": true,
+    "arrowParens": "always",
+    "endOfLine": "lf",
+    "overrides": [
+        {
+            "comment": "El CSS ya estaba escrito con 2 espacios y líneas largas; se respeta su convención en vez de reescribir el fichero entero.",
+            "files": "*.css",
+            "options": {
+                "tabWidth": 2,
+                "printWidth": 120
+            }
+        }
+    ]
+}

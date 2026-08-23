@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+/**
+ * Una línea del carrito, con copia histórica del nombre y del precio: si
+ * mañana el producto cambia de precio, la venta ya emitida no se altera.
+ *
+ * `importe`, `impuesto_linea` y `total_linea` son columnas generadas, y el
+ * régimen de impuesto lo copia del producto un trigger BEFORE INSERT.
+ * Al insertar la línea, otro trigger descuenta el stock y escribe el kardex.
+ */
+class VentaDetalle extends Model
+{
+    protected $table = 'venta_detalle';
+
+    public $timestamps = false;
+
+    protected $fillable = [
+        'venta_id', 'producto_id', 'descripcion',
+        'cantidad', 'precio_unitario', 'descuento',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'cantidad' => 'decimal:3',
+            'precio_unitario' => 'decimal:2',
+            'descuento' => 'decimal:2',
+            'importe' => 'decimal:2',
+            'tasa_impuesto' => 'decimal:4',
+            'impuesto_linea' => 'decimal:2',
+            'total_linea' => 'decimal:2',
+            'cantidad_devuelta' => 'decimal:3',
+            'afecto_impuesto' => 'boolean',
+        ];
+    }
+
+    public function venta(): BelongsTo
+    {
+        return $this->belongsTo(Venta::class, 'venta_id');
+    }
+
+    public function producto(): BelongsTo
+    {
+        return $this->belongsTo(Producto::class, 'producto_id');
+    }
+
+    /** Cuánto de esta línea queda todavía sin devolver. */
+    public function getPendienteDevolucionAttribute(): float
+    {
+        return round((float) $this->cantidad - (float) $this->cantidad_devuelta, 3);
+    }
+}
