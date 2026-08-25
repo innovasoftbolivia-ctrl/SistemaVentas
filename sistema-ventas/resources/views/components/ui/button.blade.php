@@ -8,7 +8,11 @@
 ])
 
 @php
-    $base = 'inline-flex items-center justify-center font-medium gap-2 rounded-lg transition';
+    // `focus-visible` y no `focus`: el anillo aparece al llegar con el tabulador,
+    // pero no al hacer clic con el ratón, donde solo sería ruido.
+    $base = 'inline-flex items-center justify-center font-medium gap-2 rounded-lg transition '
+        .'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/40 '
+        .'focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900';
 
     $sizeMap = [
         'xs' => 'px-3 py-2 text-xs',

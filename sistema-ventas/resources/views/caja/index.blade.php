@@ -74,7 +74,7 @@
                             desde las {{ $abierta->fecha_apertura?->format('H:i') }}
                         </p>
                         <a href="{{ route('caja.show', $abierta) }}"
-                            class="mt-2 inline-block text-theme-xs text-brand-500 hover:text-brand-600">Ver turno →</a>
+                            class="mt-2 inline-block text-theme-xs text-brand-500 dark:text-brand-400 hover:text-brand-600">Ver turno →</a>
                     @else
                         <p class="text-theme-sm text-gray-500 dark:text-gray-400">Disponible para abrir.</p>
                     @endif
@@ -91,7 +91,7 @@
                 </p>
             </div>
 
-            <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+            <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
@@ -138,7 +138,7 @@
                                         <span class="text-theme-sm text-gray-400">—</span>
                                     @else
                                         @php $dif = (float) $turno->diferencia; @endphp
-                                        <span class="text-theme-sm font-medium {{ $dif == 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500' }}">
+                                        <span class="text-theme-sm font-medium {{ $dif == 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400' }}">
                                             {{ $dif > 0 ? '+' : '' }}{{ Config::importe($dif) }}
                                         </span>
                                     @endif
@@ -160,10 +160,10 @@
 
         {{-- Abrir caja --}}
         @puede('caja.abrir')
-            <div x-show="abriendo" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+            <div x-show="abriendo" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="abriendo = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                     <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Abrir caja</h2>
                     <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                         Cuenta el efectivo con el que empiezas el turno. De ahí parte el arqueo al cerrar.

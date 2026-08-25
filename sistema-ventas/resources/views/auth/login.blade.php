@@ -8,8 +8,8 @@
             <div class="flex w-full flex-1 flex-col lg:w-1/2">
                 <div class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center">
                     <div class="mb-5 sm:mb-8">
-                        <img class="mb-6 h-8 w-auto dark:hidden" src="/images/logo/logo.svg" alt="Sistema de Ventas" />
-                        <img class="mb-6 hidden h-8 w-auto dark:block" src="/images/logo/logo-dark.svg"
+                        <img class="mb-6 h-8 w-auto dark:hidden" src="/images/logo/logo.svg" alt="Sistema de Ventas" width="184" height="32" />
+                        <img class="mb-6 hidden h-8 w-auto dark:block" src="/images/logo/logo-dark.svg" width="184" height="32"
                             alt="Sistema de Ventas" />
                         <h1 class="text-title-sm sm:text-title-md mb-2 font-semibold text-gray-800 dark:text-white/90">
                             Ingresar
@@ -33,7 +33,7 @@
                             <div>
                                 <label for="usuario"
                                     class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                    Usuario<span class="text-error-500">*</span>
+                                    Usuario<span class="text-error-600 dark:text-error-400">*</span>
                                 </label>
                                 <x-form.input id="usuario" name="usuario" placeholder="admin" autocomplete="username"
                                     autofocus required />
@@ -42,7 +42,7 @@
                             <div>
                                 <label for="password"
                                     class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                                    Contraseña<span class="text-error-500">*</span>
+                                    Contraseña<span class="text-error-600 dark:text-error-400">*</span>
                                 </label>
                                 <div x-data="{ visible: false }" class="relative">
                                     <input :type="visible ? 'text' : 'password'" id="password" name="password"
@@ -82,7 +82,7 @@
                 <div class="z-1 flex items-center justify-center">
                     <x-common.common-grid-shape />
                     <div class="flex max-w-sm flex-col items-center">
-                        <img class="mb-6 h-10 w-auto" src="/images/logo/auth-logo.svg" alt="Sistema de Ventas" />
+                        <img class="mb-6 h-10 w-auto" src="/images/logo/auth-logo.svg" alt="Sistema de Ventas" width="184" height="32" />
                         <p class="text-center text-gray-400 dark:text-white/60">
                             Punto de venta, inventario y caja para el negocio.
                             Cada operación queda registrada con su responsable.

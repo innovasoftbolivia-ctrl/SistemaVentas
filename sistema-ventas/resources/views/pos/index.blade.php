@@ -45,7 +45,7 @@
                         </select>
                     </div>
 
-                    <p class="mt-3 text-theme-xs text-gray-400 dark:text-gray-500">
+                    <p class="mt-3 text-theme-xs text-gray-500 dark:text-gray-400">
                         <b>Enter</b> agrega el primer resultado · <b>F2</b> vuelve al buscador · <b>F4</b> cobra
                     </p>
                 </div>
@@ -78,12 +78,12 @@
 
                             <p class="mb-1 line-clamp-2 min-h-10 text-theme-sm font-medium text-gray-800 dark:text-white/90"
                                 x-text="p.nombre"></p>
-                            <p class="font-mono text-theme-xs text-gray-400 dark:text-gray-500" x-text="p.codigo"></p>
+                            <p class="font-mono text-theme-xs text-gray-500 dark:text-gray-400" x-text="p.codigo"></p>
                             <div class="mt-2 flex items-end justify-between">
-                                <span class="text-base font-semibold text-brand-500"
+                                <span class="text-base font-semibold text-brand-500 dark:text-brand-400"
                                     x-text="'{{ $moneda }} ' + p.precio_estante.toFixed(2)"></span>
                                 <span class="text-theme-xs"
-                                    :class="p.stock <= 0 ? 'text-error-500' : 'text-gray-400 dark:text-gray-500'"
+                                    :class="p.stock <= 0 ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400'"
                                     x-text="p.stock <= 0 ? 'agotado' : (cantidadTexto(p.stock) + ' ' + p.unidad)"></span>
                             </div>
                         </button>
@@ -101,7 +101,7 @@
                      va después de la cuadrícula y se llega a él con la barra
                      flotante de abajo. --}}
                 <form method="POST" action="{{ route('pos.store') }}" @submit="preparar($event)" x-ref="carrito"
-                    class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto">
+                    class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto overscroll-contain">
                     @csrf
                     <div x-ref="campos"></div>
 
@@ -109,7 +109,7 @@
                         <div class="flex items-center justify-between">
                             <h2 class="text-base font-medium text-gray-800 dark:text-white/90">Carrito</h2>
                             <button type="button" x-show="carrito.length" @click="carrito = []"
-                                class="text-theme-xs text-error-500 hover:text-error-600">Vaciar</button>
+                                class="text-theme-xs text-error-600 dark:text-error-400 hover:text-error-600">Vaciar</button>
                         </div>
                         <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
                             {{ $sesion->caja?->nombre }} · turno abierto por {{ $sesion->usuarioApertura?->usuario ?? auth()->user()->usuario }}
@@ -123,10 +123,10 @@
                         desaparecen sin previo aviso.
 
                         Lo que evita que el cobro quede fuera de alcance no es
-                        encoger esta lista, sino el `overflow-y-auto` del panel:
+                        encoger esta lista, sino el `overflow-y-auto overscroll-contain` del panel:
                         si el contenido no cabe, se desplaza dentro del panel.
                     --}}
-                    <div class="min-h-40 flex-1 divide-y divide-gray-100 overflow-y-auto dark:divide-gray-800">
+                    <div class="min-h-40 flex-1 divide-y divide-gray-100 overflow-y-auto overscroll-contain dark:divide-gray-800">
                         <template x-for="(l, i) in carrito" :key="l.producto_id">
                             <div class="px-5 py-3">
                                 <div class="flex items-start justify-between gap-2">
@@ -149,7 +149,7 @@
                                     <div class="flex items-center gap-1">
                                         <button type="button" @click="sumar(i, -1)"
                                             class="h-8 w-8 rounded-lg border border-gray-200 text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]">−</button>
-                                        <input type="number" :step="l.decimal ? '0.001' : '1'" min="0"
+                                        <input type="number" inputmode="decimal" :step="l.decimal ? '0.001' : '1'" min="0"
                                             x-model.number="l.cantidad" @change="normalizar(i)"
                                             class="dark:bg-dark-900 h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                         <button type="button" @click="sumar(i, 1)"
@@ -159,7 +159,7 @@
                                         x-text="'{{ $moneda }} ' + (l.precio_estante * l.cantidad).toFixed(2)"></span>
                                 </div>
 
-                                <p x-show="l.cantidad > l.stock" class="mt-1 text-theme-xs text-error-500">
+                                <p x-show="l.cantidad > l.stock" class="mt-1 text-theme-xs text-error-600 dark:text-error-400">
                                     Solo quedan <span x-text="cantidadTexto(l.stock)"></span> <span x-text="l.unidad"></span>.
                                 </p>
                             </div>
@@ -184,14 +184,18 @@
                                 </option>
                             @endforeach
                         </select>
-                        <p class="mt-1.5 text-theme-xs text-gray-400 dark:text-gray-500">
+                        <p class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
                             Persona jurídica recibe <b>factura</b>; el resto, <b>recibo</b>.
-                            <a href="{{ route('clientes.index') }}" class="text-brand-500 hover:text-brand-600">Registrar cliente</a>
+                            <a href="{{ route('clientes.index') }}" class="text-brand-500 dark:text-brand-400 hover:text-brand-600">Registrar cliente</a>
                         </p>
                     </div>
 
                     {{-- Totales --}}
-                    <div class="space-y-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
+                    {{-- `aria-live="polite"`: el total cambia solo, al añadir un
+                         artículo o teclear un descuento. Sin esto, quien usa
+                         lector de pantalla cobra sin haber oído el importe. --}}
+                    <div class="space-y-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800"
+                        aria-live="polite" aria-atomic="true">
                         <div class="flex justify-between text-theme-sm text-gray-500 dark:text-gray-400">
                             <span>Subtotal (base)</span>
                             <span x-text="'{{ $moneda }} ' + subtotal.toFixed(2)"></span>
@@ -199,11 +203,11 @@
 
                         <div class="flex items-center justify-between gap-3">
                             <label for="descuento" class="text-theme-sm text-gray-500 dark:text-gray-400">Descuento</label>
-                            <input id="descuento" type="number" step="0.01" min="0" x-model.number="descuento"
+                            <input id="descuento" type="number" inputmode="decimal" step="0.01" min="0" x-model.number="descuento"
                                 class="dark:bg-dark-900 h-9 w-28 rounded-lg border border-gray-300 bg-transparent px-2 text-right text-sm text-gray-800 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                         </div>
 
-                        <p x-show="excedeDescuento" class="text-theme-xs text-warning-600 dark:text-orange-400">
+                        <p x-show="excedeDescuento" class="text-theme-xs text-warning-700 dark:text-orange-400">
                             @if ($puedeDescontar)
                                 Este descuento supera el {{ $descuentoMaximo }}% habitual. Queda registrado a tu nombre.
                             @else
@@ -220,7 +224,7 @@
 
                         <div class="flex items-baseline justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
                             <span class="font-medium text-gray-800 dark:text-white/90">Total</span>
-                            <span class="text-title-sm font-semibold text-brand-500"
+                            <span class="text-title-sm font-semibold text-brand-500 dark:text-brand-400"
                                 x-text="'{{ $moneda }} ' + total.toFixed(2)"></span>
                         </div>
                     </div>
@@ -244,7 +248,7 @@
                                 <label for="recibido" class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                                     Efectivo recibido
                                 </label>
-                                <input id="recibido" type="number" step="0.01" min="0" x-model.number="recibido"
+                                <input id="recibido" type="number" inputmode="decimal" step="0.01" min="0" x-model.number="recibido"
                                     :placeholder="total.toFixed(2)"
                                     class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
 
@@ -282,7 +286,7 @@
                         </button>
 
                         <p x-show="carrito.length && !puedeCobrar && !enviando"
-                            class="text-center text-theme-xs text-gray-400 dark:text-gray-500" x-text="motivoBloqueo"></p>
+                            class="text-center text-theme-xs text-gray-500 dark:text-gray-400" x-text="motivoBloqueo"></p>
                     </div>
                 </form>
             </div>

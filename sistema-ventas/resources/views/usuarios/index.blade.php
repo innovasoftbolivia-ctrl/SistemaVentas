@@ -11,8 +11,8 @@
             </p>
 
             <form method="GET" action="{{ route('usuarios.index') }}"
-                class="grid grid-cols-1 gap-4 md:grid-cols-4 md:items-end">
-                <div class="md:col-span-2">
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-start">
+                <div class="sm:col-span-2">
                     <x-form.campo label="Buscar" for="buscar">
                         <x-form.input id="buscar" name="buscar" :value="$filtros['buscar']"
                             placeholder="Usuario o nombre del empleado" />
@@ -29,7 +29,7 @@
                         :opciones="['ACTIVO' => 'Solo con acceso', 'INACTIVO' => 'Solo sin acceso']" />
                 </x-form.campo>
 
-                <div class="flex gap-2 md:col-span-4">
+                <div class="flex gap-2 sm:col-span-2 lg:col-span-4">
                     <x-ui.button type="submit" size="sm">Filtrar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" :href="route('usuarios.index')">Limpiar</x-ui.button>
                     <x-ui.button size="sm" class="ml-auto" :href="route('usuarios.create')">Nueva cuenta</x-ui.button>
@@ -38,18 +38,16 @@
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="max-w-full overflow-x-auto">
+            <div class="max-w-full overflow-x-auto overscroll-contain">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
-                            @foreach (['Usuario', 'Empleado', 'Rol', 'Acceso', 'Último ingreso'] as $columna)
-                                <th class="px-5 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                    {{ $columna }}
-                                </th>
-                            @endforeach
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                Acciones
-                            </th>
+                            <x-tabla.th clave="usuario" defecto>Usuario</x-tabla.th>
+                            <x-tabla.th clave="empleado">Empleado</x-tabla.th>
+                            <x-tabla.th clave="rol">Rol</x-tabla.th>
+                            <x-tabla.th clave="acceso">Acceso</x-tabla.th>
+                            <x-tabla.th clave="ingreso" inicial="desc">Último ingreso</x-tabla.th>
+                            <x-tabla.th derecha>Acciones</x-tabla.th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -65,7 +63,7 @@
                                                 {{ $cuenta->usuario }}
                                             </span>
                                             @if ($esPropia)
-                                                <span class="text-theme-xs text-brand-500">tu cuenta</span>
+                                                <span class="text-theme-xs text-brand-500 dark:text-brand-400">tu cuenta</span>
                                             @endif
                                         </div>
                                     </div>
@@ -157,15 +155,15 @@
         </div>
 
         {{-- Baja --}}
-        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                 <h2 class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar cuenta</h2>
                 <p class="mb-2 text-theme-sm text-gray-500 dark:text-gray-400">
                     ¿Eliminar la cuenta <b x-text="usuario"></b> de <span x-text="nombre"></span>?
                 </p>
-                <p class="mb-6 text-theme-sm text-warning-600 dark:text-orange-400">
+                <p class="mb-6 text-theme-sm text-warning-700 dark:text-orange-400">
                     Si la cuenta ya registró operaciones, se desactivará en lugar de eliminarse para conservar la
                     trazabilidad. El empleado no se ve afectado.
                 </p>

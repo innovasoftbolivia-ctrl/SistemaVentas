@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Cliente;
 use App\Models\Comprobante;
 use App\Models\SerieComprobante;
@@ -17,6 +18,8 @@ use Throwable;
 
 class ComprobanteController extends Controller
 {
+    use OrdenaTablas;
+
     /**
      * El documento listo para imprimir, en ticket de 80 mm o en A4.
      * Es una vista propia, sin barra lateral: lo que sale por la impresora.
@@ -56,7 +59,16 @@ class ComprobanteController extends Controller
             'serie' => $request->integer('serie') ?: null,
         ];
 
-        $comprobantes = Comprobante::with(['serie.tipo', 'venta:id,estado'])
+        $orden = $this->orden($request, [
+            'numero' => 'numero_completo',
+            'tipo' => SerieComprobante::select('serie')->whereColumn('series_comprobante.id', 'comprobantes.serie_id'),
+            'fecha' => 'fecha_emision',
+            'cliente' => 'cliente_nombre',
+            'estado' => 'estado',
+            'total' => 'total',
+        ], 'fecha', 'desc');
+
+        $comprobantes = $this->aplicarOrden(Comprobante::with(['serie.tipo', 'venta:id,estado'])
             ->when($filtros['buscar'] !== '', function ($q) use ($filtros) {
                 $texto = $filtros['buscar'];
                 $q->where(fn ($sub) => $sub->where('numero_completo', 'like', "%{$texto}%")
@@ -64,9 +76,9 @@ class ComprobanteController extends Controller
                     ->orWhere('cliente_documento', 'like', "%{$texto}%"));
             })
             ->when($filtros['estado'], fn ($q, $estado) => $q->where('estado', $estado))
-            ->when($filtros['serie'], fn ($q, $id) => $q->where('serie_id', $id))
-            ->orderByDesc('fecha_emision')
-            ->orderByDesc('id')
+            ->when($filtros['serie'], fn ($q, $id) => $q->where('serie_id', $id)),
+            $orden
+        )
             ->paginate(15)
             ->withQueryString();
 

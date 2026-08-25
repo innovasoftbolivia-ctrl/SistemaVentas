@@ -62,7 +62,7 @@
                                     <div class="min-w-0">
                                         <p class="text-theme-sm font-medium text-gray-800 dark:text-white/90"
                                             x-text="l.nombre"></p>
-                                        <p class="font-mono text-theme-xs text-gray-400 dark:text-gray-500"
+                                        <p class="font-mono text-theme-xs text-gray-500 dark:text-gray-400"
                                             x-text="l.codigo + ' · {{ $moneda }} ' + l.precio.toFixed(2) + ' c/u'"></p>
                                         <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
                                             Vendidas <span x-text="texto(l.vendida)"></span>
@@ -75,7 +75,7 @@
                                     </div>
 
                                     <div class="flex items-center gap-2">
-                                        <input type="number" min="0" :max="l.pendiente"
+                                        <input type="number" inputmode="decimal" min="0" :max="l.pendiente"
                                             :step="l.decimal ? '0.001' : '1'" x-model.number="l.cantidad"
                                             @change="normalizar(i)" placeholder="0"
                                             class="dark:bg-dark-900 h-11 w-24 rounded-lg border border-gray-300 bg-transparent px-3 text-center text-sm text-gray-800 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
@@ -90,7 +90,7 @@
                                     class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-3 dark:border-gray-800">
                                     <label class="flex cursor-pointer items-center gap-2 text-theme-xs text-gray-600 select-none dark:text-gray-400">
                                         <input type="checkbox" x-model="l.reingresa"
-                                            class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900" />
+                                            class="h-4 w-4 rounded border-gray-300 text-brand-500 dark:text-brand-400 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900" />
                                         La mercadería vuelve al estante
                                     </label>
                                     <span class="text-theme-sm font-semibold text-gray-800 dark:text-white/90"
@@ -98,7 +98,7 @@
                                 </div>
 
                                 <p x-show="l.cantidad > 0 && !l.reingresa" x-cloak
-                                    class="mt-2 text-theme-xs text-warning-600 dark:text-orange-400">
+                                    class="mt-2 text-theme-xs text-warning-700 dark:text-orange-400">
                                     Se devuelve el dinero, pero el producto no vuelve al inventario (llegó dañado o
                                     vencido).
                                 </p>
@@ -111,7 +111,7 @@
                     desc="Queda registrado con tu nombre. Es lo que explica la salida de dinero en el arqueo.">
                     <x-form.campo for="motivo" name="motivo" required>
                         <x-form.textarea id="motivo" name="motivo" rows="3"
-                            placeholder="Producto en mal estado, el cliente se arrepintió, talla equivocada..."
+                            placeholder="Producto en mal estado, el cliente se arrepintió, talla equivocada…"
                             required />
                     </x-form.campo>
                 </x-common.component-card>
@@ -153,7 +153,7 @@
                                 <dt class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     Ya devuelto
                                 </dt>
-                                <dd class="text-theme-sm font-medium text-error-500">
+                                <dd class="text-theme-sm font-medium text-error-600 dark:text-error-400">
                                     {{ Config::importe($venta->total_devuelto) }}
                                 </dd>
                             </div>
@@ -166,10 +166,10 @@
                         <p class="text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                             Dinero que entregas al cliente
                         </p>
-                        <p class="text-title-sm font-semibold text-error-500">
+                        <p class="text-title-sm font-semibold text-error-600 dark:text-error-400">
                             {{ $moneda }} <span x-text="total.toFixed(2)"></span>
                         </p>
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
                             <span x-text="lineasElegidas"></span> línea(s) ·
                             {{ $sesion->caja?->nombre }}
                         </p>

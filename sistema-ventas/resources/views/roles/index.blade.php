@@ -95,7 +95,7 @@
                                 {{ $permiso->codigo }}
                             </span>
                         @empty
-                            <span class="text-theme-xs text-warning-600 dark:text-orange-400">Sin permisos asignados</span>
+                            <span class="text-theme-xs text-warning-700 dark:text-orange-400">Sin permisos asignados</span>
                         @endforelse
                     </div>
 
@@ -116,10 +116,10 @@
         </div>
 
         {{-- Alta y edición --}}
-        <div x-show="abierto" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+        <div x-show="abierto" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="abierto = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+            <div class="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                 <h2 class="mb-6 text-xl font-semibold text-gray-800 dark:text-white/90"
                     x-text="modo === 'crear' ? 'Nuevo rol' : `Editar rol: ${nombre}`"></h2>
 
@@ -155,7 +155,7 @@
                                     <div class="mb-3 flex items-center justify-between">
                                         <b class="text-theme-sm text-gray-800 dark:text-white/90">{{ $modulo }}</b>
                                         <button type="button" @click="alternarModulo(@js(array_values($ids)))"
-                                            class="text-theme-xs text-brand-500 hover:text-brand-600">
+                                            class="text-theme-xs text-brand-500 dark:text-brand-400 hover:text-brand-600">
                                             Alternar módulo
                                         </button>
                                     </div>
@@ -165,10 +165,10 @@
                                             <label class="flex cursor-pointer items-start gap-3 select-none">
                                                 <input type="checkbox" name="permisos[]" value="{{ $permiso->id }}"
                                                     x-model.number="permisos"
-                                                    class="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900" />
+                                                    class="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-500 dark:text-brand-400 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900" />
                                                 <span class="text-theme-sm text-gray-700 dark:text-gray-400">
                                                     {{ $permiso->descripcion }}
-                                                    <span class="block font-mono text-theme-xs text-gray-400 dark:text-gray-500">
+                                                    <span class="block font-mono text-theme-xs text-gray-500 dark:text-gray-400">
                                                         {{ $permiso->codigo }}
                                                     </span>
                                                 </span>
@@ -207,15 +207,15 @@
         </div>
 
         {{-- Baja --}}
-        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                 <h2 class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar rol</h2>
                 <p class="mb-2 text-theme-sm text-gray-500 dark:text-gray-400">
                     ¿Eliminar el rol <b x-text="nombre"></b>?
                 </p>
-                <p x-show="usuarios > 0" class="mb-6 text-theme-sm text-warning-600 dark:text-orange-400">
+                <p x-show="usuarios > 0" class="mb-6 text-theme-sm text-warning-700 dark:text-orange-400">
                     Tiene <span x-text="usuarios"></span> cuenta(s) asignada(s), así que se desactivará en lugar de
                     eliminarse.
                 </p>

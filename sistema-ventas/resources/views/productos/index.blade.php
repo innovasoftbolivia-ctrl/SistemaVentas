@@ -2,6 +2,10 @@
 
 @php
     use App\Support\Config;
+
+    // Sin impuesto, «Venta» y «Estante» son el mismo importe: se muestra una
+    // sola columna, y es la que tiene que sobrevivir en el teléfono.
+    $tasa = Config::tasaImpuesto();
 @endphp
 
 @section('content')
@@ -14,9 +18,9 @@
                 // la plantilla, así que un `text-{{ $color }}-500` nunca se generaría.
                 $tarjetas = [
                     ['Productos activos', number_format($resumen['total']), 'text-gray-800 dark:text-white/90', null],
-                    ['Valor del inventario', Config::importe($resumen['valor']), 'text-success-600 dark:text-success-500', 'al precio de compra'],
-                    ['Bajo el mínimo', number_format($resumen['bajo_minimo']), 'text-warning-600 dark:text-orange-400', 'conviene reponer'],
-                    ['Agotados', number_format($resumen['agotados']), 'text-error-500', 'sin stock'],
+                    ['Valor del inventario', Config::importe($resumen['valor']), 'text-success-700 dark:text-success-500', 'al precio de compra'],
+                    ['Bajo el mínimo', number_format($resumen['bajo_minimo']), 'text-warning-700 dark:text-orange-400', 'conviene reponer'],
+                    ['Agotados', number_format($resumen['agotados']), 'text-error-600 dark:text-error-400', 'sin stock'],
                 ];
             @endphp
 
@@ -27,7 +31,7 @@
                     </p>
                     <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
                     @if ($nota)
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
                     @endif
                 </div>
             @endforeach
@@ -36,8 +40,8 @@
         {{-- Filtros --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
             <form method="GET" action="{{ route('productos.index') }}"
-                class="grid grid-cols-1 gap-4 md:grid-cols-5 md:items-end">
-                <div class="md:col-span-2">
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-start">
+                <div class="sm:col-span-2">
                     <x-form.campo label="Buscar" for="buscar" help="Nombre, código interno o código de barras.">
                         <x-form.input id="buscar" name="buscar" :value="$filtros['buscar']"
                             placeholder="Arroz, P-0001 o 7750001000011" autofocus />
@@ -59,7 +63,7 @@
                         :opciones="['BAJO' => 'Bajo el mínimo', 'AGOTADO' => 'Agotados']" />
                 </x-form.campo>
 
-                <div class="flex flex-wrap gap-2 md:col-span-5">
+                <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-5">
                     <x-ui.button type="submit" size="sm">Filtrar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" :href="route('productos.index')">Limpiar</x-ui.button>
                     <x-ui.button size="sm" class="ml-auto" :href="route('productos.create')">Nuevo producto</x-ui.button>
@@ -72,19 +76,24 @@
 
         {{-- Tabla --}}
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="max-w-full overflow-x-auto">
+            <div class="max-w-full overflow-x-auto overscroll-contain">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
-                            <th class="px-5 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">Producto</th>
+                            <x-tabla.th clave="nombre" defecto>Producto</x-tabla.th>
                             {{-- En el teléfono quedan producto, estante, stock y acciones:
                                  lo que hace falta para reconocer y reponer. --}}
-                            <th class="hidden px-5 py-3 text-left text-theme-xs font-medium text-gray-500 md:table-cell dark:text-gray-400">Categoría</th>
-                            <th class="hidden px-5 py-3 text-right text-theme-xs font-medium text-gray-500 lg:table-cell dark:text-gray-400">Compra</th>
-                            <th class="hidden px-5 py-3 text-right text-theme-xs font-medium text-gray-500 lg:table-cell dark:text-gray-400">Venta (base)</th>
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400">Estante</th>
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400">Stock</th>
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400">Acciones</th>
+                            <x-tabla.th clave="categoria" class="hidden md:table-cell">Categoría</x-tabla.th>
+                            <x-tabla.th clave="compra" inicial="desc" derecha class="hidden lg:table-cell">Compra</x-tabla.th>
+                            <x-tabla.th clave="venta" inicial="desc" derecha
+                                @class(['hidden lg:table-cell' => $tasa > 0])>
+                                {{ $tasa > 0 ? 'Venta (base)' : 'Venta' }}
+                            </x-tabla.th>
+                            @if ($tasa > 0)
+                                <x-tabla.th clave="estante" inicial="desc" derecha>Estante</x-tabla.th>
+                            @endif
+                            <x-tabla.th clave="stock" inicial="desc" derecha>Stock</x-tabla.th>
+                            <x-tabla.th derecha>Acciones</x-tabla.th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -116,29 +125,32 @@
                                 <td class="hidden px-5 py-4 text-right whitespace-nowrap text-theme-sm text-gray-500 lg:table-cell dark:text-gray-400">
                                     {{ Config::importe($producto->precio_compra) }}
                                 </td>
-                                <td class="hidden px-5 py-4 text-right whitespace-nowrap text-theme-sm text-gray-500 lg:table-cell dark:text-gray-400">
+                                <td
+                                    class="@if ($tasa > 0) hidden text-gray-500 lg:table-cell dark:text-gray-400 @else font-medium text-gray-800 dark:text-white/90 @endif px-5 py-4 text-right whitespace-nowrap text-theme-sm">
                                     {{ Config::importe($producto->precio_venta) }}
                                     @if ($producto->margen_porcentaje !== null)
-                                        <span class="block text-theme-xs text-success-600 dark:text-success-500">
+                                        <span class="block text-theme-xs text-success-700 dark:text-success-500">
                                             {{ $producto->margen_porcentaje }}% margen
                                         </span>
                                     @endif
                                 </td>
-                                <td class="px-5 py-4 text-right whitespace-nowrap">
-                                    <span class="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                        {{ Config::importe($producto->precio_estante) }}
-                                    </span>
-                                    <span class="block text-theme-xs text-gray-400 dark:text-gray-500">
-                                        {{ $producto->afecto_impuesto ? 'con impuesto' : 'exonerado' }}
-                                    </span>
-                                </td>
+                                @if ($tasa > 0)
+                                    <td class="px-5 py-4 text-right whitespace-nowrap">
+                                        <span class="font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                            {{ Config::importe($producto->precio_estante) }}
+                                        </span>
+                                        <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
+                                            {{ $producto->afecto_impuesto ? 'con impuesto' : 'exonerado' }}
+                                        </span>
+                                    </td>
+                                @endif
                                 <td class="px-5 py-4 text-right whitespace-nowrap">
                                     <span
-                                        class="font-medium text-theme-sm {{ $producto->bajo_minimo ? 'text-error-500' : 'text-gray-800 dark:text-white/90' }}">
+                                        class="font-medium text-theme-sm {{ $producto->bajo_minimo ? 'text-error-600 dark:text-error-400' : 'text-gray-800 dark:text-white/90' }}">
                                         {{ Config::cantidad($producto->stock_actual) }}
                                         {{ $producto->unidadMedida?->codigo }}
                                     </span>
-                                    <span class="block text-theme-xs text-gray-400 dark:text-gray-500">
+                                    <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
                                         mín. {{ Config::cantidad($producto->stock_minimo) }}
                                     </span>
                                 </td>
@@ -176,13 +188,13 @@
             <x-common.paginacion :paginador="$productos" />
         </div>
 
-        <p class="text-theme-xs text-gray-400 dark:text-gray-500">
+        <p class="text-theme-xs text-gray-500 dark:text-gray-400">
             @if (Config::tasaImpuesto() > 0)
                 Los precios de compra y de venta se registran <b>sin impuesto</b>. La columna «Estante» es lo que
                 paga el cliente: precio base más el {{ number_format(Config::tasaImpuesto() * 100, 0) }}% de impuesto.
             @else
-                El precio de venta es <b>el precio final</b>: es lo que paga el cliente, tal cual. El sistema no le
-                suma ningún impuesto encima, así que la columna «Estante» repite ese mismo importe.
+                El precio de venta es <b>el precio final</b>: es lo que paga el cliente, tal cual. El «margen» es la
+                ganancia por unidad —venta menos compra— como porcentaje del precio de venta.
             @endif
         </p>
     </div>

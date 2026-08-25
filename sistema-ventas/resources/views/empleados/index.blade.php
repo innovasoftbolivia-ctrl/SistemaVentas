@@ -6,8 +6,8 @@
         {{-- Filtros --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
             <form method="GET" action="{{ route('empleados.index') }}"
-                class="grid grid-cols-1 gap-4 md:grid-cols-4 md:items-end">
-                <div class="md:col-span-2">
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-start">
+                <div class="sm:col-span-2">
                     <x-form.campo label="Buscar" for="buscar">
                         <x-form.input id="buscar" name="buscar" :value="$filtros['buscar']"
                             placeholder="Nombre, documento o correo" />
@@ -24,7 +24,7 @@
                         :opciones="$cargos" />
                 </x-form.campo>
 
-                <div class="flex gap-2 md:col-span-4">
+                <div class="flex gap-2 sm:col-span-2 lg:col-span-4">
                     <x-ui.button type="submit" size="sm">Filtrar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" :href="route('empleados.index')">Limpiar</x-ui.button>
                     <x-ui.button size="sm" class="ml-auto" :href="route('empleados.create')"
@@ -37,18 +37,20 @@
 
         {{-- Tabla --}}
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="max-w-full overflow-x-auto">
+            <div class="max-w-full overflow-x-auto overscroll-contain">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
-                            @foreach (['Empleado', 'Documento', 'Cargo', 'Contrato', 'Ingreso', 'Cuenta', 'Estado'] as $columna)
-                                <th class="px-5 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                    {{ $columna }}
-                                </th>
-                            @endforeach
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                Acciones
-                            </th>
+                            <x-tabla.th clave="nombre" defecto>Empleado</x-tabla.th>
+                            <x-tabla.th clave="documento">Documento</x-tabla.th>
+                            <x-tabla.th clave="cargo">Cargo</x-tabla.th>
+                            <x-tabla.th clave="contrato">Contrato</x-tabla.th>
+                            <x-tabla.th clave="ingreso" inicial="desc">Ingreso</x-tabla.th>
+                            {{-- «Cuenta» no se ordena: mezcla tres cosas (si hay
+                                 cuenta, su nombre y si está activa). --}}
+                            <x-tabla.th>Cuenta</x-tabla.th>
+                            <x-tabla.th clave="estado">Estado</x-tabla.th>
+                            <x-tabla.th derecha>Acciones</x-tabla.th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -163,10 +165,10 @@
     <div x-data="{ abierto: false, id: null, nombre: '', ingreso: '' }"
         @abrir-cese.window="abierto = true; id = $event.detail.id; nombre = $event.detail.nombre; ingreso = $event.detail.ingreso"
         @keydown.escape.window="abierto = false">
-        <div x-show="abierto" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+        <div x-show="abierto" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="abierto = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+            <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                 <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Registrar cese</h2>
                 <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                     Al cesar a <b x-text="nombre"></b> su cuenta del sistema queda sin acceso automáticamente.
@@ -184,7 +186,7 @@
 
                     <x-form.campo label="Motivo" for="motivo_cese" name="motivo_cese" required>
                         <x-form.textarea id="motivo_cese" name="motivo_cese"
-                            placeholder="Renuncia voluntaria, fin de contrato..." required />
+                            placeholder="Renuncia voluntaria, fin de contrato…" required />
                     </x-form.campo>
 
                     <div class="flex justify-end gap-3">

@@ -20,6 +20,13 @@
         window.addEventListener('resize', checkMobile);
     ">
 
+    {{-- Primer elemento enfocable de la página: con el tabulador permite saltarse
+         la barra lateral y la cabecera de una vez. Solo se ve al recibir el foco. --}}
+    <a href="#contenido"
+        class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-999999 focus:rounded-lg focus:bg-brand-500 focus:px-4 focus:py-2 focus:text-white">
+        Saltar al contenido
+    </a>
+
     <x-common.preloader />
 
     <div class="min-h-screen">

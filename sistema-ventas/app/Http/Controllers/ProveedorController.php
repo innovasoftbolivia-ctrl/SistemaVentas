@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Proveedor;
 use App\Services\Auditor;
 use Illuminate\Database\QueryException;
@@ -12,6 +13,8 @@ use Illuminate\View\View;
 
 class ProveedorController extends Controller
 {
+    use OrdenaTablas;
+
     public function index(Request $request): View
     {
         $filtros = [
@@ -19,13 +22,23 @@ class ProveedorController extends Controller
             'estado' => $request->string('estado')->toString(),
         ];
 
-        $proveedores = Proveedor::withCount([
-            'productos',
-            'productos as productos_activos_count' => fn ($q) => $q->activos(),
-        ])
-            ->buscar($filtros['buscar'])
-            ->when($filtros['estado'] !== '', fn ($q) => $q->where('activo', $filtros['estado'] === 'ACTIVO'))
-            ->orderBy('razon_social')
+        $orden = $this->orden($request, [
+            'proveedor' => 'razon_social',
+            'documento' => 'documento',
+            'contacto' => 'telefono',
+            'productos' => 'productos_count',
+            'estado' => 'activo',
+        ], 'proveedor');
+
+        $proveedores = $this->aplicarOrden(
+            Proveedor::withCount([
+                'productos',
+                'productos as productos_activos_count' => fn ($q) => $q->activos(),
+            ])
+                ->buscar($filtros['buscar'])
+                ->when($filtros['estado'] !== '', fn ($q) => $q->where('activo', $filtros['estado'] === 'ACTIVO')),
+            $orden
+        )
             ->paginate(10)
             ->withQueryString();
 

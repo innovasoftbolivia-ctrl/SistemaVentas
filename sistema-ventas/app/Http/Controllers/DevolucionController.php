@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Devolucion;
+use App\Models\Usuario;
 use App\Models\Venta;
 use App\Services\Cajas;
 use App\Services\Devoluciones;
@@ -16,6 +18,8 @@ use RuntimeException;
 
 class DevolucionController extends Controller
 {
+    use OrdenaTablas;
+
     public function index(Request $request): View
     {
         $filtros = [
@@ -25,7 +29,15 @@ class DevolucionController extends Controller
             'hasta' => $request->date('hasta')?->format('Y-m-d'),
         ];
 
-        $devoluciones = Devolucion::with([
+        $orden = $this->orden($request, [
+            'fecha' => 'fecha',
+            'motivo' => 'motivo',
+            'tipo' => 'tipo',
+            'registro' => Usuario::select('usuario')->whereColumn('usuarios.id', 'devoluciones.usuario_id'),
+            'devuelto' => 'total',
+        ], 'fecha', 'desc');
+
+        $devoluciones = $this->aplicarOrden(Devolucion::with([
             'venta:id,cliente_id,estado',
             'venta.cliente:id,nombre',
             'venta.comprobante:id,venta_id,numero_completo',
@@ -42,9 +54,9 @@ class DevolucionController extends Controller
             })
             ->when($filtros['tipo'], fn ($q, $tipo) => $q->where('tipo', $tipo))
             ->when($filtros['desde'], fn ($q, $d) => $q->whereDate('fecha', '>=', $d))
-            ->when($filtros['hasta'], fn ($q, $h) => $q->whereDate('fecha', '<=', $h))
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
+            ->when($filtros['hasta'], fn ($q, $h) => $q->whereDate('fecha', '<=', $h)),
+            $orden
+        )
             ->paginate(15)
             ->withQueryString();
 

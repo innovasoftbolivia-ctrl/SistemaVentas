@@ -37,8 +37,8 @@
 
             <!-- Logo (solo móvil) -->
             <a href="{{ url(\App\Support\Menu::inicio()) }}" class="xl:hidden">
-                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Sistema de Ventas" width="160" />
-                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Sistema de Ventas" width="160" />
+                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Sistema de Ventas" width="160" height="28" />
+                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Sistema de Ventas" width="160" height="28" />
             </a>
 
             <button @click="isApplicationMenuOpen = !isApplicationMenuOpen"
@@ -71,7 +71,7 @@
                             </span>
                             <input type="search" id="buscar-empleado" name="buscar"
                                 value="{{ request('buscar') }}"
-                                placeholder="Buscar empleado por nombre o documento..."
+                                placeholder="Buscar empleado por nombre o documento…"
                                 class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-4 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30 xl:w-[430px]" />
                         </div>
                     </form>

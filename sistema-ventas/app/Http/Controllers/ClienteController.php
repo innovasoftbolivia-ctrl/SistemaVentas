@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Cliente;
 use App\Services\Auditor;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,8 @@ use Illuminate\View\View;
  */
 class ClienteController extends Controller
 {
+    use OrdenaTablas;
+
     public function index(Request $request): View
     {
         $filtros = [
@@ -24,10 +27,21 @@ class ClienteController extends Controller
             'persona' => $request->string('persona')->toString(),
         ];
 
-        $clientes = Cliente::withCount(['ventas as ventas_count' => fn ($q) => $q->where('estado', '<>', 'ANULADA')])
-            ->buscar($filtros['buscar'])
-            ->when($filtros['persona'], fn ($q, $tipo) => $q->where('tipo_persona', $tipo))
-            ->orderBy('nombre')
+        $orden = $this->orden($request, [
+            'nombre' => 'nombre',
+            'documento' => 'documento',
+            'tipo' => 'tipo_persona',
+            'contacto' => 'telefono',
+            // `ventas_count` lo añade withCount(); se puede ordenar por él.
+            'compras' => 'ventas_count',
+        ], 'nombre');
+
+        $clientes = $this->aplicarOrden(
+            Cliente::withCount(['ventas as ventas_count' => fn ($q) => $q->where('estado', '<>', 'ANULADA')])
+                ->buscar($filtros['buscar'])
+                ->when($filtros['persona'], fn ($q, $tipo) => $q->where('tipo_persona', $tipo)),
+            $orden
+        )
             ->paginate(12)
             ->withQueryString();
 

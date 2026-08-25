@@ -11,7 +11,7 @@
             @php
                 $tarjetas = [
                     ['Devoluciones', number_format($resumen['operaciones']), 'text-gray-800 dark:text-white/90', null],
-                    ['Dinero devuelto', Config::importe($resumen['devuelto']), 'text-error-500', 'salió del cajón'],
+                    ['Dinero devuelto', Config::importe($resumen['devuelto']), 'text-error-600 dark:text-error-400', 'salió del cajón'],
                     ['Totales', number_format($resumen['totales']), 'text-gray-800 dark:text-white/90', 'la venta completa'],
                 ];
             @endphp
@@ -21,7 +21,7 @@
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
                     <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
                     @if ($nota)
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
                     @endif
                 </div>
             @endforeach
@@ -34,8 +34,9 @@
             </p>
 
             <form method="GET" action="{{ route('devoluciones.index') }}"
-                class="grid grid-cols-1 gap-4 md:grid-cols-4 md:items-end">
-                <x-form.campo label="Buscar" for="buscar" help="Comprobante, cliente o motivo.">
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-start">
+                <x-form.campo label="Buscar" for="buscar" class="sm:col-span-2"
+                    help="Comprobante, cliente o motivo.">
                     <x-form.input id="buscar" name="buscar" :value="$filtros['buscar']" placeholder="R001-000003" />
                 </x-form.campo>
 
@@ -52,7 +53,7 @@
                     <x-form.input id="hasta" name="hasta" type="date" :value="$filtros['hasta']" />
                 </x-form.campo>
 
-                <div class="flex gap-2 md:col-span-4">
+                <div class="flex gap-2 sm:col-span-2 lg:col-span-5">
                     <x-ui.button type="submit" size="sm">Filtrar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" :href="route('devoluciones.index')">Limpiar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" class="ml-auto" :href="route('ventas.index')">
@@ -63,18 +64,19 @@
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="max-w-full overflow-x-auto">
+            <div class="max-w-full overflow-x-auto overscroll-contain">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
-                            @foreach (['Fecha', 'Venta', 'Cliente', 'Motivo', 'Tipo', 'Registró'] as $columna)
-                                <th class="px-5 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                    {{ $columna }}
-                                </th>
-                            @endforeach
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                Devuelto
-                            </th>
+                            <x-tabla.th clave="fecha" defecto inicial="desc">Fecha</x-tabla.th>
+                            {{-- «Venta» y «Cliente» no se ordenan: cuelgan de la
+                                 venta y ninguna tiene un valor único por fila. --}}
+                            <x-tabla.th>Venta</x-tabla.th>
+                            <x-tabla.th>Cliente</x-tabla.th>
+                            <x-tabla.th clave="motivo">Motivo</x-tabla.th>
+                            <x-tabla.th clave="tipo">Tipo</x-tabla.th>
+                            <x-tabla.th clave="registro">Registró</x-tabla.th>
+                            <x-tabla.th clave="devuelto" inicial="desc" derecha>Devuelto</x-tabla.th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -98,7 +100,7 @@
                                     <span class="line-clamp-2 text-theme-sm text-gray-500 dark:text-gray-400">
                                         {{ $devolucion->motivo }}
                                     </span>
-                                    <span class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                    <span class="text-theme-xs text-gray-500 dark:text-gray-400">
                                         {{ $devolucion->detalle_count }} línea(s)
                                     </span>
                                 </td>
@@ -109,7 +111,7 @@
                                 <td class="px-5 py-4 text-theme-sm text-gray-500 dark:text-gray-400">
                                     {{ $devolucion->usuario?->usuario }}
                                 </td>
-                                <td class="px-5 py-4 text-right whitespace-nowrap text-theme-sm font-medium text-error-500">
+                                <td class="px-5 py-4 text-right whitespace-nowrap text-theme-sm font-medium text-error-600 dark:text-error-400">
                                     − {{ Config::importe($devolucion->total) }}
                                 </td>
                             </tr>

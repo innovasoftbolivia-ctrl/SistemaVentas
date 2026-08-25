@@ -6,13 +6,17 @@
 @php
     // Etiqueta de estado: sirve para el vínculo laboral del empleado
     // (ACTIVO/SUSPENDIDO/CESADO) y para el acceso de la cuenta.
+    // Los tonos 600 sobre fondo 50 se quedan entre 3.3:1 y 4.4:1, por debajo del
+    // 4.5:1 que pide la WCAG para texto. Con el tono 700 la etiqueta se lee sin
+    // cambiar el color que representa. En oscuro pasa lo contrario: hace falta
+    // un tono más claro, de ahí el 400 en «Cesado».
     $estilos = [
-        'ACTIVO' => 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-500',
-        'SUSPENDIDO' => 'bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-orange-400',
-        'CESADO' => 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-500',
+        'ACTIVO' => 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500',
+        'SUSPENDIDO' => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-orange-400',
+        'CESADO' => 'bg-error-50 text-error-700 dark:bg-error-500/15 dark:text-error-400',
         'INDEFINIDO' => 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400',
         'PLAZO_FIJO' => 'bg-blue-light-50 text-blue-light-700 dark:bg-blue-light-500/15 dark:text-blue-light-400',
-        'PARCIAL' => 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400',
+        'PARCIAL' => 'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400',
         'PRACTICAS' => 'bg-gray-100 text-gray-700 dark:bg-white/5 dark:text-white/80',
         'SIN_CUENTA' => 'bg-gray-100 text-gray-500 dark:bg-white/5 dark:text-gray-400',
     ];

@@ -34,7 +34,7 @@
                 $tarjetas = [
                     ['Vendido', Config::importe($resumen['vendido']), 'text-gray-800 dark:text-white/90',
                         $resumen['operaciones'].' operación(es)'],
-                    ['Neto', Config::importe($resumen['neto']), 'text-success-600 dark:text-success-500',
+                    ['Neto', Config::importe($resumen['neto']), 'text-success-700 dark:text-success-500',
                         'descontando devoluciones'],
                     ['Ticket promedio', Config::importe($resumen['ticket']), 'text-gray-800 dark:text-white/90',
                         'por operación'],
@@ -47,7 +47,7 @@
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
                     <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
-                    <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
                 </div>
             @endforeach
         </div>
@@ -56,13 +56,13 @@
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Anuladas</p>
-                    <p class="text-title-sm font-semibold text-error-500">{{ number_format($resumen['anuladas']) }}</p>
-                    <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">no cuentan en el vendido</p>
+                    <p class="text-title-sm font-semibold text-error-600 dark:text-error-400">{{ number_format($resumen['anuladas']) }}</p>
+                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">no cuentan en el vendido</p>
                 </div>
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Devuelto</p>
-                    <p class="text-title-sm font-semibold text-error-500">{{ Config::importe($resumen['devuelto']) }}</p>
-                    <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">salió del cajón</p>
+                    <p class="text-title-sm font-semibold text-error-600 dark:text-error-400">{{ Config::importe($resumen['devuelto']) }}</p>
+                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">salió del cajón</p>
                 </div>
             </div>
         @endif
@@ -107,7 +107,7 @@
                                     <tr>
                                         <td class="px-6 py-3 text-theme-sm text-gray-800 dark:text-white/90">
                                             {{ $fila->metodo_pago }}
-                                            <span class="block text-theme-xs text-gray-400 dark:text-gray-500">
+                                            <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
                                                 {{ $fila->ventas }} venta(s)
                                             </span>
                                         </td>
@@ -131,7 +131,7 @@
                     </p>
                 </div>
 
-                <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+                <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                     <table class="min-w-full">
                         <thead class="border-b border-gray-100 dark:border-gray-800">
                             <tr>
@@ -148,7 +148,7 @@
                                         <span class="block text-theme-sm text-gray-800 dark:text-white/90">
                                             {{ $fila->empleado }}
                                         </span>
-                                        <span class="text-theme-xs text-gray-400 dark:text-gray-500">{{ $fila->usuario }}</span>
+                                        <span class="text-theme-xs text-gray-500 dark:text-gray-400">{{ $fila->usuario }}</span>
                                     </td>
                                     <td class="px-6 py-3 text-right text-theme-sm text-gray-500 dark:text-gray-400">
                                         {{ $fila->ventas }}
@@ -179,7 +179,7 @@
                 <h2 class="text-base font-medium text-gray-800 dark:text-white/90">Detalle por día</h2>
             </div>
 
-            <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+            <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>

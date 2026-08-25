@@ -12,9 +12,13 @@
 
     @if ($paginador->hasPages())
         <nav class="flex flex-wrap items-center gap-1">
+            {{-- Botón deshabilitado y no un <span> gris: así el navegador y los
+                 lectores de pantalla saben que está inactivo, en vez de leerlo
+                 como texto suelto. La WCAG exime del contraste a los controles
+                 inactivos, pero se sube un tono para que siga viéndose. --}}
             @if ($paginador->onFirstPage())
-                <span
-                    class="cursor-not-allowed rounded-lg px-3 py-1.5 text-theme-sm text-gray-300 dark:text-gray-700">Anterior</span>
+                <button type="button" disabled
+                    class="cursor-not-allowed rounded-lg px-3 py-1.5 text-theme-sm text-gray-400 dark:text-gray-600">Anterior</button>
             @else
                 <a href="{{ $paginador->previousPageUrl() }}"
                     class="rounded-lg px-3 py-1.5 text-theme-sm text-gray-600 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.05]">Anterior</a>
@@ -33,8 +37,8 @@
                 <a href="{{ $paginador->nextPageUrl() }}"
                     class="rounded-lg px-3 py-1.5 text-theme-sm text-gray-600 transition hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/[0.05]">Siguiente</a>
             @else
-                <span
-                    class="cursor-not-allowed rounded-lg px-3 py-1.5 text-theme-sm text-gray-300 dark:text-gray-700">Siguiente</span>
+                <button type="button" disabled
+                    class="cursor-not-allowed rounded-lg px-3 py-1.5 text-theme-sm text-gray-400 dark:text-gray-600">Siguiente</button>
             @endif
         </nav>
     @endif

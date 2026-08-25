@@ -48,7 +48,7 @@
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="max-w-full overflow-x-auto">
+            <div class="max-w-full overflow-x-auto overscroll-contain">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
@@ -117,10 +117,10 @@
         </div>
 
         {{-- Alta y edición --}}
-        <div x-show="abierto" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+        <div x-show="abierto" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="abierto = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+            <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                 <h2 class="mb-6 text-xl font-semibold text-gray-800 dark:text-white/90"
                     x-text="modo === 'crear' ? 'Nueva unidad de medida' : 'Editar unidad de medida'"></h2>
 
@@ -159,15 +159,15 @@
         </div>
 
         {{-- Baja --}}
-        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                 <h2 class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar unidad</h2>
                 <p class="mb-2 text-theme-sm text-gray-500 dark:text-gray-400">
                     ¿Eliminar la unidad <b x-text="codigo"></b>?
                 </p>
-                <p x-show="productos > 0" class="mb-6 text-theme-sm text-error-500">
+                <p x-show="productos > 0" class="mb-6 text-theme-sm text-error-600 dark:text-error-400">
                     La usan <span x-text="productos"></span> producto(s) del catálogo, así que no se puede eliminar.
                     Cámbiales primero la unidad.
                 </p>

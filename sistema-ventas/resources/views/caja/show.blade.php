@@ -64,7 +64,7 @@
                         Config::importe($resumen['ingresos']).' / '.Config::importe($resumen['egresos']),
                         'text-gray-800 dark:text-white/90', 'movimientos de caja'],
                     [$abierta ? 'Efectivo esperado' : 'Esperado al cerrar', Config::importe($resumen['esperado']),
-                        'text-brand-500', $abierta ? 'lo que debería haber ahora' : null],
+                        'text-brand-500 dark:text-brand-400', $abierta ? 'lo que debería haber ahora' : null],
                 ];
             @endphp
 
@@ -73,7 +73,7 @@
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
                     <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
                     @if ($nota)
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
                     @endif
                 </div>
             @endforeach
@@ -96,7 +96,7 @@
                         <h2 class="text-base font-medium text-gray-800 dark:text-white/90">Ventas del turno</h2>
                     </div>
 
-                    <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+                    <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                         <table class="min-w-full">
                             <thead class="border-b border-gray-100 dark:border-gray-800">
                                 <tr>
@@ -152,11 +152,11 @@
                     <div class="flex items-start justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 dark:border-gray-800">
                         <div class="min-w-0">
                             <p class="truncate text-theme-sm text-gray-800 dark:text-white/90">{{ $movimiento->concepto }}</p>
-                            <p class="text-theme-xs text-gray-400 dark:text-gray-500">
+                            <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                                 {{ $movimiento->fecha?->format('H:i') }} · {{ $movimiento->usuario?->usuario }}
                             </p>
                         </div>
-                        <span class="whitespace-nowrap text-theme-sm font-medium {{ $movimiento->tipo === 'INGRESO' ? 'text-success-600 dark:text-success-500' : 'text-error-500' }}">
+                        <span class="whitespace-nowrap text-theme-sm font-medium {{ $movimiento->tipo === 'INGRESO' ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400' }}">
                             {{ $movimiento->tipo === 'INGRESO' ? '+' : '−' }}{{ Config::importe($movimiento->monto) }}
                         </span>
                     </div>
@@ -169,10 +169,10 @@
         {{-- Registrar movimiento --}}
         @if ($abierta && $esPropia)
             @puede('caja.abrir')
-                <div x-show="moviendo" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+                <div x-show="moviendo" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                     <div @click="moviendo = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                         <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Movimiento de caja</h2>
                         <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                             Para el dinero que entra o sale del cajón sin ser una venta: un adelanto, la compra de
@@ -202,7 +202,7 @@
 
                             <x-form.campo label="Concepto" for="concepto" name="concepto" required>
                                 <x-form.input id="concepto" name="concepto"
-                                    placeholder="Compra de bolsas, adelanto a proveedor..." required />
+                                    placeholder="Compra de bolsas, adelanto a proveedor…" required />
                             </x-form.campo>
 
                             <x-form.campo label="Monto" for="monto" name="monto" required>
@@ -222,10 +222,10 @@
         {{-- Cerrar caja --}}
         @if ($abierta)
             @puede('caja.cerrar')
-                <div x-show="cerrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+                <div x-show="cerrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                     <div @click="cerrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                         <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Cerrar caja</h2>
                         <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                             Cuenta el efectivo que hay en el cajón. El sistema compara con lo esperado y registra la
@@ -259,7 +259,7 @@
                                     <span x-text="(declarado - esperado) > 0 ? '+' : ''"></span>{{ $moneda ?? Config::moneda() }}
                                     <span x-text="Math.abs(Math.round((declarado - esperado) * 100) / 100).toFixed(2)"></span>
                                 </p>
-                                <p x-show="(declarado - esperado) < 0" class="mt-1 text-theme-xs text-error-500">
+                                <p x-show="(declarado - esperado) < 0" class="mt-1 text-theme-xs text-error-600 dark:text-error-400">
                                     Falta dinero en el cajón. Explica la diferencia abajo.
                                 </p>
                             </div>
@@ -267,7 +267,7 @@
                             <x-form.campo label="Observación" for="cierre_observacion" name="observacion"
                                 help="Obligatoria de hecho si hay diferencia: es lo que justifica el descuadre.">
                                 <x-form.textarea id="cierre_observacion" name="observacion"
-                                    placeholder="Sin novedad / faltó vuelto de una venta / ..." />
+                                    placeholder="Sin novedad / faltó vuelto de una venta / …" />
                             </x-form.campo>
 
                             <div class="flex justify-end gap-3">

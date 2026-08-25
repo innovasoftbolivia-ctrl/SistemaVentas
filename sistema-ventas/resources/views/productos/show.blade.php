@@ -62,12 +62,17 @@
             @php
                 $cifras = [
                     ['Stock actual', Config::cantidad($producto->stock_actual).' '.$unidad?->codigo,
-                        $producto->bajo_minimo ? 'text-error-500' : 'text-gray-800 dark:text-white/90',
+                        $producto->bajo_minimo ? 'text-error-600 dark:text-error-400' : 'text-gray-800 dark:text-white/90',
                         'mínimo '.Config::cantidad($producto->stock_minimo)],
-                    ['Precio de estante', Config::importe($producto->precio_estante), 'text-gray-800 dark:text-white/90',
-                        $producto->afecto_impuesto ? 'incluye impuesto' : 'exonerado'],
+                    // Sin impuesto el precio de estante y el de venta son el mismo
+                    // numero: no tiene sentido anunciarlo como si fueran dos cosas.
+                    [Config::tasaImpuesto() > 0 ? 'Precio de estante' : 'Precio de venta',
+                        Config::importe($producto->precio_estante), 'text-gray-800 dark:text-white/90',
+                        Config::tasaImpuesto() > 0
+                            ? ($producto->afecto_impuesto ? 'incluye impuesto' : 'exonerado')
+                            : 'lo que paga el cliente'],
                     ['Ganancia por unidad', Config::importe($producto->margen),
-                        $producto->margen >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500',
+                        $producto->margen >= 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400',
                         $producto->margen_porcentaje !== null ? $producto->margen_porcentaje.'% de margen' : null],
                     ['Valor en inventario', Config::importe($producto->valor_inventario), 'text-gray-800 dark:text-white/90',
                         'al precio de compra'],
@@ -79,7 +84,7 @@
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
                     <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
                     @if ($nota)
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
                     @endif
                 </div>
             @endforeach
@@ -97,7 +102,7 @@
                         </p>
                     </div>
 
-                    <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+                    <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                         <table class="min-w-full">
                             <thead class="border-b border-gray-100 dark:border-gray-800">
                                 <tr>
@@ -124,7 +129,7 @@
                                                 </span>
                                             @endif
                                             @if ($movimiento->proveedor || $movimiento->documento_externo)
-                                                <span class="block text-theme-xs text-gray-400 dark:text-gray-500">
+                                                <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
                                                     {{ $movimiento->proveedor?->razon_social }}
                                                     @if ($movimiento->documento_externo)
                                                         · {{ $movimiento->documento_externo }}
@@ -132,7 +137,7 @@
                                                 </span>
                                             @endif
                                         </td>
-                                        <td class="px-5 py-4 whitespace-nowrap text-theme-sm font-medium {{ $movimiento->variacion >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500' }}">
+                                        <td class="px-5 py-4 whitespace-nowrap text-theme-sm font-medium {{ $movimiento->variacion >= 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400' }}">
                                             {{ $movimiento->variacion > 0 ? '+' : '' }}{{ Config::cantidad($movimiento->variacion) }}
                                         </td>
                                         <td class="px-5 py-4 whitespace-nowrap text-theme-xs text-gray-500 dark:text-gray-400">
@@ -162,11 +167,18 @@
             <div class="space-y-6">
                 <x-common.component-card title="Precios">
                     <dl class="space-y-4">
-                        @foreach ([
-                            'Precio de compra' => Config::importe($producto->precio_compra).' (sin impuesto)',
-                            'Precio de venta base' => Config::importe($producto->precio_venta).' (sin impuesto)',
-                            'Precio de estante' => Config::importe($producto->precio_estante),
-                        ] as $etiqueta => $valor)
+                        @foreach (Config::tasaImpuesto() > 0
+        ? [
+            'Precio de compra' => Config::importe($producto->precio_compra).' (sin impuesto)',
+            'Precio de venta base' => Config::importe($producto->precio_venta).' (sin impuesto)',
+            'Precio de estante' => Config::importe($producto->precio_estante),
+        ]
+        : [
+            'Precio de compra' => Config::importe($producto->precio_compra),
+            'Precio de venta' => Config::importe($producto->precio_venta),
+            'Ganancia por unidad' => Config::importe($producto->margen)
+                .($producto->margen_porcentaje !== null ? ' ('.$producto->margen_porcentaje.'% de margen)' : ''),
+        ] as $etiqueta => $valor)
                             <div>
                                 <dt class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     {{ $etiqueta }}
@@ -221,10 +233,10 @@
 
         {{-- Ingreso de mercadería --}}
         @puede('inventario.ingresar')
-            <div x-show="ingresando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+            <div x-show="ingresando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="ingresando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                     <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Ingresar mercadería</h2>
                     <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                         Entrada de <b>{{ $producto->nombre }}</b>. Stock actual:
@@ -275,11 +287,11 @@
 
         {{-- Ajuste por conteo --}}
         @puede('inventario.ajustar')
-            <div x-show="ajustando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+            <div x-show="ajustando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="ajustando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
                 <div x-data="{ contado: {{ (float) $producto->stock_actual }}, sistema: {{ (float) $producto->stock_actual }} }"
-                    class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                     <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Ajustar inventario</h2>
                     <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                         Indica cuántas unidades hay <b>realmente</b> en el estante y el sistema calcula la diferencia.
@@ -301,12 +313,12 @@
                             <p class="text-lg font-semibold"
                                 :class="(contado - sistema) === 0
                                     ? 'text-gray-500 dark:text-gray-400'
-                                    : ((contado - sistema) > 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500')">
+                                    : ((contado - sistema) > 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400')">
                                 <span x-text="(contado - sistema) > 0 ? '+' : ''"></span><span
                                     x-text="Math.round((contado - sistema) * 1000) / 1000"></span>
                                 {{ $unidad?->codigo }}
                             </p>
-                            <p x-show="(contado - sistema) < 0" class="mt-1 text-theme-xs text-error-500">
+                            <p x-show="(contado - sistema) < 0" class="mt-1 text-theme-xs text-error-600 dark:text-error-400">
                                 Faltan unidades: puede ser merma, rotura o un faltante sin explicar.
                             </p>
                         </div>
@@ -314,7 +326,7 @@
                         <x-form.campo label="Motivo" for="ajuste_motivo" name="motivo" required
                             help="Obligatorio: un ajuste sin explicación es un descuadre sin responsable.">
                             <x-form.textarea id="ajuste_motivo" name="motivo"
-                                placeholder="Conteo físico mensual, merma por rotura, producto vencido..." required />
+                                placeholder="Conteo físico mensual, merma por rotura, producto vencido…" required />
                         </x-form.campo>
 
                         <div class="flex justify-end gap-3">
@@ -328,10 +340,10 @@
 
         {{-- Baja --}}
         @puede('productos.gestionar')
-            <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+            <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                     <h2 class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar producto</h2>
                     <p class="mb-6 text-theme-sm text-gray-500 dark:text-gray-400">
                         ¿Eliminar <b>{{ $producto->nombre }}</b>? Si tiene movimientos de inventario o ventas, se

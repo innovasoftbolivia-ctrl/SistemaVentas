@@ -320,10 +320,48 @@
   }
 }
 
+/* Le dice al navegador de qué color es el lienzo, para que pinte en el tema
+   correcto lo que no controlamos: barras de desplazamiento, selectores de fecha
+   y los controles nativos de los <input>. Sin esto salen en claro sobre oscuro. */
+:root {
+  color-scheme: light;
+}
+
+.dark {
+  color-scheme: dark;
+}
+
+/* Quien pide menos movimiento en su sistema no debería ver nada deslizarse.
+   Se anula el movimiento en todas partes —barra lateral, modales, preloader—
+   y no solo en el contenido principal. Se deja 0.01ms en vez de `none` para
+   que los eventos `transitionend` sigan disparándose y nada se quede a medias. */
 @media (prefers-reduced-motion: reduce) {
-  .contenido-principal {
-    transition: none;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
+}
+
+/* Sin retardo de 300ms al pulsar en móvil, y el scroll de un modal no arrastra
+   la página de debajo al llegar al final. */
+button,
+a,
+[role='button'],
+label,
+summary {
+  touch-action: manipulation;
+}
+
+/* Cifras de ancho fijo: en las columnas de importes y cantidades, si cada
+   dígito mide distinto las cifras bailan de una fila a otra. */
+td,
+th,
+.cifra {
+  font-variant-numeric: tabular-nums;
 }
 
 .sidebar:hover {
@@ -781,7 +819,13 @@ span.flatpickr-weekday,
 }
 
 .task {
-  transition: all 0.2s ease; /* Smooth transition for visual effects */
+  /* Propiedades listadas y no `all`: con `all` el navegador vigila cada
+     propiedad calculada y anima cosas que no queríamos, como el borde al
+     recalcularse el layout. */
+  transition:
+    box-shadow 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .task.is-dragging {

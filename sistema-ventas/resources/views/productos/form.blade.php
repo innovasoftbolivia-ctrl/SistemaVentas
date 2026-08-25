@@ -148,14 +148,14 @@
                     <div>
                         <p class="text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Ganancia</p>
                         <p class="text-lg font-semibold"
-                            :class="margen >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500'">
+                            :class="margen >= 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400'">
                             {{ $moneda }} <span x-text="margen"></span>
                         </p>
                     </div>
                     <div>
                         <p class="text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Margen</p>
                         <p class="text-lg font-semibold"
-                            :class="margen >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500'">
+                            :class="margen >= 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400'">
                             <span x-text="margenPorcentaje"></span>%
                         </p>
                     </div>
@@ -188,7 +188,7 @@
                 @if ($esEdicion)
                     <div class="rounded-xl bg-gray-50 p-4 dark:bg-white/[0.03]">
                         <p class="text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Stock actual</p>
-                        <p class="text-lg font-semibold {{ $producto->bajo_minimo ? 'text-error-500' : 'text-gray-800 dark:text-white/90' }}">
+                        <p class="text-lg font-semibold {{ $producto->bajo_minimo ? 'text-error-600 dark:text-error-400' : 'text-gray-800 dark:text-white/90' }}">
                             {{ Config::cantidad($producto->stock_actual) }} {{ $producto->unidadMedida?->codigo }}
                         </p>
                         <p class="mt-2 text-theme-xs text-gray-500 dark:text-gray-400">
@@ -196,7 +196,7 @@
                             cambio queda en el kardex.
                         </p>
                         <a href="{{ route('productos.show', $producto) }}"
-                            class="mt-2 inline-block text-theme-xs text-brand-500 hover:text-brand-600">
+                            class="mt-2 inline-block text-theme-xs text-brand-500 dark:text-brand-400 hover:text-brand-600">
                             Ver ficha y kardex →
                         </a>
                     </div>
@@ -259,12 +259,12 @@
                                 class="w-full text-theme-xs text-gray-500 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand-500 file:px-3 file:py-2 file:text-theme-xs file:font-medium file:text-white hover:file:bg-brand-600 dark:text-gray-400" />
 
                             <button type="button" x-show="previa" x-cloak @click="quitarFoto()"
-                                class="text-theme-xs text-error-500 hover:text-error-600">
+                                class="text-theme-xs text-error-600 dark:text-error-400 hover:text-error-600">
                                 Quitar la foto
                             </button>
 
                             @error('imagen')
-                                <p class="text-theme-xs text-error-500">{{ $message }}</p>
+                                <p class="text-theme-xs text-error-600 dark:text-error-400">{{ $message }}</p>
                             @enderror
                         </div>
                     </div>

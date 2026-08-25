@@ -87,7 +87,7 @@
                         </p>
                     </div>
 
-                    <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+                    <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                         <table class="min-w-full">
                             <thead class="border-b border-gray-100 dark:border-gray-800">
                                 <tr>
@@ -106,7 +106,7 @@
                                             <span class="block text-theme-sm text-gray-800 dark:text-white/90">
                                                 {{ $linea->descripcion }}
                                             </span>
-                                            <span class="font-mono text-theme-xs text-gray-400 dark:text-gray-500">
+                                            <span class="font-mono text-theme-xs text-gray-500 dark:text-gray-400">
                                                 {{ $linea->producto?->codigo }}
                                             </span>
                                         </td>
@@ -114,7 +114,7 @@
                                             {{ Config::cantidad($linea->cantidad) }}
                                             {{ $linea->producto?->unidadMedida?->codigo }}
                                             @if ((float) $linea->cantidad_devuelta > 0)
-                                                <span class="block text-theme-xs text-error-500">
+                                                <span class="block text-theme-xs text-error-600 dark:text-error-400">
                                                     {{ Config::cantidad($linea->cantidad_devuelta) }} devuelta(s)
                                                 </span>
                                             @endif
@@ -125,7 +125,7 @@
                                         <td class="px-5 py-4 text-right whitespace-nowrap text-theme-sm text-gray-500 dark:text-gray-400">
                                             {{ Config::importe($linea->importe) }}
                                         </td>
-                                        <td class="px-5 py-4 text-right whitespace-nowrap text-theme-xs text-gray-400 dark:text-gray-500">
+                                        <td class="px-5 py-4 text-right whitespace-nowrap text-theme-xs text-gray-500 dark:text-gray-400">
                                             {{ $linea->afecto_impuesto ? Config::importe($linea->impuesto_linea) : 'exonerado' }}
                                         </td>
                                         <td class="px-5 py-4 text-right whitespace-nowrap text-theme-sm font-medium text-gray-800 dark:text-white/90">
@@ -143,7 +143,7 @@
                             <span>{{ Config::importe($venta->subtotal) }}</span>
                         </div>
                         @if ((float) $venta->descuento > 0)
-                            <div class="flex justify-between text-theme-sm text-error-500">
+                            <div class="flex justify-between text-theme-sm text-error-600 dark:text-error-400">
                                 <span>Descuento</span>
                                 <span>− {{ Config::importe($venta->descuento) }}</span>
                             </div>
@@ -154,11 +154,11 @@
                         </div>
                         <div class="flex items-baseline justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
                             <span class="font-medium text-gray-800 dark:text-white/90">Total</span>
-                            <span class="text-title-sm font-semibold text-brand-500">{{ Config::importe($venta->total) }}</span>
+                            <span class="text-title-sm font-semibold text-brand-500 dark:text-brand-400">{{ Config::importe($venta->total) }}</span>
                         </div>
 
                         @if ((float) $venta->total_devuelto > 0)
-                            <div class="flex justify-between text-theme-sm text-error-500">
+                            <div class="flex justify-between text-theme-sm text-error-600 dark:text-error-400">
                                 <span>Devuelto al cliente</span>
                                 <span>− {{ Config::importe($venta->total_devuelto) }}</span>
                             </div>
@@ -207,10 +207,10 @@
                             <div>
                                 <p class="text-theme-sm text-gray-800 dark:text-white/90">{{ $pago->metodoPago?->nombre }}</p>
                                 @if ($pago->referencia)
-                                    <p class="text-theme-xs text-gray-400 dark:text-gray-500">op. {{ $pago->referencia }}</p>
+                                    <p class="text-theme-xs text-gray-500 dark:text-gray-400">op. {{ $pago->referencia }}</p>
                                 @endif
                                 @if ($pago->monto_recibido !== null)
-                                    <p class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                    <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                                         recibido {{ Config::importe($pago->monto_recibido) }}
                                     </p>
                                 @endif
@@ -224,7 +224,7 @@
                     @if ($venta->vuelto > 0)
                         <div class="flex justify-between border-t border-gray-100 pt-3 text-theme-sm dark:border-gray-800">
                             <span class="text-gray-500 dark:text-gray-400">Vuelto</span>
-                            <span class="font-medium text-success-600 dark:text-success-500">
+                            <span class="font-medium text-success-700 dark:text-success-500">
                                 {{ Config::importe($venta->vuelto) }}
                             </span>
                         </div>
@@ -241,11 +241,11 @@
                                         class="text-theme-sm text-gray-800 hover:text-brand-500 dark:text-white/90">
                                         Devolución #{{ $devolucion->id }} · {{ mb_strtolower($devolucion->tipo) }}
                                     </a>
-                                    <p class="line-clamp-2 text-theme-xs text-gray-400 dark:text-gray-500">
+                                    <p class="line-clamp-2 text-theme-xs text-gray-500 dark:text-gray-400">
                                         {{ $devolucion->fecha?->format('d/m/Y H:i') }} · {{ $devolucion->motivo }}
                                     </p>
                                 </div>
-                                <span class="whitespace-nowrap text-theme-sm font-medium text-error-500">
+                                <span class="whitespace-nowrap text-theme-sm font-medium text-error-600 dark:text-error-400">
                                     − {{ Config::importe($devolucion->total) }}
                                 </span>
                             </div>
@@ -265,7 +265,7 @@
                                         class="font-mono text-theme-sm text-gray-800 hover:text-brand-500 dark:text-white/90">
                                         {{ $doc->numero_completo }}
                                     </a>
-                                    <p class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                    <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                                         {{ $doc->nombre_tipo }} · {{ $doc->fecha_emision?->format('d/m/Y H:i') }}
                                     </p>
                                     @if ($doc->sustituye_a)
@@ -277,7 +277,7 @@
                                         </p>
                                     @endif
                                     @if ($doc->estado === 'SUSTITUIDO' && $doc->sustituido_en)
-                                        <p class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                        <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                                             Sustituido el {{ $doc->sustituido_en->format('d/m/Y H:i') }}
                                         </p>
                                     @endif
@@ -290,11 +290,11 @@
 
                         @if ($comprobante)
                             @if ($puedeSustituir)
-                                <p class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                                     Se puede sustituir hasta el {{ $venceSustitucion->format('d/m/Y') }}.
                                 </p>
                             @elseif ($bloqueoSustitucion)
-                                <p class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                                     {{ $bloqueoSustitucion }}
                                 </p>
                             @endif
@@ -308,11 +308,11 @@
         @puede('ventas.anular')
             @if ($puedeSustituir)
                 <div x-show="sustituyendo" x-cloak
-                    class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+                    class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                     <div @click="sustituyendo = false"
                         class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                         <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">
                             Sustituir comprobante
                         </h2>
@@ -342,7 +342,7 @@
 
                             <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                                 ¿El cliente no está registrado?
-                                <a href="{{ route('clientes.index') }}" class="text-brand-500 hover:text-brand-600">
+                                <a href="{{ route('clientes.index') }}" class="text-brand-500 dark:text-brand-400 hover:text-brand-600">
                                     Regístralo primero
                                 </a>, con su RUC y dirección fiscal.
                             </p>
@@ -367,10 +367,10 @@
         {{-- Anular --}}
         @puede('ventas.anular')
             @if ($venta->puedeAnularse())
-                <div x-show="anulando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+                <div x-show="anulando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                     <div @click="anulando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                         <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Anular venta</h2>
                         <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                             El stock vuelve al inventario y el comprobante queda anulado, conservando su correlativo.
@@ -383,7 +383,7 @@
                             <x-form.campo label="Motivo de la anulación" for="motivo_anulacion" name="motivo_anulacion"
                                 required>
                                 <x-form.textarea id="motivo_anulacion" name="motivo_anulacion"
-                                    placeholder="Error en el cobro, el cliente se arrepintió, producto equivocado..."
+                                    placeholder="Error en el cobro, el cliente se arrepintió, producto equivocado…"
                                     required />
                             </x-form.campo>
 

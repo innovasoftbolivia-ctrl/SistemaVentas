@@ -13,7 +13,7 @@
     <span
         {{ $attributes->merge([
             'class' => 'inline-flex items-center gap-1 rounded-full border border-dashed border-warning-500 '
-                .'px-2.5 py-0.5 text-theme-xs font-medium text-warning-600 dark:text-orange-400',
+                .'px-2.5 py-0.5 text-theme-xs font-medium text-warning-700 dark:text-orange-400',
         ]) }}>
         <svg aria-hidden="true" class="h-3 w-3" viewBox="0 0 24 24" fill="none">
             <path d="M12 8v5M12 16.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -29,7 +29,7 @@
                 .'dark:border-warning-500/40 dark:bg-warning-500/10',
         ]) }}>
         <div class="flex items-start gap-3">
-            <svg aria-hidden="true" class="mt-0.5 h-5 w-5 flex-none text-warning-600 dark:text-orange-400" viewBox="0 0 24 24"
+            <svg aria-hidden="true" class="mt-0.5 h-5 w-5 flex-none text-warning-700 dark:text-orange-400" viewBox="0 0 24 24"
                 fill="none">
                 <path d="M12 8v5M12 16.5v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 <path d="M10.3 3.9 2.4 17.4a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"

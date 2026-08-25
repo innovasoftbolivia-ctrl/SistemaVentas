@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Cargo;
 use App\Models\Empleado;
 use App\Services\Auditor;
@@ -12,6 +13,17 @@ use Illuminate\View\View;
 
 class EmpleadoController extends Controller
 {
+    use OrdenaTablas;
+
+    /** Columnas por las que se puede ordenar la tabla. La clave viaja en la URL. */
+    private const ORDENABLES = [
+        'nombre' => 'nombre_completo',
+        'documento' => 'documento',
+        'contrato' => 'tipo_contrato',
+        'ingreso' => 'fecha_ingreso',
+        'estado' => 'estado',
+    ];
+
     public function index(Request $request): View
     {
         $filtros = [
@@ -20,11 +32,19 @@ class EmpleadoController extends Controller
             'cargo' => $request->integer('cargo') ?: null,
         ];
 
-        $empleados = Empleado::with(['cargo:id,nombre', 'usuario:id,empleado_id,usuario,activo'])
-            ->buscar($filtros['buscar'])
-            ->when($filtros['estado'], fn ($q, $estado) => $q->where('estado', $estado))
-            ->when($filtros['cargo'], fn ($q, $cargo) => $q->where('cargo_id', $cargo))
-            ->orderBy('nombre_completo')
+        $orden = $this->orden($request, self::ORDENABLES + [
+            // El cargo vive en otra tabla: se ordena con una subconsulta en vez
+            // de por `cargo_id`, que ordenaría por número y no por nombre.
+            'cargo' => Cargo::select('nombre')->whereColumn('cargos.id', 'empleados.cargo_id'),
+        ], 'nombre');
+
+        $empleados = $this->aplicarOrden(
+            Empleado::with(['cargo:id,nombre', 'usuario:id,empleado_id,usuario,activo'])
+                ->buscar($filtros['buscar'])
+                ->when($filtros['estado'], fn ($q, $estado) => $q->where('estado', $estado))
+                ->when($filtros['cargo'], fn ($q, $cargo) => $q->where('cargo_id', $cargo)),
+            $orden
+        )
             ->paginate(10)
             ->withQueryString();
 

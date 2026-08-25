@@ -24,8 +24,8 @@
             </p>
 
             <form method="GET" action="{{ route('comprobantes.index') }}"
-                class="grid grid-cols-1 gap-4 md:grid-cols-4 md:items-end">
-                <div class="md:col-span-2">
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-start">
+                <div class="sm:col-span-2">
                     <x-form.campo label="Buscar" for="buscar" help="Número, cliente o documento.">
                         <x-form.input id="buscar" name="buscar" :value="$filtros['buscar']" placeholder="F001-000012" />
                     </x-form.campo>
@@ -41,7 +41,7 @@
                         :opciones="$estados" />
                 </x-form.campo>
 
-                <div class="flex gap-2 md:col-span-4">
+                <div class="flex gap-2 sm:col-span-2 lg:col-span-4">
                     <x-ui.button type="submit" size="sm">Filtrar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" :href="route('comprobantes.index')">Limpiar</x-ui.button>
                 </div>
@@ -49,17 +49,17 @@
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="max-w-full overflow-x-auto">
+            <div class="max-w-full overflow-x-auto overscroll-contain">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
-                            @foreach (['Número', 'Tipo', 'Fecha', 'Cliente', 'Estado'] as $columna)
-                                <th class="px-5 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                    {{ $columna }}
-                                </th>
-                            @endforeach
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400">Total</th>
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400"></th>
+                            <x-tabla.th clave="numero">Número</x-tabla.th>
+                            <x-tabla.th clave="tipo">Tipo</x-tabla.th>
+                            <x-tabla.th clave="fecha" defecto inicial="desc">Fecha</x-tabla.th>
+                            <x-tabla.th clave="cliente">Cliente</x-tabla.th>
+                            <x-tabla.th clave="estado">Estado</x-tabla.th>
+                            <x-tabla.th clave="total" inicial="desc" derecha>Total</x-tabla.th>
+                            <x-tabla.th derecha><span class="sr-only">Acciones</span></x-tabla.th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -79,7 +79,7 @@
                                         {{ $doc->cliente_nombre }}
                                     </span>
                                     @if ($doc->cliente_documento)
-                                        <span class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                        <span class="text-theme-xs text-gray-500 dark:text-gray-400">
                                             {{ $doc->cliente_tipo_documento }} {{ $doc->cliente_documento }}
                                         </span>
                                     @endif

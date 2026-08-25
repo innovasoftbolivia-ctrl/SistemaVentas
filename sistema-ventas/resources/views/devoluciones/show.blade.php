@@ -39,12 +39,12 @@
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
             @php
                 $cifras = [
-                    ['Devuelto', Config::importe($devolucion->total), 'text-error-500', 'salió del cajón'],
+                    ['Devuelto', Config::importe($devolucion->total), 'text-error-600 dark:text-error-400', 'salió del cajón'],
                     ['Líneas', $devolucion->detalle->count(), 'text-gray-800 dark:text-white/90', null],
                     ['Volvió al estante', $devolucion->detalle->count() - $sinReingreso->count(),
-                        'text-success-600 dark:text-success-500', 'reingresó al inventario'],
+                        'text-success-700 dark:text-success-500', 'reingresó al inventario'],
                     ['No reingresó', $sinReingreso->count(),
-                        $sinReingreso->count() ? 'text-warning-600 dark:text-orange-400' : 'text-gray-800 dark:text-white/90',
+                        $sinReingreso->count() ? 'text-warning-700 dark:text-orange-400' : 'text-gray-800 dark:text-white/90',
                         'mercadería dañada'],
                 ];
             @endphp
@@ -54,7 +54,7 @@
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
                     <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
                     @if ($nota)
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
                     @endif
                 </div>
             @endforeach
@@ -70,7 +70,7 @@
                         </p>
                     </div>
 
-                    <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+                    <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                         <table class="min-w-full">
                             <thead class="border-b border-gray-100 dark:border-gray-800">
                                 <tr>
@@ -89,7 +89,7 @@
                                                 class="block text-theme-sm text-gray-800 hover:text-brand-500 dark:text-white/90">
                                                 {{ $linea->ventaDetalle?->descripcion ?? $linea->producto?->nombre }}
                                             </a>
-                                            <span class="font-mono text-theme-xs text-gray-400 dark:text-gray-500">
+                                            <span class="font-mono text-theme-xs text-gray-500 dark:text-gray-400">
                                                 {{ $linea->producto?->codigo }}
                                             </span>
                                         </td>
@@ -100,7 +100,7 @@
                                         <td class="px-5 py-4 text-right whitespace-nowrap text-theme-sm text-gray-500 dark:text-gray-400">
                                             {{ Config::importe($linea->precio_unitario) }}
                                             @if ($linea->afecto_impuesto)
-                                                <span class="block text-theme-xs text-gray-400 dark:text-gray-500">
+                                                <span class="block text-theme-xs text-gray-500 dark:text-gray-400">
                                                     + {{ Config::importe($linea->impuesto_linea) }} imp.
                                                 </span>
                                             @endif
@@ -131,7 +131,7 @@
                         @endif
                         <div class="flex items-baseline justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
                             <span class="font-medium text-gray-800 dark:text-white/90">Devuelto al cliente</span>
-                            <span class="text-title-sm font-semibold text-error-500">
+                            <span class="text-title-sm font-semibold text-error-600 dark:text-error-400">
                                 {{ Config::importe($devolucion->total) }}
                             </span>
                         </div>

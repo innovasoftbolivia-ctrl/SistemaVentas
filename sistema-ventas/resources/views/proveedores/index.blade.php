@@ -52,8 +52,8 @@
             </p>
 
             <form method="GET" action="{{ route('proveedores.index') }}"
-                class="grid grid-cols-1 gap-4 md:grid-cols-4 md:items-end">
-                <div class="md:col-span-2">
+                class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:items-start">
+                <div class="sm:col-span-2">
                     <x-form.campo label="Buscar" for="buscar">
                         <x-form.input id="buscar" name="buscar" :value="$filtros['buscar']"
                             placeholder="Razón social, documento o correo" />
@@ -65,7 +65,7 @@
                         :opciones="['ACTIVO' => 'Solo activos', 'INACTIVO' => 'Solo inactivos']" />
                 </x-form.campo>
 
-                <div class="flex flex-wrap gap-2 md:col-span-4">
+                <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-3">
                     <x-ui.button type="submit" size="sm">Filtrar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" :href="route('proveedores.index')">Limpiar</x-ui.button>
                     <x-ui.button size="sm" class="ml-auto" @click="nuevo()">Nuevo proveedor</x-ui.button>
@@ -74,18 +74,16 @@
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="max-w-full overflow-x-auto">
+            <div class="max-w-full overflow-x-auto overscroll-contain">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
-                            @foreach (['Proveedor', 'Documento', 'Contacto', 'Productos', 'Estado'] as $columna)
-                                <th class="px-5 py-3 text-left text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                    {{ $columna }}
-                                </th>
-                            @endforeach
-                            <th class="px-5 py-3 text-right text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                Acciones
-                            </th>
+                            <x-tabla.th clave="proveedor" defecto>Proveedor</x-tabla.th>
+                            <x-tabla.th clave="documento">Documento</x-tabla.th>
+                            <x-tabla.th clave="contacto">Contacto</x-tabla.th>
+                            <x-tabla.th clave="productos" inicial="desc">Productos</x-tabla.th>
+                            <x-tabla.th clave="estado">Estado</x-tabla.th>
+                            <x-tabla.th derecha>Acciones</x-tabla.th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
@@ -174,10 +172,10 @@
         </div>
 
         {{-- Alta y edición --}}
-        <div x-show="abierto" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+        <div x-show="abierto" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="abierto = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+            <div class="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                 <h2 class="mb-6 text-xl font-semibold text-gray-800 dark:text-white/90"
                     x-text="modo === 'crear' ? 'Nuevo proveedor' : 'Editar proveedor'"></h2>
 
@@ -232,15 +230,15 @@
         </div>
 
         {{-- Baja --}}
-        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto p-5">
+        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
                 <h2 class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar proveedor</h2>
                 <p class="mb-2 text-theme-sm text-gray-500 dark:text-gray-400">
                     ¿Eliminar a <b x-text="razon"></b>?
                 </p>
-                <p x-show="productos > 0" class="mb-6 text-theme-sm text-warning-600 dark:text-orange-400">
+                <p x-show="productos > 0" class="mb-6 text-theme-sm text-warning-700 dark:text-orange-400">
                     Abastece <span x-text="productos"></span> producto(s), así que se desactivará en lugar de
                     eliminarse.
                 </p>

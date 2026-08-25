@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Cliente;
 use App\Models\Usuario;
 use App\Models\Venta;
@@ -15,6 +16,8 @@ use RuntimeException;
 
 class VentaController extends Controller
 {
+    use OrdenaTablas;
+
     public function index(Request $request): View
     {
         $filtros = [
@@ -25,7 +28,15 @@ class VentaController extends Controller
             'hasta' => $request->date('hasta')?->format('Y-m-d'),
         ];
 
-        $ventas = Venta::with([
+        $orden = $this->orden($request, [
+            'fecha' => 'fecha',
+            'cliente' => Cliente::select('nombre')->whereColumn('clientes.id', 'ventas.cliente_id'),
+            'cajero' => Usuario::select('usuario')->whereColumn('usuarios.id', 'ventas.usuario_id'),
+            'estado' => 'estado',
+            'total' => 'total',
+        ], 'fecha', 'desc');
+
+        $ventas = $this->aplicarOrden(Venta::with([
             'cliente:id,nombre',
             'usuario:id,usuario',
             'comprobante:id,venta_id,numero_completo,estado',
@@ -41,9 +52,9 @@ class VentaController extends Controller
             ->when($filtros['estado'], fn ($q, $estado) => $q->where('estado', $estado))
             ->when($filtros['usuario'], fn ($q, $id) => $q->where('usuario_id', $id))
             ->when($filtros['desde'], fn ($q, $d) => $q->whereDate('fecha', '>=', $d))
-            ->when($filtros['hasta'], fn ($q, $h) => $q->whereDate('fecha', '<=', $h))
-            ->orderByDesc('fecha')
-            ->orderByDesc('id')
+            ->when($filtros['hasta'], fn ($q, $h) => $q->whereDate('fecha', '<=', $h)),
+            $orden
+        )
             ->paginate(15)
             ->withQueryString();
 

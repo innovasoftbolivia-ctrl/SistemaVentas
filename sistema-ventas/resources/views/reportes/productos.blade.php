@@ -29,7 +29,7 @@
                         'capital inmovilizado'],
                     ['Valor a precio de venta', Config::importe($inventario['venta']), 'text-gray-800 dark:text-white/90',
                         'base, sin impuesto'],
-                    ['Margen potencial', Config::importe($inventario['margen']), 'text-success-600 dark:text-success-500',
+                    ['Margen potencial', Config::importe($inventario['margen']), 'text-success-700 dark:text-success-500',
                         'si se vendiera todo'],
                 ];
             @endphp
@@ -39,13 +39,13 @@
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
                     <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
                     @if ($nota)
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
                     @endif
                 </div>
             @endforeach
         </div>
 
-        <p class="text-theme-xs text-gray-400 dark:text-gray-500">
+        <p class="text-theme-xs text-gray-500 dark:text-gray-400">
             Las cifras de inventario son una foto de <b>hoy</b>: no dependen del período elegido, que sí filtra el
             ranking de más vendidos.
         </p>
@@ -64,7 +64,7 @@
                 @endif
             </div>
 
-            <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+            <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
@@ -83,12 +83,12 @@
                                         class="block text-theme-sm text-gray-800 hover:text-brand-500 dark:text-white/90">
                                         {{ $alerta->nombre }}
                                     </a>
-                                    <span class="font-mono text-theme-xs text-gray-400 dark:text-gray-500">
+                                    <span class="font-mono text-theme-xs text-gray-500 dark:text-gray-400">
                                         {{ $alerta->codigo }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-3 text-theme-sm text-gray-500 dark:text-gray-400">{{ $alerta->categoria }}</td>
-                                <td class="px-6 py-3 text-right text-theme-sm font-medium {{ (float) $alerta->stock_actual <= 0 ? 'text-error-500' : 'text-warning-600 dark:text-orange-400' }}">
+                                <td class="px-6 py-3 text-right text-theme-sm font-medium {{ (float) $alerta->stock_actual <= 0 ? 'text-error-600 dark:text-error-400' : 'text-warning-700 dark:text-orange-400' }}">
                                     {{ Config::cantidad($alerta->stock_actual) }}
                                 </td>
                                 <td class="px-6 py-3 text-right text-theme-sm text-gray-500 dark:text-gray-400">
@@ -100,7 +100,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="px-6 py-10 text-center text-theme-sm text-success-600 dark:text-success-500">
+                                <td colspan="5" class="px-6 py-10 text-center text-theme-sm text-success-700 dark:text-success-500">
                                     Ningún producto está por debajo de su stock mínimo.
                                 </td>
                             </tr>
@@ -135,7 +135,7 @@
                 </p>
             </div>
 
-            <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+            <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                 <table class="min-w-full">
                     <thead class="border-b border-gray-100 dark:border-gray-800">
                         <tr>
@@ -150,19 +150,19 @@
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse ($masVendidos as $i => $fila)
                             <tr class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                                <td class="px-6 py-3 text-theme-sm text-gray-400 dark:text-gray-500">{{ $i + 1 }}</td>
+                                <td class="px-6 py-3 text-theme-sm text-gray-500 dark:text-gray-400">{{ $i + 1 }}</td>
                                 <td class="px-6 py-3">
                                     <a href="{{ route('productos.show', $fila->id) }}"
                                         class="block text-theme-sm text-gray-800 hover:text-brand-500 dark:text-white/90">
                                         {{ $fila->nombre }}
                                     </a>
-                                    <span class="font-mono text-theme-xs text-gray-400 dark:text-gray-500">{{ $fila->codigo }}</span>
+                                    <span class="font-mono text-theme-xs text-gray-500 dark:text-gray-400">{{ $fila->codigo }}</span>
                                 </td>
                                 <td class="px-6 py-3 text-theme-sm text-gray-500 dark:text-gray-400">{{ $fila->categoria }}</td>
                                 <td class="px-6 py-3 text-right text-theme-sm text-gray-500 dark:text-gray-400">
                                     {{ Config::cantidad($fila->unidades_vendidas) }}
                                     @if ((float) $fila->unidades_devueltas > 0)
-                                        <span class="block text-theme-xs text-error-500">
+                                        <span class="block text-theme-xs text-error-600 dark:text-error-400">
                                             {{ Config::cantidad($fila->unidades_devueltas) }} devuelta(s)
                                         </span>
                                     @endif
@@ -170,7 +170,7 @@
                                 <td class="px-6 py-3 text-right text-theme-sm font-medium text-gray-800 dark:text-white/90">
                                     {{ Config::importe($fila->monto_vendido) }}
                                 </td>
-                                <td class="px-6 py-3 text-right text-theme-sm font-medium {{ (float) $fila->margen_estimado >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500' }}">
+                                <td class="px-6 py-3 text-right text-theme-sm font-medium {{ (float) $fila->margen_estimado >= 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400' }}">
                                     {{ Config::importe($fila->margen_estimado) }}
                                 </td>
                             </tr>

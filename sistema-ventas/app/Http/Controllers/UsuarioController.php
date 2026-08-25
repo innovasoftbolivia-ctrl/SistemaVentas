@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Empleado;
 use App\Models\Rol;
 use App\Models\Usuario;
@@ -17,6 +18,8 @@ use Illuminate\View\View;
 
 class UsuarioController extends Controller
 {
+    use OrdenaTablas;
+
     public function index(Request $request): View
     {
         $filtros = [
@@ -25,11 +28,21 @@ class UsuarioController extends Controller
             'estado' => $request->string('estado')->toString(),
         ];
 
-        $usuarios = Usuario::with(['empleado:id,nombre_completo,estado,cargo_id', 'empleado.cargo:id,nombre', 'rol:id,nombre'])
-            ->buscar($filtros['buscar'])
-            ->when($filtros['rol'], fn ($q, $rol) => $q->where('rol_id', $rol))
-            ->when($filtros['estado'] !== '', fn ($q) => $q->where('activo', $filtros['estado'] === 'ACTIVO'))
-            ->orderBy('usuario')
+        $orden = $this->orden($request, [
+            'usuario' => 'usuario',
+            'empleado' => Empleado::select('nombre_completo')->whereColumn('empleados.id', 'usuarios.empleado_id'),
+            'rol' => Rol::select('nombre')->whereColumn('roles.id', 'usuarios.rol_id'),
+            'acceso' => 'activo',
+            'ingreso' => 'ultimo_acceso',
+        ], 'usuario');
+
+        $usuarios = $this->aplicarOrden(
+            Usuario::with(['empleado:id,nombre_completo,estado,cargo_id', 'empleado.cargo:id,nombre', 'rol:id,nombre'])
+                ->buscar($filtros['buscar'])
+                ->when($filtros['rol'], fn ($q, $rol) => $q->where('rol_id', $rol))
+                ->when($filtros['estado'] !== '', fn ($q) => $q->where('activo', $filtros['estado'] === 'ACTIVO')),
+            $orden
+        )
             ->paginate(10)
             ->withQueryString();
 

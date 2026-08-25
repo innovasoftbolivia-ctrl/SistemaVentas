@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Categoria;
 use App\Models\Producto;
 use App\Models\Proveedor;
@@ -18,6 +19,8 @@ use Illuminate\View\View;
 
 class ProductoController extends Controller
 {
+    use OrdenaTablas;
+
     public function index(Request $request): View
     {
         $filtros = [
@@ -28,14 +31,30 @@ class ProductoController extends Controller
             'stock' => $request->string('stock')->toString(),
         ];
 
-        $productos = Producto::with(['categoria:id,nombre', 'unidadMedida:id,codigo,nombre', 'proveedor:id,razon_social'])
-            ->buscar($filtros['buscar'])
-            ->when($filtros['categoria'], fn ($q, $id) => $q->where('categoria_id', $id))
-            ->when($filtros['proveedor'], fn ($q, $id) => $q->where('proveedor_id', $id))
-            ->when($filtros['estado'] !== '', fn ($q) => $q->where('activo', $filtros['estado'] === 'ACTIVO'))
-            ->when($filtros['stock'] === 'BAJO', fn ($q) => $q->bajoMinimo())
-            ->when($filtros['stock'] === 'AGOTADO', fn ($q) => $q->where('stock_actual', '<=', 0))
-            ->orderBy('nombre')
+        $orden = $this->orden($request, [
+            'nombre' => 'nombre',
+            'codigo' => 'codigo',
+            'categoria' => Categoria::select('nombre')->whereColumn('categorias.id', 'productos.categoria_id'),
+            'proveedor' => Proveedor::select('razon_social')->whereColumn('proveedores.id', 'productos.proveedor_id'),
+            'compra' => 'precio_compra',
+            'venta' => 'precio_venta',
+            // El precio de estante es el de venta más el impuesto: mismo orden,
+            // pero con su propia clave para que solo se resalte una columna.
+            'estante' => 'precio_venta',
+            'stock' => 'stock_actual',
+            'estado' => 'activo',
+        ], 'nombre');
+
+        $productos = $this->aplicarOrden(
+            Producto::with(['categoria:id,nombre', 'unidadMedida:id,codigo,nombre', 'proveedor:id,razon_social'])
+                ->buscar($filtros['buscar'])
+                ->when($filtros['categoria'], fn ($q, $id) => $q->where('categoria_id', $id))
+                ->when($filtros['proveedor'], fn ($q, $id) => $q->where('proveedor_id', $id))
+                ->when($filtros['estado'] !== '', fn ($q) => $q->where('activo', $filtros['estado'] === 'ACTIVO'))
+                ->when($filtros['stock'] === 'BAJO', fn ($q) => $q->bajoMinimo())
+                ->when($filtros['stock'] === 'AGOTADO', fn ($q) => $q->where('stock_actual', '<=', 0)),
+            $orden
+        )
             ->paginate(12)
             ->withQueryString();
 

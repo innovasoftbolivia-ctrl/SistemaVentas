@@ -74,7 +74,7 @@
                                 <p class="text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
                                     Efectivo esperado
                                 </p>
-                                <p class="text-title-sm font-semibold text-brand-500">
+                                <p class="text-title-sm font-semibold text-brand-500 dark:text-brand-400">
                                     {{ Config::importe($sesion->efectivoEsperado()) }}
                                 </p>
                             </div>
@@ -102,7 +102,7 @@
                         <p class="text-title-sm font-semibold text-gray-800 dark:text-white/90">
                             {{ Config::importe($mias['monto']) }}
                         </p>
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
                             {{ $mias['operaciones'] }} operación(es) a mi nombre
                         </p>
                     </div>
@@ -132,7 +132,7 @@
                             {{ $etiqueta }}
                         </p>
                         <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">{{ $nota }}</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
                     </div>
                 @endforeach
 
@@ -141,13 +141,13 @@
                         Frente a ayer
                     </p>
                     @if ($variacion === null)
-                        <p class="text-title-sm font-semibold text-gray-400 dark:text-gray-500">—</p>
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">ayer no hubo ventas</p>
+                        <p class="text-title-sm font-semibold text-gray-500 dark:text-gray-400">—</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">ayer no hubo ventas</p>
                     @else
-                        <p class="text-title-sm font-semibold {{ $variacion >= 0 ? 'text-success-600 dark:text-success-500' : 'text-error-500' }}">
+                        <p class="text-title-sm font-semibold {{ $variacion >= 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400' }}">
                             {{ $variacion > 0 ? '+' : '' }}{{ number_format($variacion, 1) }}%
                         </p>
-                        <p class="mt-1 text-theme-xs text-gray-400 dark:text-gray-500">sobre lo vendido ayer</p>
+                        <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">sobre lo vendido ayer</p>
                     @endif
                 </div>
             </div>
@@ -182,7 +182,7 @@
                         <x-ui.button size="xs" variant="outline" :href="route('ventas.index')">Ver todas</x-ui.button>
                     </div>
 
-                    <div class="max-w-full overflow-x-auto border-t border-gray-100 dark:border-gray-800">
+                    <div class="max-w-full overflow-x-auto overscroll-contain border-t border-gray-100 dark:border-gray-800">
                         <table class="min-w-full">
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                                 @forelse ($ultimas as $venta)
@@ -192,7 +192,7 @@
                                                 class="block font-mono text-theme-sm text-gray-800 hover:text-brand-500 dark:text-white/90">
                                                 {{ $venta->comprobante?->numero_completo ?? '#'.$venta->id }}
                                             </a>
-                                            <span class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                            <span class="text-theme-xs text-gray-500 dark:text-gray-400">
                                                 {{ $venta->fecha?->format('d/m H:i') }} · {{ $venta->usuario?->usuario }}
                                             </span>
                                         </td>
@@ -246,16 +246,16 @@
                                     <span class="block truncate text-theme-sm text-gray-800 dark:text-white/90">
                                         {{ $alerta->nombre }}
                                     </span>
-                                    <span class="text-theme-xs text-gray-400 dark:text-gray-500">
+                                    <span class="text-theme-xs text-gray-500 dark:text-gray-400">
                                         {{ $alerta->categoria }}
                                     </span>
                                 </div>
-                                <span class="whitespace-nowrap text-theme-sm font-medium {{ (float) $alerta->stock_actual <= 0 ? 'text-error-500' : 'text-warning-600 dark:text-orange-400' }}">
+                                <span class="whitespace-nowrap text-theme-sm font-medium {{ (float) $alerta->stock_actual <= 0 ? 'text-error-600 dark:text-error-400' : 'text-warning-700 dark:text-orange-400' }}">
                                     {{ Config::cantidad($alerta->stock_actual) }} / {{ Config::cantidad($alerta->stock_minimo) }}
                                 </span>
                             </a>
                         @empty
-                            <p class="px-6 py-10 text-center text-theme-sm text-success-600 dark:text-success-500">
+                            <p class="px-6 py-10 text-center text-theme-sm text-success-700 dark:text-success-500">
                                 Nada por reponer.
                             </p>
                         @endforelse
