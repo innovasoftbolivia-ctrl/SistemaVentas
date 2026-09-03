@@ -213,10 +213,15 @@
                     <td class="derecha">− {{ $moneda }} {{ number_format((float) $comprobante->descuento, 2) }}</td>
                 </tr>
             @endif
-            <tr>
-                <td class="tenue">Impuesto</td>
-                <td class="derecha">{{ $moneda }} {{ number_format((float) $comprobante->impuesto, 2) }}</td>
-            </tr>
+            {{-- Se guía por lo que ESTE documento cobró, no por la tasa de hoy:
+                 un comprobante viejo con impuesto sigue mostrándolo aunque el
+                 negocio haya dejado de facturar con impuesto después. --}}
+            @if ((float) $comprobante->impuesto > 0)
+                <tr>
+                    <td class="tenue">Impuesto</td>
+                    <td class="derecha">{{ $moneda }} {{ number_format((float) $comprobante->impuesto, 2) }}</td>
+                </tr>
+            @endif
             <tr class="total-final">
                 <td>TOTAL</td>
                 <td class="derecha">{{ $moneda }} {{ number_format((float) $comprobante->total, 2) }}</td>

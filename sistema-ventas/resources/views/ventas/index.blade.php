@@ -7,16 +7,22 @@
 @section('content')
     <div class="space-y-6">
 
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            @php
-                $tarjetas = [
-                    ['Operaciones', number_format($resumen['operaciones']), 'text-gray-800 dark:text-white/90', 'sin contar anuladas'],
-                    ['Vendido', Config::importe($resumen['vendido']), 'text-success-700 dark:text-success-500', 'con impuesto'],
-                    ['Impuesto', Config::importe($resumen['impuesto']), 'text-gray-800 dark:text-white/90', 'incluido en el total'],
-                    ['Anuladas', number_format($resumen['anuladas']), 'text-error-600 dark:text-error-400', 'revirtieron stock'],
-                ];
-            @endphp
+        @php
+            // Sin impuesto configurado (negocio que no factura todavía), la
+            // tarjeta no aporta nada: sería un «Bs 0.00» fijo en pantalla.
+            $tarjetas = [
+                ['Operaciones', number_format($resumen['operaciones']), 'text-gray-800 dark:text-white/90', 'sin contar anuladas'],
+                ['Vendido', Config::importe($resumen['vendido']), 'text-success-700 dark:text-success-500', 'con impuesto'],
+            ];
 
+            if (App\Support\Config::tasaImpuesto() > 0) {
+                $tarjetas[] = ['Impuesto', Config::importe($resumen['impuesto']), 'text-gray-800 dark:text-white/90', 'incluido en el total'];
+            }
+
+            $tarjetas[] = ['Anuladas', number_format($resumen['anuladas']), 'text-error-600 dark:text-error-400', 'revirtieron stock'];
+        @endphp
+
+        <div class="grid grid-cols-2 gap-4 {{ count($tarjetas) === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3' }}">
             @foreach ($tarjetas as [$etiqueta, $valor, $clase, $nota])
                 <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
                     <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
