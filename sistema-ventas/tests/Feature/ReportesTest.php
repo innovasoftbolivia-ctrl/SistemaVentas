@@ -13,6 +13,8 @@ use App\Services\Devoluciones;
 use App\Services\Ventas;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use Tests\TestCase;
 
 class ReportesTest extends TestCase
@@ -378,5 +380,124 @@ class ReportesTest extends TestCase
         $this->actingAs($this->cajero())
             ->get('/perfil')
             ->assertDontSee('href="'.url('/reportes/ventas').'"', false);
+    }
+
+    // ------------------------------------------------------------ exportación
+
+    /** Guarda la descarga en un fichero temporal y lo abre como libro real. */
+    private function libroDescargado(string $ruta): Spreadsheet
+    {
+        $respuesta = $this->actingAs($this->admin())->get($ruta);
+        $respuesta->assertOk();
+        $respuesta->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+        $fichero = tempnam(sys_get_temp_dir(), 'xlsx').'.xlsx';
+        file_put_contents($fichero, $respuesta->streamedContent());
+
+        try {
+            return IOFactory::load($fichero);
+        } finally {
+            @unlink($fichero);
+        }
+    }
+
+    public function test_el_reporte_de_ventas_se_descarga_como_libro_de_excel(): void
+    {
+        $sesion = $this->turno();
+        $this->vender($sesion, 2);
+
+        $libro = $this->libroDescargado(route('reportes.ventas.excel', $this->hoy()));
+
+        $this->assertSame(
+            ['Resumen', 'Ventas por día', 'Por método de pago', 'Por cajero'],
+            collect($libro->getAllSheets())->map(fn ($h) => $h->getTitle())->all()
+        );
+
+        // Cabecera del documento: sin ella no se sabe de qué negocio es.
+        $this->assertSame('Minimarket El Ahorro', $libro->getSheet(0)->getCell('A1')->getValue());
+    }
+
+    public function test_el_reporte_de_productos_se_descarga_como_libro_de_excel(): void
+    {
+        $libro = $this->libroDescargado(route('reportes.productos.excel'));
+
+        $this->assertSame(
+            ['Resumen', 'Reponer', 'Más vendidos'],
+            collect($libro->getAllSheets())->map(fn ($h) => $h->getTitle())->all()
+        );
+    }
+
+    /**
+     * Lo que se descarga tiene que servir para sumar y ordenar: los importes van
+     * como números y los días como fechas, no como texto ya formateado.
+     */
+    public function test_los_importes_y_las_fechas_van_como_datos_y_no_como_texto(): void
+    {
+        $sesion = $this->turno();
+        $this->vender($sesion, 2);
+
+        $hoja = $this->libroDescargado(route('reportes.ventas.excel', $this->hoy()))
+            ->getSheetByName('Ventas por día');
+
+        // Filas 1-3 la cabecera del documento, 4 en blanco, 5 el título, 6 la
+        // nota y 7 los nombres de columna: los datos empiezan en la 8.
+        $this->assertSame('Día', $hoja->getCell('A7')->getValue());
+
+        $this->assertIsNumeric($hoja->getCell('D8')->getValue(), 'el monto debería ser un número');
+        $this->assertSame('#,##0.00', $hoja->getStyle('D8')->getNumberFormat()->getFormatCode());
+
+        $this->assertIsNumeric($hoja->getCell('A8')->getValue(), 'el día debería ser una fecha de Excel');
+        $this->assertSame('dd/mm/yyyy', $hoja->getStyle('A8')->getNumberFormat()->getFormatCode());
+    }
+
+    /** Los días sin una sola venta no se exportan: eran filas de ceros. */
+    public function test_el_excel_solo_trae_los_dias_con_movimiento(): void
+    {
+        $sesion = $this->turno();
+        $this->vender($sesion, 2);
+
+        $hoja = $this->libroDescargado(route('reportes.ventas.excel', ['desde' => now()->subDays(20)->toDateString(), 'hasta' => now()->toDateString()]))
+            ->getSheetByName('Ventas por día');
+
+        // Cabecera en la 7, una fila de datos y una de totales: 9 en total.
+        // Con los 21 días del rango serían 29.
+        $this->assertLessThan(15, $hoja->getHighestRow());
+    }
+
+    public function test_los_reportes_se_descargan_como_pdf(): void
+    {
+        $sesion = $this->turno();
+        $this->vender($sesion, 2);
+
+        foreach (['reportes.ventas.pdf', 'reportes.productos.pdf'] as $ruta) {
+            $respuesta = $this->actingAs($this->admin())->get(route($ruta));
+
+            $respuesta->assertOk();
+            $respuesta->assertHeader('content-type', 'application/pdf');
+
+            // dompdf devuelve la respuesta entera, no un stream como el Excel.
+            $bytes = $respuesta->getContent();
+            $this->assertStringStartsWith('%PDF-', $bytes, "«{$ruta}» no devolvió un PDF");
+            $this->assertStringContainsString('%%EOF', substr($bytes, -2048), "«{$ruta}» devolvió un PDF truncado");
+        }
+    }
+
+    /** El rango de la pantalla es el que se lleva la descarga. */
+    public function test_la_descarga_respeta_el_rango_de_fechas(): void
+    {
+        $respuesta = $this->actingAs($this->admin())
+            ->get(route('reportes.ventas.excel', ['desde' => '2026-01-10', 'hasta' => '2026-01-20']));
+
+        $respuesta->assertOk();
+        $respuesta->assertHeader('content-disposition', 'attachment; filename=reporte-ventas_2026-01-10_2026-01-20.xlsx');
+    }
+
+    public function test_quien_no_puede_ver_reportes_tampoco_puede_descargarlos(): void
+    {
+        foreach (['reportes.ventas.excel', 'reportes.productos.excel', 'reportes.ventas.pdf', 'reportes.productos.pdf'] as $ruta) {
+            $this->actingAs($this->cajero())
+                ->get(route($ruta))
+                ->assertForbidden();
+        }
     }
 }

@@ -43,7 +43,7 @@ Composer y npm dentro de los contenedores.
 |----------|-------|--------|
 | Aplicación | <http://localhost:8100> | nginx + php-fpm |
 | Adminer | <http://localhost:8101> | explorar la base sin instalar nada |
-| MySQL | `localhost:3307` | `root` / `ventas123`, base `ventas_db` |
+| MySQL | `localhost:13310` | `root` / `ventas123`, base `ventas_db` |
 | Vite | puerto 5174 | lo consume el navegador solo; no se abre a mano |
 
 Los puertos van en el rango 81xx para no chocar con los otros proyectos del repositorio.
@@ -78,7 +78,7 @@ Desde la **raíz del repositorio** (un nivel arriba de esta carpeta):
 docker compose up -d mysql adminer
 ```
 
-Deja MySQL en `localhost:3307` (usuario `root`, contraseña `ventas123`, base `ventas_db`) y
+Deja MySQL en `localhost:13310` (usuario `root`, contraseña `ventas123`, base `ventas_db`) y
 Adminer en <http://localhost:8101>.
 
 Para volver a cargar el esquema a mano:
@@ -99,6 +99,16 @@ docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventa
 
 ```bash
 docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_21_mas_vendidos_neto.sql
+```
+
+Este corrige el arqueo cuando se devuelve una venta que **no** se cobró en efectivo: el
+procedimiento de cierre descontaba del cajón el importe íntegro de toda devolución, así que
+reembolsar por tarjeta dejaba al cajero con un sobrante a su nombre. Ahora descuenta solo la
+parte que en su día entró en efectivo. **Las sesiones ya cerradas no se tocan**: su
+`monto_esperado` es el arqueo firmado de aquel turno:
+
+```bash
+docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_26_devolucion_solo_efectivo.sql
 ```
 
 Los cuatro del 2026-08-23 no corrigen nada del esquema: dejan el sistema listo para el negocio

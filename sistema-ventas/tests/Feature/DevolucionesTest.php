@@ -455,4 +455,106 @@ class DevolucionesTest extends TestCase
             'usuario_id' => $this->admin()->id,
         ]);
     }
+
+    // ------------------------------------------- la devolución y el cajón
+
+    /**
+     * Vende una unidad con el método indicado y la devuelve entera.
+     *
+     * Devuelve también el total de la venta: según el régimen configurado el
+     * precio lleva impuesto encima, y el test no debe depender de la tasa.
+     *
+     * @return array{0: float, 1: float, 2: float} esperado antes, después, y total de la venta
+     */
+    private function venderYDevolver(SesionCaja $sesion, string $codigoMetodo): array
+    {
+        $venta = Ventas::registrar(
+            sesion: $sesion,
+            usuario: $sesion->usuarioApertura,
+            lineas: [['producto_id' => $this->producto()->id, 'cantidad' => 1, 'precio_unitario' => 10]],
+            pagos: [['metodo_pago_id' => MetodoPago::where('codigo', $codigoMetodo)->value('id'), 'monto' => null]],
+        );
+
+        $antes = $sesion->fresh()->efectivoEsperado();
+
+        Devoluciones::registrar($venta->fresh(), $this->admin(), $sesion,
+            [['venta_detalle_id' => $venta->detalle->first()->id, 'cantidad' => 1]],
+            'Producto en mal estado');
+
+        return [$antes, $sesion->fresh()->efectivoEsperado(), (float) $venta->fresh()->total];
+    }
+
+    /**
+     * Del cajón sale lo que entró: una venta cobrada en efectivo devuelve
+     * efectivo.
+     */
+    public function test_devolver_una_venta_en_efectivo_descuenta_del_cajon(): void
+    {
+        [$antes, $despues, $total] = $this->venderYDevolver($this->turno(), 'EFECTIVO');
+
+        $this->assertEqualsWithDelta($total, $antes - $despues, 0.01,
+            'lo cobrado en efectivo y devuelto debería salir entero del cajón');
+    }
+
+    /**
+     * Y lo que nunca entró, no sale: el reembolso de una venta con tarjeta va
+     * por el mismo medio. Descontarlo del cajón dejaba al cajero con un
+     * sobrante igual al importe devuelto.
+     */
+    public function test_devolver_una_venta_con_tarjeta_no_toca_el_cajon(): void
+    {
+        $sesion = $this->turno();
+        $tarjeta = MetodoPago::where('afecta_caja', 0)->firstOrFail();
+
+        [$antes, $despues] = $this->venderYDevolver($sesion, $tarjeta->codigo);
+
+        $this->assertEqualsWithDelta($antes, $despues, 0.01,
+            'el cajón no debería moverse: con tarjeta no entró ni salió efectivo');
+        // Y sigue siendo el fondo inicial, intacto.
+        $this->assertEqualsWithDelta(200, $despues, 0.01);
+    }
+
+    /** El arqueo firmado al cerrar tiene que decir lo mismo que la pantalla. */
+    public function test_el_cierre_no_inventa_un_sobrante_tras_devolver_con_tarjeta(): void
+    {
+        $sesion = $this->turno(inicial: 200);
+        $tarjeta = MetodoPago::where('afecta_caja', 0)->firstOrFail();
+
+        $this->venderYDevolver($sesion, $tarjeta->codigo);
+
+        // Se cuenta exactamente el fondo inicial: no hubo movimiento de efectivo.
+        Cajas::cerrar($sesion->fresh(), $this->admin(), 200);
+
+        $this->assertEqualsWithDelta(200, (float) $sesion->fresh()->monto_esperado, 0.01);
+        $this->assertEqualsWithDelta(0, (float) $sesion->fresh()->diferencia, 0.01,
+            'contando el fondo intacto no debería aparecer ninguna diferencia');
+    }
+
+    /** En una venta mixta sale del cajón solo la parte cobrada en efectivo. */
+    public function test_en_una_venta_mixta_solo_sale_del_cajon_la_parte_en_efectivo(): void
+    {
+        $sesion = $this->turno();
+        $tarjeta = MetodoPago::where('afecta_caja', 0)->firstOrFail();
+
+        // 4 en efectivo y el resto con tarjeta. El «resto» lo calcula el
+        // servidor, así que el reparto vale con impuesto y sin él.
+        $venta = Ventas::registrar(
+            sesion: $sesion,
+            usuario: $sesion->usuarioApertura,
+            lineas: [['producto_id' => $this->producto()->id, 'cantidad' => 1, 'precio_unitario' => 10]],
+            pagos: [
+                ['metodo_pago_id' => MetodoPago::where('codigo', 'EFECTIVO')->value('id'), 'monto' => 4],
+                ['metodo_pago_id' => $tarjeta->id, 'monto' => null],
+            ],
+        );
+
+        $antes = $sesion->fresh()->efectivoEsperado();
+
+        Devoluciones::registrar($venta->fresh(), $this->admin(), $sesion,
+            [['venta_detalle_id' => $venta->detalle->first()->id, 'cantidad' => 1]],
+            'Producto en mal estado');
+
+        $this->assertEqualsWithDelta(4, $antes - $sesion->fresh()->efectivoEsperado(), 0.01,
+            'del cajón solo salen los 4 cobrados en efectivo; el resto se reembolsa por tarjeta');
+    }
 }

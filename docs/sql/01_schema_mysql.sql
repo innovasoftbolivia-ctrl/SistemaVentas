@@ -1155,8 +1155,21 @@ BEGIN
       INTO v_ingresos, v_egresos
       FROM movimientos_caja WHERE sesion_caja_id = p_sesion_id;
 
-    SELECT IFNULL(SUM(total), 0) INTO v_devuelto
-      FROM devoluciones WHERE sesion_caja_id = p_sesion_id;
+    -- De cada devolución sale del cajón solo la fracción que en su día entró
+    -- en efectivo. Una venta cobrada con tarjeta se reembolsa por el mismo
+    -- medio: descontarla del cajón dejaría al cajero con un sobrante.
+    SELECT IFNULL(SUM(
+               ROUND(d.total * IFNULL(
+                   (SELECT SUM(vp.monto)
+                      FROM venta_pagos vp
+                      JOIN metodos_pago mp ON mp.id = vp.metodo_pago_id
+                     WHERE vp.venta_id = d.venta_id
+                       AND mp.afecta_caja = 1)
+                   / NULLIF(v.total, 0), 0), 2)
+           ), 0) INTO v_devuelto
+      FROM devoluciones d
+      JOIN ventas v ON v.id = d.venta_id
+     WHERE d.sesion_caja_id = p_sesion_id;
 
     SET v_esperado = v_inicial + v_ventas + v_ingresos - v_egresos - v_devuelto;
 

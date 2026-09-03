@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Hojas;
 use App\Support\Config;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Reportes de gestión (objetivo O5).
@@ -45,6 +49,232 @@ class ReporteController extends Controller
             'alertas' => DB::table('v_alertas_stock')->orderByDesc('faltante')->get(),
             'inventario' => $this->valorInventario(),
         ]);
+    }
+
+    // -------------------------------------------------------------- exportación
+
+    public function ventasExcel(Request $request): StreamedResponse
+    {
+        [$desde, $hasta] = $this->rango($request);
+
+        return (new Hojas($this->documentoVentas($desde, $hasta)))
+            ->descargar($this->nombreFichero('ventas', $desde, $hasta, 'xlsx'));
+    }
+
+    public function productosExcel(Request $request): StreamedResponse
+    {
+        [$desde, $hasta] = $this->rango($request);
+
+        return (new Hojas($this->documentoProductos($desde, $hasta)))
+            ->descargar($this->nombreFichero('productos', $desde, $hasta, 'xlsx'));
+    }
+
+    public function ventasPdf(Request $request): Response
+    {
+        [$desde, $hasta] = $this->rango($request);
+
+        return $this->pdf($this->documentoVentas($desde, $hasta), $this->nombreFichero('ventas', $desde, $hasta, 'pdf'));
+    }
+
+    public function productosPdf(Request $request): Response
+    {
+        [$desde, $hasta] = $this->rango($request);
+
+        return $this->pdf($this->documentoProductos($desde, $hasta), $this->nombreFichero('productos', $desde, $hasta, 'pdf'));
+    }
+
+    /**
+     * El PDF sale de la misma estructura que el Excel, así que las dos
+     * descargas no se pueden separar con el tiempo.
+     */
+    private function pdf(array $documento, string $nombreFichero): Response
+    {
+        return Pdf::loadView('reportes.pdf', ['doc' => $documento])
+            ->setPaper('a4', $documento['orientacion'] ?? 'portrait')
+            ->download($nombreFichero);
+    }
+
+    // ------------------------------------------------- contenido de cada reporte
+
+    /**
+     * Qué lleva el reporte de ventas.
+     *
+     * Se exporta lo que sirve para decidir, no todo lo que hay: los días sin
+     * una sola venta se quedan fuera —eran treinta filas de ceros— y el
+     * impuesto solo aparece si el negocio lo desglosa.
+     *
+     * @return array<string, mixed>
+     */
+    private function documentoVentas(Carbon $desde, Carbon $hasta): array
+    {
+        $resumen = $this->resumenVentas($desde, $hasta);
+        $tasa = Config::tasaImpuesto();
+
+        $dias = collect($this->porDia($desde, $hasta))->filter(fn ($d) => $d['ventas'] > 0)->values();
+        $metodos = $this->porMetodoPago($desde, $hasta);
+        $cajeros = $this->porCajero($desde, $hasta);
+
+        $totalMetodos = (float) $metodos->sum('monto');
+        $totalCajeros = (float) $cajeros->sum('monto');
+
+        $indicadores = [
+            ['etiqueta' => 'Operaciones', 'valor' => $resumen['operaciones'], 'formato' => 'entero', 'nota' => 'ventas cobradas, sin contar anuladas'],
+            ['etiqueta' => 'Vendido', 'valor' => $resumen['vendido'], 'formato' => 'moneda', 'nota' => 'suma de los totales cobrados'],
+            ['etiqueta' => 'Devuelto', 'valor' => $resumen['devuelto'], 'formato' => 'moneda', 'nota' => 'salió del cajón por devoluciones'],
+            ['etiqueta' => 'Neto', 'valor' => $resumen['neto'], 'formato' => 'moneda', 'nota' => 'vendido menos devuelto', 'destacar' => true],
+            ['etiqueta' => 'Ticket promedio', 'valor' => $resumen['ticket'], 'formato' => 'moneda', 'nota' => 'vendido entre operaciones'],
+            ['etiqueta' => 'Ventas anuladas', 'valor' => $resumen['anuladas'], 'formato' => 'entero', 'nota' => 'revirtieron su stock'],
+        ];
+
+        if ($tasa > 0) {
+            $indicadores[] = ['etiqueta' => 'Impuesto', 'valor' => $resumen['impuesto'], 'formato' => 'moneda', 'nota' => 'incluido en lo vendido'];
+        }
+
+        return $this->documento('Reporte de ventas', $desde, $hasta, $indicadores, [
+            [
+                'nombre' => 'Ventas por día',
+                'nota' => 'Solo los días con movimiento.',
+                'cabeceras' => ['Día', 'Ventas', 'Ticket promedio', 'Monto'],
+                'formatos' => ['fecha', 'entero', 'moneda', 'moneda'],
+                'alineacion' => ['izq', 'der', 'der', 'der'],
+                'filas' => $dias->map(fn ($d) => [$d['dia'], $d['ventas'], $d['ticket'], $d['monto']])->all(),
+                'totales' => ['Total', $dias->sum('ventas'), null, $dias->sum('monto')],
+                'vacia' => 'No hubo ventas en el período.',
+            ],
+            [
+                'nombre' => 'Por método de pago',
+                'cabeceras' => ['Método de pago', 'Ventas', 'Monto', '% del total'],
+                'formatos' => [null, 'entero', 'moneda', 'porcentaje'],
+                'alineacion' => ['izq', 'der', 'der', 'der'],
+                'filas' => $metodos->map(fn ($f) => [
+                    $f->metodo_pago,
+                    (int) $f->ventas,
+                    (float) $f->monto,
+                    $totalMetodos > 0 ? (float) $f->monto / $totalMetodos : 0,
+                ])->all(),
+                'totales' => ['Total', (int) $metodos->sum('ventas'), $totalMetodos, $totalMetodos > 0 ? 1.0 : 0],
+                'vacia' => 'No se registraron cobros en el período.',
+            ],
+            [
+                'nombre' => 'Por cajero',
+                'nota' => 'Quién cobró cada venta. No incluye las anuladas.',
+                'cabeceras' => ['Cajero', 'Usuario', 'Ventas', 'Ticket', 'Monto', '% del total'],
+                'formatos' => [null, null, 'entero', 'moneda', 'moneda', 'porcentaje'],
+                'alineacion' => ['izq', 'izq', 'der', 'der', 'der', 'der'],
+                'filas' => $cajeros->map(fn ($f) => [
+                    $f->empleado,
+                    $f->usuario,
+                    (int) $f->ventas,
+                    (float) $f->ticket,
+                    (float) $f->monto,
+                    $totalCajeros > 0 ? (float) $f->monto / $totalCajeros : 0,
+                ])->all(),
+                'totales' => ['Total', null, (int) $cajeros->sum('ventas'), null, $totalCajeros, $totalCajeros > 0 ? 1.0 : 0],
+                'vacia' => 'Nadie registró ventas en el período.',
+            ],
+        ]);
+    }
+
+    /**
+     * Qué lleva el reporte de productos: qué hay que reponer y qué se vende.
+     *
+     * @return array<string, mixed>
+     */
+    private function documentoProductos(Carbon $desde, Carbon $hasta): array
+    {
+        $inventario = $this->valorInventario();
+        $alertas = DB::table('v_alertas_stock')->orderByDesc('faltante')->get();
+        $ranking = $this->masVendidos($desde, $hasta)->values();
+
+        $totalVendido = (float) $ranking->sum('monto_vendido');
+
+        $indicadores = [
+            ['etiqueta' => 'Productos activos', 'valor' => $inventario['productos'], 'formato' => 'entero', 'nota' => 'en catálogo'],
+            ['etiqueta' => 'Inventario a costo', 'valor' => $inventario['costo'], 'formato' => 'moneda', 'nota' => 'lo que costó lo que hay en estante'],
+            ['etiqueta' => 'Inventario a venta', 'valor' => $inventario['venta'], 'formato' => 'moneda', 'nota' => 'lo que se cobraría por todo'],
+            ['etiqueta' => 'Margen potencial', 'valor' => $inventario['margen'], 'formato' => 'moneda', 'nota' => 'diferencia entre ambos', 'destacar' => true],
+            ['etiqueta' => 'Productos por reponer', 'valor' => $alertas->count(), 'formato' => 'entero', 'nota' => 'en su stock mínimo o por debajo'],
+        ];
+
+        $doc = $this->documento('Reporte de productos e inventario', $desde, $hasta, $indicadores, [
+            [
+                'nombre' => 'Reponer',
+                'nota' => 'Productos en su stock mínimo o por debajo. Es la foto de ahora mismo, no depende del rango.',
+                'cabeceras' => ['Producto', 'Categoría', 'Stock', 'Mínimo', 'Faltante'],
+                'formatos' => [null, null, 'decimal', 'decimal', 'decimal'],
+                'alineacion' => ['izq', 'izq', 'der', 'der', 'der'],
+                'filas' => $alertas->map(fn ($a) => [
+                    $a->nombre,
+                    $a->categoria,
+                    (float) $a->stock_actual,
+                    (float) $a->stock_minimo,
+                    (float) $a->faltante,
+                ])->all(),
+                'vacia' => 'Nada por reponer: ningún producto está bajo su mínimo.',
+            ],
+            [
+                'nombre' => 'Más vendidos',
+                'nota' => 'Los veinte primeros por importe. Las unidades ya descuentan lo devuelto.',
+                'cabeceras' => ['#', 'Código', 'Producto', 'Categoría', 'Unidades', 'Vendido', '% del total', 'Margen estimado'],
+                'formatos' => ['entero', null, null, null, 'decimal', 'moneda', 'porcentaje', 'moneda'],
+                'alineacion' => ['der', 'izq', 'izq', 'izq', 'der', 'der', 'der', 'der'],
+                'filas' => $ranking->map(fn ($p, $i) => [
+                    $i + 1,
+                    $p->codigo,
+                    $p->nombre,
+                    $p->categoria,
+                    (float) $p->unidades_vendidas,
+                    (float) $p->monto_vendido,
+                    $totalVendido > 0 ? (float) $p->monto_vendido / $totalVendido : 0,
+                    (float) $p->margen_estimado,
+                ])->all(),
+                'totales' => [null, null, 'Total', null, (float) $ranking->sum('unidades_vendidas'), $totalVendido, $totalVendido > 0 ? 1.0 : 0, (float) $ranking->sum('margen_estimado')],
+                'vacia' => 'No se vendió ningún producto en el período.',
+            ],
+        ]);
+
+        // Ocho columnas no caben de pie en un A4.
+        $doc['orientacion'] = 'landscape';
+
+        return $doc;
+    }
+
+    /**
+     * Envoltorio común: cabecera del negocio, período y moneda.
+     *
+     * @param  array<int, array<string, mixed>>  $indicadores
+     * @param  array<int, array<string, mixed>>  $tablas
+     * @return array<string, mixed>
+     */
+    private function documento(string $titulo, Carbon $desde, Carbon $hasta, array $indicadores, array $tablas): array
+    {
+        return [
+            'titulo' => $titulo,
+            'negocio' => [
+                'nombre' => Config::negocio(),
+                'documento' => Config::get('negocio_documento'),
+                'direccion' => Config::get('negocio_direccion'),
+                'telefono' => Config::get('negocio_telefono'),
+            ],
+            'moneda' => Config::moneda(),
+            'periodo' => 'Período del '.$desde->format('d/m/Y').' al '.$hasta->format('d/m/Y'),
+            'generado' => now()->format('d/m/Y H:i'),
+            'orientacion' => 'portrait',
+            'indicadores' => $indicadores,
+            'tablas' => $tablas,
+        ];
+    }
+
+    /** Nombre con el rango dentro, para que dos descargas no se pisen. */
+    private function nombreFichero(string $reporte, Carbon $desde, Carbon $hasta, string $extension): string
+    {
+        return sprintf(
+            'reporte-%s_%s_%s.%s',
+            $reporte,
+            $desde->format('Y-m-d'),
+            $hasta->format('Y-m-d'),
+            $extension
+        );
     }
 
     // ------------------------------------------------------------------ rango

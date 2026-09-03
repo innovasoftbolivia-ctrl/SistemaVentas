@@ -18,7 +18,7 @@
 @section('content')
     <div class="space-y-6">
 
-        <x-common.rango-fechas :accion="route('reportes.productos')" :desde="$desde" :hasta="$hasta" />
+        <x-common.rango-fechas :accion="route('reportes.productos')" :excel="route('reportes.productos.excel')" :pdf="route('reportes.productos.pdf')" :desde="$desde" :hasta="$hasta" />
 
         {{-- Inventario, que es una foto de hoy y no depende del rango --}}
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">

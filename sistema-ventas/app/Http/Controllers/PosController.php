@@ -32,7 +32,13 @@ class PosController extends Controller
             'title' => 'Punto de venta',
             'sesion' => $sesion,
             'metodosPago' => MetodoPago::activos()->orderBy('id')->get(),
-            'categorias' => Categoria::activas()->orderBy('nombre')->pluck('nombre', 'id'),
+            // Con el conteo al lado: un desplegable esconde que «Abarrotes»
+            // tiene setenta productos y «Golosinas» dos.
+            'categorias' => Categoria::activas()
+                ->withCount(['productos' => fn ($q) => $q->activos()])
+                ->having('productos_count', '>', 0)
+                ->orderBy('nombre')
+                ->get(['id', 'nombre']),
             'clientes' => Cliente::activos()->orderBy('nombre')->limit(50)->get()
                 ->map(fn (Cliente $c) => [
                     'id' => $c->id,
@@ -75,6 +81,8 @@ class PosController extends Controller
                 'unidad' => $p->unidadMedida?->codigo,
                 'decimal' => (bool) $p->unidadMedida?->permite_decimal,
                 'imagen' => $p->imagen_url,
+                // Tiñe la pieza con la inicial mientras el producto no tenga foto.
+                'categoria_id' => $p->categoria_id,
             ])
         );
     }

@@ -121,6 +121,13 @@ Route::middleware(['auth', 'cuenta.vigente'])->group(function () {
     Route::middleware('permiso:reportes.ver')->group(function () {
         Route::get('reportes/ventas', [ReporteController::class, 'ventas'])->name('reportes.ventas');
         Route::get('reportes/productos', [ReporteController::class, 'productos'])->name('reportes.productos');
+
+        // Los mismos reportes para llevar, respetando el rango de fechas que se
+        // esté viendo: se descarga lo que hay en pantalla.
+        Route::get('reportes/ventas/excel', [ReporteController::class, 'ventasExcel'])->name('reportes.ventas.excel');
+        Route::get('reportes/productos/excel', [ReporteController::class, 'productosExcel'])->name('reportes.productos.excel');
+        Route::get('reportes/ventas/pdf', [ReporteController::class, 'ventasPdf'])->name('reportes.ventas.pdf');
+        Route::get('reportes/productos/pdf', [ReporteController::class, 'productosPdf'])->name('reportes.productos.pdf');
     });
 
     // ---- Caja ----

@@ -26,7 +26,7 @@
 @section('content')
     <div class="space-y-6">
 
-        <x-common.rango-fechas :accion="route('reportes.ventas')" :desde="$desde" :hasta="$hasta" />
+        <x-common.rango-fechas :accion="route('reportes.ventas')" :excel="route('reportes.ventas.excel')" :pdf="route('reportes.ventas.pdf')" :desde="$desde" :hasta="$hasta" />
 
         {{-- Cifras del período --}}
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">

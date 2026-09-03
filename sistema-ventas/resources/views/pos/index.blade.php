@@ -36,56 +36,97 @@
                                 class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 h-12 w-full rounded-lg border border-gray-300 bg-transparent py-2.5 pr-4 pl-12 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30" />
                         </div>
 
-                        <select x-model="categoria" @change="cargar()"
-                            class="dark:bg-dark-900 h-12 rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 sm:w-56">
-                            <option value="">Todas las categorías</option>
-                            @foreach ($categorias as $id => $nombre)
-                                <option value="{{ $id }}">{{ $nombre }}</option>
-                            @endforeach
-                        </select>
                     </div>
 
-                    <p class="mt-3 text-theme-xs text-gray-500 dark:text-gray-400">
-                        <b>Enter</b> agrega el primer resultado · <b>F2</b> vuelve al buscador · <b>F4</b> cobra
-                    </p>
+                    {{-- Los atajos dibujados como teclas: se leen de un vistazo,
+                         que es lo que hace falta en un mostrador. --}}
+                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                        <span class="flex items-center gap-1.5"><kbd class="tecla">Enter</kbd> agrega el primero</span>
+                        <span class="flex items-center gap-1.5"><kbd class="tecla">F2</kbd> vuelve al buscador</span>
+                        <span class="flex items-center gap-1.5"><kbd class="tecla">F4</kbd> cobra</span>
+                    </div>
+
+                    {{-- Fichas en vez de desplegable: se ve de un golpe cuántos
+                         productos hay en cada categoría y se elige de un toque.
+                         El scroll horizontal las salva en pantallas estrechas. --}}
+                    <div class="-mx-1 mt-3 flex gap-2 overflow-x-auto overscroll-contain px-1 pb-1">
+                        <button type="button" @click="categoria = ''; cargar()"
+                            :class="categoria === ''
+                                ? 'bg-brand-500 text-white'
+                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400 dark:hover:bg-white/10'"
+                            class="flex-none rounded-full px-3.5 py-1.5 text-theme-xs font-medium transition">
+                            Todas
+                        </button>
+
+                        @foreach ($categorias as $categoria)
+                            <button type="button" @click="categoria = '{{ $categoria->id }}'; cargar()"
+                                :class="categoria === '{{ $categoria->id }}'
+                                    ? 'bg-brand-500 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.06] dark:text-gray-400 dark:hover:bg-white/10'"
+                                class="flex-none rounded-full px-3.5 py-1.5 text-theme-xs font-medium transition">
+                                {{ $categoria->nombre }}
+                                <span class="opacity-60">{{ $categoria->productos_count }}</span>
+                            </button>
+                        @endforeach
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {{-- Dos columnas en el teléfono, tres en tableta y cuatro de ahí
+                     en adelante. En `xl` el carrito se lleva dos quintos del
+                     ancho, así que cuatro columnas siguen siendo cómodas. --}}
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                     <template x-for="p in productos" :key="p.id">
                         <button type="button" @click="agregar(p)" :disabled="p.stock <= 0"
-                            class="rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-brand-300 hover:shadow-theme-md disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-800">
-                            {{-- Recuadro de medida fija con la foto ajustada dentro:
-                                 así una botella vertical y una caja apaisada ocupan
-                                 lo mismo y la cuadrícula no se descuadra. --}}
-                            <template x-if="p.imagen">
-                                <span class="mb-3 flex h-24 w-full items-center justify-center overflow-hidden rounded-xl border border-gray-100 bg-white p-1.5 dark:border-gray-700">
+                            class="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white text-left transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-theme-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:translate-y-0 disabled:hover:shadow-none dark:border-gray-800 dark:bg-white/[0.03] dark:hover:border-brand-800">
+
+                            {{-- La foto manda en la tarjeta: ocupa el ancho completo
+                                 en 4:3, sin marco.
+
+                                 `object-scale-down` y NO `object-cover`: el recuadro
+                                 mide siempre lo mismo, pero la foto entra entera.
+                                 Recortarla dejaría fuera parte del envase, que es
+                                 justo por lo que el cajero la reconoce. El fondo
+                                 claro hace que el aire alrededor se vea a propósito. --}}
+                            <span class="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-white p-2 dark:bg-white/[0.06]">
+                                <template x-if="p.imagen">
                                     <img :src="p.imagen" :alt="p.nombre" loading="lazy"
                                         class="max-h-full max-w-full object-scale-down" />
-                                </span>
-                            </template>
+                                </template>
 
-                            <template x-if="!p.imagen">
-                                <span class="mb-3 flex h-24 w-full items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-white/[0.02] dark:text-gray-600">
-                                    <svg aria-hidden="true" class="h-8 w-8" viewBox="0 0 24 24" fill="none">
-                                        <path d="M3.75 7.25 12 3.5l8.25 3.75-8.25 3.75L3.75 7.25Z" stroke="currentColor"
-                                            stroke-width="1.5" stroke-linejoin="round" />
-                                        <path d="M3.75 12 12 15.75 20.25 12M3.75 16.75 12 20.5l8.25-3.75"
-                                            stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-                                            stroke-linejoin="round" />
-                                    </svg>
-                                </span>
-                            </template>
+                                {{-- Sin foto todavía: pieza de color con la inicial,
+                                     teñida por categoría. Se ve intencionado en vez
+                                     de roto, y desaparece sola al subir la imagen. --}}
+                                <template x-if="!p.imagen">
+                                    <span class="flex h-full w-full items-center justify-center text-2xl font-bold"
+                                        :class="tonoCategoria(p.categoria_id)"
+                                        x-text="p.nombre.trim().charAt(0).toUpperCase()"></span>
+                                </template>
 
-                            <p class="mb-1 line-clamp-2 min-h-10 text-theme-sm font-medium text-gray-800 dark:text-white/90"
-                                x-text="p.nombre"></p>
-                            <p class="font-mono text-theme-xs text-gray-500 dark:text-gray-400" x-text="p.codigo"></p>
-                            <div class="mt-2 flex items-end justify-between">
-                                <span class="text-base font-semibold text-brand-500 dark:text-brand-400"
-                                    x-text="'{{ $moneda }} ' + p.precio_estante.toFixed(2)"></span>
-                                <span class="text-theme-xs"
-                                    :class="p.stock <= 0 ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400'"
-                                    x-text="p.stock <= 0 ? 'agotado' : (cantidadTexto(p.stock) + ' ' + p.unidad)"></span>
-                            </div>
+                                {{-- Lo que ya va en el carrito, con su cantidad: evita
+                                     agregar dos veces el mismo producto sin notarlo. --}}
+                                <template x-if="enCarrito(p.id)">
+                                    <span class="absolute right-2 top-2 flex h-7 min-w-7 items-center justify-center rounded-full bg-success-600 px-2 text-theme-xs font-bold text-white shadow-theme-sm"
+                                        x-text="cantidadTexto(enCarrito(p.id))"></span>
+                                </template>
+
+                                <template x-if="p.stock <= 0">
+                                    <span class="absolute inset-x-0 bottom-0 bg-error-600/90 py-1 text-center text-theme-xs font-semibold text-white">
+                                        Agotado
+                                    </span>
+                                </template>
+                            </span>
+
+                            <span class="block p-3">
+                                <span class="mb-1 line-clamp-2 min-h-9 text-theme-sm font-medium leading-snug text-gray-800 dark:text-white/90"
+                                    x-text="p.nombre"></span>
+                                <span class="flex items-baseline justify-between gap-2">
+                                    <span class="text-base font-bold text-brand-600 dark:text-brand-400"
+                                        x-text="'{{ $moneda }} ' + p.precio_estante.toFixed(2)"></span>
+                                    <span class="text-theme-xs whitespace-nowrap"
+                                        :class="p.stock > 0 && p.stock <= 5 ? 'text-warning-700 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400'"
+                                        x-text="p.stock <= 0 ? '' : (cantidadTexto(p.stock) + ' ' + p.unidad)"></span>
+                                </span>
+                            </span>
                         </button>
                     </template>
 
@@ -99,17 +140,30 @@
             <div class="xl:col-span-2">
                 {{-- En escritorio el carrito acompaña el desplazamiento; en móvil
                      va después de la cuadrícula y se llega a él con la barra
-                     flotante de abajo. --}}
+                     flotante de abajo.
+
+                     `overflow-hidden` y NO `overflow-y-auto`: el panel entero no
+                     se desplaza. Si lo hace, el pie —con el total y el botón de
+                     cobrar— se va por debajo del borde de la pantalla y el cajero
+                     tiene que rodar la rueda para cobrar. Aquí solo se desplaza
+                     la zona de dentro que lleva `overflow-y-auto`, y el pie queda
+                     anclado siempre a la vista. --}}
                 <form method="POST" action="{{ route('pos.store') }}" @submit="preparar($event)" x-ref="carrito"
-                    class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-11rem)] xl:overflow-y-auto overscroll-contain">
+                    class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-8rem)] xl:overflow-hidden">
                     @csrf
                     <div x-ref="campos"></div>
 
                     <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
-                        <div class="flex items-center justify-between">
-                            <h2 class="text-base font-medium text-gray-800 dark:text-white/90">Carrito</h2>
-                            <button type="button" x-show="carrito.length" @click="carrito = []"
-                                class="text-theme-xs text-error-600 dark:text-error-400 hover:text-error-600">Vaciar</button>
+                        <div class="flex items-center justify-between gap-3">
+                            <h2 class="text-base font-semibold text-gray-800 dark:text-white/90">Carrito</h2>
+
+                            <div class="flex items-center gap-3">
+                                <span x-show="carrito.length"
+                                    class="rounded-full bg-brand-50 px-3 py-1 text-theme-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-400"
+                                    x-text="cantidadTexto(articulos) + (articulos == 1 ? ' artículo' : ' artículos')"></span>
+                                <button type="button" x-show="carrito.length" @click="carrito = []"
+                                    class="text-theme-xs text-error-600 dark:text-error-400 hover:text-error-600">Vaciar</button>
+                            </div>
                         </div>
                         <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
                             {{ $sesion->caja?->nombre }} · turno abierto por {{ $sesion->usuarioApertura?->usuario ?? auth()->user()->usuario }}
@@ -165,9 +219,21 @@
                             </div>
                         </template>
 
-                        <p x-show="!carrito.length" class="px-5 py-10 text-center text-theme-sm text-gray-500 dark:text-gray-400">
-                            Busca un producto o pasa el lector de código de barras.
-                        </p>
+                        {{-- El carrito vacío es el estado más frecuente al empezar
+                             una venta: dice qué hacer, en vez de una línea de
+                             texto gris en medio de un hueco. --}}
+                        <div x-show="!carrito.length" class="flex min-h-40 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+                            <span class="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 dark:bg-brand-500/10 dark:text-brand-400">
+                                <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none">
+                                    <path d="M4 7V5a1 1 0 0 1 1-1h2M4 17v2a1 1 0 0 0 1 1h2M20 7V5a1 1 0 0 0-1-1h-2M20 17v2a1 1 0 0 1-1 1h-2M7 8v8M10 8v8M13 8v8M17 8v8"
+                                        stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                                </svg>
+                            </span>
+                            <p class="text-theme-sm font-medium text-gray-700 dark:text-gray-300">Escanea el primer producto</p>
+                            <p class="text-theme-xs text-gray-500 dark:text-gray-400">
+                                o búscalo por nombre y pulsa <kbd class="tecla">Enter</kbd>
+                            </p>
+                        </div>
                     </div>
 
                     {{-- Cliente --}}
@@ -222,9 +288,12 @@
                             </div>
                         @endif
 
-                        <div class="flex items-baseline justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
-                            <span class="font-medium text-gray-800 dark:text-white/90">Total</span>
-                            <span class="text-title-sm font-semibold text-brand-500 dark:text-brand-400"
+                        {{-- El total es la cifra que el cajero canta y el cliente
+                             mira: se le da su propio bloque para que no compita
+                             con el resto de la columna. --}}
+                        <div class="mt-1 flex items-baseline justify-between gap-3 rounded-xl bg-brand-50 px-4 py-3 dark:bg-brand-500/10">
+                            <span class="font-semibold text-gray-800 dark:text-white/90">Total</span>
+                            <span class="text-title-sm font-bold text-brand-600 dark:text-brand-400"
                                 x-text="'{{ $moneda }} ' + total.toFixed(2)"></span>
                         </div>
                     </div>
@@ -279,10 +348,23 @@
                             </div>
                         </template>
 
+                        {{-- Deshabilitado se ve gris, no azul claro: un botón azul
+                             que no responde parece un fallo. Y en vez de repetir
+                             «Cobrar Bs 0.00» dice qué falta para poder cobrar. --}}
                         <button type="submit" x-ref="cobrar" :disabled="!puedeCobrar || enviando"
-                            class="flex w-full items-center justify-center rounded-lg bg-brand-500 px-4 py-3.5 text-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-brand-300">
-                            <span x-show="!enviando" x-text="'Cobrar {{ $moneda }} ' + total.toFixed(2)"></span>
-                            <span x-show="enviando">Registrando…</span>
+                            class="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-base font-semibold text-white transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 dark:disabled:bg-white/[0.06] dark:disabled:text-gray-500">
+                            <template x-if="enviando">
+                                <span>Registrando…</span>
+                            </template>
+                            <template x-if="!enviando && !carrito.length">
+                                <span>Agrega un producto para cobrar</span>
+                            </template>
+                            <template x-if="!enviando && carrito.length">
+                                <span class="flex items-center gap-2">
+                                    <span x-text="'Cobrar {{ $moneda }} ' + total.toFixed(2)"></span>
+                                    <kbd class="tecla" x-show="puedeCobrar">F4</kbd>
+                                </span>
+                            </template>
                         </button>
 
                         <p x-show="carrito.length && !puedeCobrar && !enviando"
@@ -405,6 +487,34 @@
 
                         cantidadTexto(n) {
                             return Number(n).toFixed(3).replace(/\.?0+$/, '');
+                        },
+
+                        /* Cuánto de este producto va ya en el carrito, o 0. */
+                        enCarrito(productoId) {
+                            const linea = this.carrito.find((l) => l.producto_id === productoId);
+
+                            return linea ? linea.cantidad : 0;
+                        },
+
+                        /* Cuántos artículos lleva el carrito en total. */
+                        get articulos() {
+                            return this.carrito.reduce((s, l) => s + Number(l.cantidad), 0);
+                        },
+
+                        /* Color de la pieza con la inicial, mientras el producto no
+                           tenga foto. Se reparte por categoría para que la
+                           cuadrícula no sea un muro del mismo tono; el resto van
+                           en gris. */
+                        tonoCategoria(id) {
+                            const tonos = [
+                                'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400',
+                                'bg-blue-light-50 text-blue-light-700 dark:bg-blue-light-500/15 dark:text-blue-light-400',
+                                'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-500',
+                                'bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-400',
+                                'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-orange-400',
+                            ];
+
+                            return id ? tonos[id % tonos.length] : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400';
                         },
 
                         /* Los precios se guardan sin impuesto; el total lo lleva encima. */

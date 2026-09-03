@@ -2,6 +2,9 @@
     'accion',
     'desde',
     'hasta',
+    // Rutas de descarga. Si no se pasan, el botón no aparece.
+    'excel' => null,
+    'pdf' => null,
 ])
 
 @php
@@ -51,6 +54,26 @@
 
         <div class="flex flex-wrap items-center gap-3 md:col-span-4">
             <x-ui.button type="submit" size="sm">Aplicar</x-ui.button>
+
+            @php
+                // Enlaces y no botones del formulario: descargan el rango que ya
+                // está aplicado, sin reenviarlo.
+                $consulta = '?desde='.$desde->toDateString().'&hasta='.$hasta->toDateString();
+                $iconoDescarga = '<svg aria-hidden=\'true\' width=\'16\' height=\'16\' viewBox=\'0 0 24 24\' fill=\'none\'><path d=\'M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2\' stroke=\'currentColor\' stroke-width=\'1.8\' stroke-linecap=\'round\' stroke-linejoin=\'round\'/></svg>';
+            @endphp
+
+            @if ($excel)
+                <x-ui.button size="sm" variant="outline" :href="$excel.$consulta" :start-icon="$iconoDescarga">
+                    Excel
+                </x-ui.button>
+            @endif
+
+            @if ($pdf)
+                <x-ui.button size="sm" variant="outline" :href="$pdf.$consulta" :start-icon="$iconoDescarga">
+                    PDF
+                </x-ui.button>
+            @endif
+
             <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                 Mostrando del <b>{{ $desde->format('d/m/Y') }}</b> al <b>{{ $hasta->format('d/m/Y') }}</b>
                 ({{ $dias }} {{ $dias === 1 ? 'día' : 'días' }}).

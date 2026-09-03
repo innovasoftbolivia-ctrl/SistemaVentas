@@ -307,6 +307,22 @@
   }
 }
 
+/* Tecla del teclado dibujada, para los atajos del mostrador. Un «Enter» con
+   forma de tecla se reconoce sin leerlo; en texto gris hay que descifrarlo. */
+.tecla {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  padding: 1px 6px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
 /* El contenido se aparta de la barra lateral fija. El ancho llega en
    `--ancho-barra` (lo pone el servidor y lo alterna Alpine), de modo que plegar
    la barra solo cambia un número y nunca deja al contenido sin margen. */

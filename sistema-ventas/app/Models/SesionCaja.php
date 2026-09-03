@@ -91,7 +91,27 @@ class SesionCaja extends Model
 
         $ingresos = (float) $this->movimientos()->where('tipo', 'INGRESO')->sum('monto');
         $egresos = (float) $this->movimientos()->where('tipo', 'EGRESO')->sum('monto');
-        $devuelto = (float) $this->devoluciones()->sum('total');
+
+        /*
+         * De cada devolución sale del cajón solo la fracción que en su día entró
+         * en efectivo: una venta cobrada con tarjeta se reembolsa por el mismo
+         * medio, y descontarla de aquí dejaría al cajero con un sobrante.
+         *
+         * La fórmula es la misma que la de `sp_cerrar_caja`, y tiene que
+         * seguir siéndolo: esta pantalla enseña el esperado y aquel procedimiento
+         * lo firma al cerrar. Si se separan, el cajero ve un número y el arqueo
+         * registra otro.
+         */
+        $devuelto = (float) $this->devoluciones()
+            ->join('ventas', 'ventas.id', '=', 'devoluciones.venta_id')
+            ->selectRaw(
+                'IFNULL(SUM(ROUND(devoluciones.total * IFNULL('.
+                '(SELECT SUM(vp.monto) FROM venta_pagos vp '.
+                'JOIN metodos_pago mp ON mp.id = vp.metodo_pago_id '.
+                'WHERE vp.venta_id = devoluciones.venta_id AND mp.afecta_caja = 1)'.
+                ' / NULLIF(ventas.total, 0), 0), 2)), 0) AS efectivo'
+            )
+            ->value('efectivo');
 
         return round((float) $this->monto_inicial + $ventas + $ingresos - $egresos - $devuelto, 2);
     }
