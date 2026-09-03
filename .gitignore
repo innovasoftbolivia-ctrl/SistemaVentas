@@ -1,0 +1,6 @@
+# Variables de este docker-compose (contraseña de MySQL de esta instalación).
+# La plantilla es .env.example; este archivo real no se sube al repositorio.
+.env
+
+# Copias de seguridad generadas por scripts/backup-db.sh.
+/backups/

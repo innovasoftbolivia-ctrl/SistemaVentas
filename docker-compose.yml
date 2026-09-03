@@ -1,15 +1,20 @@
 # =============================================================================
-#  Sistema de Venta de Productos - entorno de desarrollo completo
+#  Sistema de Venta de Productos - Docker Compose
 #
-#      docker compose up -d --build   levanta todo (la primera vez carga docs/sql)
-#      docker compose logs -f app     sigue los logs de la aplicación
-#      docker compose exec app sh     shell dentro del contenedor
-#      docker compose down            detiene, conservando los datos
-#      docker compose down -v         detiene y BORRA los datos
+#  Sirve tanto para desarrollo como para una instalación real: lo que cambia
+#  entre una y otra es la contraseña de este .env y sistema-ventas/.env.docker
+#  (ver las plantillas .env.example de cada uno), no este archivo.
+#
+#      docker compose up -d --build             levanta la aplicación
+#      docker compose --profile tools up -d adminer   + Adminer, cuando haga falta
+#      docker compose logs -f app                sigue los logs de la aplicación
+#      docker compose exec app sh                shell dentro del contenedor
+#      docker compose down                       detiene, conservando los datos
+#      docker compose down -v                    detiene y BORRA los datos
 #
 #  Aplicación -> http://localhost:8100
-#  Adminer    -> http://localhost:8101
-#  MySQL      -> localhost:13310  usuario root / ventas123   base ventas_db
+#  Adminer    -> http://localhost:8101   (solo con --profile tools)
+#  MySQL      -> 127.0.0.1:13310  usuario root, base ventas_db  (solo desde esta máquina)
 #  Vite HMR   -> puerto 5174, lo consume el navegador solo (no se abre a mano)
 #
 #  Los puertos están en el rango 81xx para no chocar con los otros proyectos del
@@ -81,7 +86,11 @@ services:
     container_name: ventas_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ventas123
+      # Sale de .env en esta misma carpeta (ver .env.example). Sin ese
+      # archivo cae en "ventas123" para no romper una instalación de
+      # desarrollo que ya existía sin él — una instalación real (cliente)
+      # debería traer su propia contraseña, distinta de las demás.
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-ventas123}
       TZ: America/Lima
     command: >
       --character-set-server=utf8mb4
@@ -103,15 +112,20 @@ services:
       #
       # 2. Cada proyecto del repositorio necesita el suyo para poder levantar
       #    dos a la vez: granja usa el 13307 y asistencia el 13309.
-      - "13310:3306"
+      #
+      # "127.0.0.1:" y no solo el puerto: publicado así solo se alcanza desde
+      # esta misma máquina. En un servidor real (cliente), nada de fuera debería
+      # poder llegar directo a MySQL; quien necesite Workbench/DBeaver contra un
+      # servidor remoto entra por un túnel SSH, no por el puerto abierto.
+      - "127.0.0.1:13310:3306"
     volumes:
       - ventas_data:/var/lib/mysql
       # Al primer arranque el contenedor ejecuta estos scripts en orden
       # alfabético. El mismo montaje sirve para volver a cargarlos a mano:
-      #   docker exec -i ventas_mysql mysql -uroot -pventas123 < docs/sql/01_schema_mysql.sql
+      #   docker exec -i ventas_mysql mysql -uroot -p"$DB_PASSWORD" < docs/sql/01_schema_mysql.sql
       - ./docs/sql:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pventas123"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]
       interval: 5s
       timeout: 5s
       retries: 30
@@ -147,11 +161,19 @@ services:
 
   # ---------------------------------------------------------------------------
   # Adminer: explorar la base sin instalar nada
+  #
+  # Detrás de un perfil y NO arriba por defecto: es un cliente de base de datos
+  # sin autenticación propia —quien llega al puerto entra con lo que sepa del
+  # root de MySQL— y no tiene sentido tenerlo escuchando todo el tiempo en un
+  # servidor real. Para levantarlo cuando haga falta:
+  #
+  #   docker compose --profile tools up -d adminer
   # ---------------------------------------------------------------------------
   adminer:
     image: adminer:4
     container_name: ventas_adminer
     restart: unless-stopped
+    profiles: [tools]
     ports:
       # 8101 y no 8080: ese lo ocupa el nginx del proyecto Aerolinea.
       - "8101:8080"

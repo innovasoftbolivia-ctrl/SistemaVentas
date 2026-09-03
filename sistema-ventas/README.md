@@ -35,6 +35,19 @@ Desde la **raíz del repositorio** (un nivel arriba de esta carpeta):
 docker compose up -d --build
 ```
 
+Antes del primer arranque, copia las plantillas de configuración (una vez por instalación —
+desarrollo o cliente— no por cada `docker compose up`):
+
+```bash
+cp .env.example .env                                    # una carpeta arriba de esta
+cp sistema-ventas/.env.docker.example sistema-ventas/.env.docker
+```
+
+Y completa en `sistema-ventas/.env.docker` la `APP_KEY` (`php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"`)
+y una contraseña en `DB_PASSWORD` —la misma que pongas en el `.env` de la raíz—. Sin este paso,
+Docker sigue arrancando con una clave y contraseña de repaso que **no** deben usarse fuera de tu
+propia máquina de desarrollo.
+
 Y ya está: la aplicación queda en <http://localhost:8100>. La primera vez tarda unos minutos,
 porque construye la imagen de PHP, carga `docs/sql` en MySQL e instala las dependencias de
 Composer y npm dentro de los contenedores.
@@ -42,11 +55,18 @@ Composer y npm dentro de los contenedores.
 | Servicio | Dónde | Qué es |
 |----------|-------|--------|
 | Aplicación | <http://localhost:8100> | nginx + php-fpm |
-| Adminer | <http://localhost:8101> | explorar la base sin instalar nada |
-| MySQL | `localhost:13310` | `root` / `ventas123`, base `ventas_db` |
+| Adminer | <http://localhost:8101> | explorar la base; **no** arranca solo, ver abajo |
+| MySQL | `127.0.0.1:13310` | `root` / la de tu `.env`, base `ventas_db`. Solo desde esta máquina |
 | Vite | puerto 5174 | lo consume el navegador solo; no se abre a mano |
 
 Los puertos van en el rango 81xx para no chocar con los otros proyectos del repositorio.
+
+Adminer queda detrás de un perfil aparte: es un cliente de base de datos sin login propio, y no
+tiene sentido dejarlo escuchando todo el tiempo en un servidor real.
+
+```bash
+docker compose --profile tools up -d adminer
+```
 
 El contenedor `app` se encarga solo del `composer install`, del `storage:link` y del seeder de
 credenciales, así que no hay ningún paso manual detrás. Para seguir el arranque:
@@ -63,9 +83,10 @@ docker compose exec app php artisan route:list
 
 `docker compose down` detiene y conserva los datos; `docker compose down -v` los borra.
 
-> La configuración del entorno Docker vive en `sistema-ventas/.env.docker`. Llega a los
-> contenedores como variables de entorno reales y Laravel les da prioridad sobre el `.env`
-> del proyecto, que sigue siendo el bueno para la opción B.
+> La configuración del entorno Docker vive en `sistema-ventas/.env.docker` (plantilla:
+> `.env.docker.example`, no se sube al repositorio). Llega a los contenedores como variables de
+> entorno reales y Laravel les da prioridad sobre el `.env` del proyecto, que sigue siendo el
+> bueno para la opción B.
 
 ### Opción B — a mano
 
@@ -78,8 +99,9 @@ Desde la **raíz del repositorio** (un nivel arriba de esta carpeta):
 docker compose up -d mysql adminer
 ```
 
-Deja MySQL en `localhost:13310` (usuario `root`, contraseña `ventas123`, base `ventas_db`) y
-Adminer en <http://localhost:8101>.
+Deja MySQL en `127.0.0.1:13310` (usuario `root`, la contraseña de tu `.env` — `ventas123` si no
+tienes uno, ver [Opción A](#opción-a--todo-con-docker-recomendada)) y Adminer en
+<http://localhost:8101>.
 
 Para volver a cargar el esquema a mano:
 
@@ -564,6 +586,34 @@ quedan intactos.
 
 ---
 
+## Copias de seguridad
+
+`scripts/backup-db.sh`, desde la raíz del repositorio, vuelca `ventas_db` completa —incluidos
+los procedimientos almacenados y triggers, que un `mysqldump` sin las banderas correctas deja
+fuera en silencio— comprimida y con fecha en el nombre, dentro de `backups/` (no se sube al
+repositorio). Borra solas las copias de más de 14 días (`RETENTION_DAYS` para cambiarlo).
+
+```bash
+./scripts/backup-db.sh
+```
+
+Para restaurar una copia (**sobrescribe** la base actual; pide confirmación):
+
+```bash
+./scripts/restore-db.sh backups/ventas_db_20260901_010000.sql.gz
+```
+
+En un servidor real, prográmalo con `cron`:
+
+```
+0 1 * * *  cd /ruta/al/proyecto && ./scripts/backup-db.sh >> backups/backup.log 2>&1
+```
+
+Y de cuando en cuando, prueba que una copia efectivamente restaura —una copia que nunca se
+probó a restaurar no es una copia de seguridad, es una promesa.
+
+---
+
 ## Mapa del código
 
 ```
@@ -609,6 +659,7 @@ app/
 
 resources/views/
   layouts/                       app (con barra lateral) y auth (pantalla completa)
+  errors/                        404/403/419/500/503 — layout auth, sin sesión ni datos
   components/                    ui.*, form.*, common.*, header.*
   auth/ empleados/ cargos/ usuarios/ roles/ perfil/
   productos/ categorias/ unidades/ proveedores/
