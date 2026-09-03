@@ -51,8 +51,11 @@
                 </svg>
             </button>
 
-            <!-- Buscador de empleados (escritorio) -->
+            {{-- Buscador de empleados (escritorio). Oculto en el mostrador: ahí
+                 el buscador que importa es el de productos, que ya tiene el
+                 foco, y «Buscar empleado» en esa pantalla solo confunde. --}}
             @puede('empleados.gestionar')
+                @unless (request()->routeIs('pos.index'))
                 <div class="hidden xl:block">
                     <form action="{{ route('empleados.index') }}" method="GET" role="search">
                         <div class="relative">
@@ -76,6 +79,7 @@
                         </div>
                     </form>
                 </div>
+                @endunless
             @endpuede
         </div>
 

@@ -93,13 +93,19 @@
                                         class="max-h-full max-w-full object-scale-down" />
                                 </template>
 
-                                {{-- Sin foto todavía: pieza de color con la inicial,
-                                     teñida por categoría. Se ve intencionado en vez
-                                     de roto, y desaparece sola al subir la imagen. --}}
+                                {{-- Sin foto todavía: icono neutro. La inicial no sirve
+                                     de por sí para distinguir productos —más de la
+                                     mitad del catálogo empieza por la misma letra—,
+                                     así que aquí solo se avisa «sin foto todavía»;
+                                     lo que sí distingue es el código y la categoría,
+                                     debajo del nombre. --}}
                                 <template x-if="!p.imagen">
-                                    <span class="flex h-full w-full items-center justify-center text-2xl font-bold"
-                                        :class="tonoCategoria(p.categoria_id)"
-                                        x-text="p.nombre.trim().charAt(0).toUpperCase()"></span>
+                                    <span class="flex h-full w-full items-center justify-center text-gray-300 dark:text-white/15">
+                                        <svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none">
+                                            <path d="M3.75 7.25 12 3.5l8.25 3.75-8.25 3.75L3.75 7.25Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                                            <path d="M3.75 12 12 15.75 20.25 12M3.75 16.75 12 20.5l8.25-3.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    </span>
                                 </template>
 
                                 {{-- Lo que ya va en el carrito, con su cantidad: evita
@@ -119,6 +125,18 @@
                             <span class="block p-3">
                                 <span class="mb-1 line-clamp-2 min-h-9 text-theme-sm font-medium leading-snug text-gray-800 dark:text-white/90"
                                     x-text="p.nombre"></span>
+
+                                {{-- Código interno y categoría: lo que de verdad
+                                     distingue dos productos de nombre parecido, y lo
+                                     que el cajero teclea cuando el lector no lee. --}}
+                                <span class="mb-1.5 flex items-center gap-1.5 overflow-hidden">
+                                    <span class="font-mono text-theme-xs text-gray-500 dark:text-gray-400" x-text="p.codigo"></span>
+                                    <span x-show="nombreCategoria(p.categoria_id)"
+                                        class="truncate rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                        :class="tonoCategoria(p.categoria_id)"
+                                        x-text="nombreCategoria(p.categoria_id)"></span>
+                                </span>
+
                                 <span class="flex items-baseline justify-between gap-2">
                                     <span class="text-base font-bold text-brand-600 dark:text-brand-400"
                                         x-text="'{{ $moneda }} ' + p.precio_estante.toFixed(2)"></span>
@@ -147,9 +165,15 @@
                      cobrar— se va por debajo del borde de la pantalla y el cajero
                      tiene que rodar la rueda para cobrar. Aquí solo se desplaza
                      la zona de dentro que lleva `overflow-y-auto`, y el pie queda
-                     anclado siempre a la vista. --}}
+                     anclado siempre a la vista.
+
+                     El límite de altura NO usa el mismo `8rem` que el desplazamiento
+                     (`top-24`): antes de hacer scroll el panel arranca más abajo —a
+                     la altura de la cabecera y el título de la página, unos `10rem`—
+                     y con el número de `top-24` el pie (con el botón de cobrar)
+                     quedaba unos 25 px fuera de la pantalla nada más cargar. --}}
                 <form method="POST" action="{{ route('pos.store') }}" @submit="preparar($event)" x-ref="carrito"
-                    class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-8rem)] xl:overflow-hidden">
+                    class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-10rem)] xl:overflow-hidden">
                     @csrf
                     <div x-ref="campos"></div>
 
@@ -171,16 +195,21 @@
                     </div>
 
                     {{--
-                        El alto mínimo no es decorativo: con `flex-1` y sin él, en
-                        una pantalla baja la lista se encoge hasta CERO y los
-                        artículos del carrito —con sus botones de cantidad—
-                        desaparecen sin previo aviso.
+                        Todo lo que va ENTRE la cabecera y el botón de cobrar vive
+                        aquí dentro: el carrito, el cliente, los totales y la forma
+                        de pago. Es la única zona con `overflow-y-auto` del panel;
+                        si el contenido no cabe —muchas líneas, o el formulario de
+                        «efectivo recibido» desplegado— se desplaza aquí y NO
+                        empuja al botón fuera de la pantalla, porque el botón vive
+                        fuera de este contenedor, anclado como pie del panel.
 
-                        Lo que evita que el cobro quede fuera de alcance no es
-                        encoger esta lista, sino el `overflow-y-auto overscroll-contain` del panel:
-                        si el contenido no cabe, se desplaza dentro del panel.
+                        El alto mínimo en la lista de artículos no es decorativo:
+                        con `flex-1` y sin él, en una pantalla baja la lista se
+                        encoge hasta CERO y los artículos —con sus botones de
+                        cantidad— desaparecen sin previo aviso.
                     --}}
-                    <div class="min-h-40 flex-1 divide-y divide-gray-100 overflow-y-auto overscroll-contain dark:divide-gray-800">
+                    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                    <div class="min-h-40 divide-y divide-gray-100 dark:divide-gray-800">
                         <template x-for="(l, i) in carrito" :key="l.producto_id">
                             <div class="px-5 py-3">
                                 <div class="flex items-start justify-between gap-2">
@@ -237,6 +266,7 @@
                     </div>
 
                     {{-- Cliente --}}
+                    {{-- (dentro de la zona con scroll: sigue justo después del carrito) --}}
                     <div class="border-t border-gray-100 px-5 py-4 dark:border-gray-800">
                         <label for="cliente" class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
                             Cliente
@@ -347,10 +377,15 @@
                                     class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                             </div>
                         </template>
+                    </div>
+                    {{-- Cierra la zona con scroll: de aquí para abajo el pie
+                         (botón de cobrar) queda fuera y siempre a la vista. --}}
+                    </div>
 
-                        {{-- Deshabilitado se ve gris, no azul claro: un botón azul
-                             que no responde parece un fallo. Y en vez de repetir
-                             «Cobrar Bs 0.00» dice qué falta para poder cobrar. --}}
+                    {{-- Deshabilitado se ve gris, no azul claro: un botón azul
+                         que no responde parece un fallo. Y en vez de repetir
+                         «Cobrar Bs 0.00» dice qué falta para poder cobrar. --}}
+                    <div class="flex-none space-y-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
                         <button type="submit" x-ref="cobrar" :disabled="!puedeCobrar || enviando"
                             class="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-base font-semibold text-white transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 dark:disabled:bg-white/[0.06] dark:disabled:text-gray-500">
                             <template x-if="enviando">
@@ -407,6 +442,9 @@
                         recibido: null,
                         referencia: '',
                         enviando: false,
+
+                        // Nombre de categoría por id, para la etiqueta de la tarjeta.
+                        categorias: @js($categorias->pluck('nombre', 'id')),
 
                         tasa: {{ $tasaImpuesto }},
                         maxDescuento: {{ $descuentoMaximo }},
@@ -501,10 +539,14 @@
                             return this.carrito.reduce((s, l) => s + Number(l.cantidad), 0);
                         },
 
-                        /* Color de la pieza con la inicial, mientras el producto no
-                           tenga foto. Se reparte por categoría para que la
-                           cuadrícula no sea un muro del mismo tono; el resto van
-                           en gris. */
+                        /* Nombre de la categoría para la etiqueta de la tarjeta. */
+                        nombreCategoria(id) {
+                            return this.categorias[id] || '';
+                        },
+
+                        /* Color de fondo de la etiqueta de categoría, repartido
+                           por id para que la cuadrícula no sea un muro del mismo
+                           tono; el resto van en gris. */
                         tonoCategoria(id) {
                             const tonos = [
                                 'bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400',
