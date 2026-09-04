@@ -233,11 +233,13 @@
 
         {{-- Ingreso de mercadería --}}
         @puede('inventario.ingresar')
-            <div x-show="ingresando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+            <div x-show="ingresando" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-ingreso"
+                class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="ingresando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
-                    <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Ingresar mercadería</h2>
+                <div x-trap.inert.noscroll="ingresando"
+                    class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 id="titulo-modal-ingreso" class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Ingresar mercadería</h2>
                     <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                         Entrada de <b>{{ $producto->nombre }}</b>. Stock actual:
                         {{ Config::cantidad($producto->stock_actual) }} {{ $unidad?->codigo }}.
@@ -287,12 +289,14 @@
 
         {{-- Ajuste por conteo --}}
         @puede('inventario.ajustar')
-            <div x-show="ajustando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+            <div x-show="ajustando" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-ajuste"
+                class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="ajustando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
                 <div x-data="{ contado: {{ (float) $producto->stock_actual }}, sistema: {{ (float) $producto->stock_actual }} }"
+                    x-trap.inert.noscroll="ajustando"
                     class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
-                    <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Ajustar inventario</h2>
+                    <h2 id="titulo-modal-ajuste" class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Ajustar inventario</h2>
                     <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                         Indica cuántas unidades hay <b>realmente</b> en el estante y el sistema calcula la diferencia.
                     </p>
@@ -340,11 +344,13 @@
 
         {{-- Baja --}}
         @puede('productos.gestionar')
-            <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+            <div x-show="borrando" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-eliminar-producto"
+                class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
-                    <h2 class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar producto</h2>
+                <div x-trap.inert.noscroll="borrando"
+                    class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 id="titulo-modal-eliminar-producto" class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar producto</h2>
                     <p class="mb-6 text-theme-sm text-gray-500 dark:text-gray-400">
                         ¿Eliminar <b>{{ $producto->nombre }}</b>? Si tiene movimientos de inventario o ventas, se
                         descatalogará en lugar de eliminarse, para no romper el histórico.

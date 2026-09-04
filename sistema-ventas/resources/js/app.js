@@ -1,6 +1,7 @@
 import './bootstrap';
 
 import Alpine from 'alpinejs';
+import focus from '@alpinejs/focus';
 import flatpickr from 'flatpickr';
 import { Spanish } from 'flatpickr/dist/l10n/es.js';
 import 'flatpickr/dist/flatpickr.min.css';
@@ -13,6 +14,13 @@ window.Alpine = Alpine;
 window.flatpickr = flatpickr;
 
 flatpickr.localize(Spanish);
+
+// `x-trap`: cuando se abre un modal, el foco entra, no se puede escapar de
+// él con Tab, el resto de la página queda `inert` (invisible para el lector
+// de pantalla, no solo visualmente) y al cerrar el foco vuelve a quien lo
+// abrió. Sin esto, un modal es indistinguible del resto de la página para
+// quien navega con teclado o lector de pantalla.
+Alpine.plugin(focus);
 
 Alpine.start();
 

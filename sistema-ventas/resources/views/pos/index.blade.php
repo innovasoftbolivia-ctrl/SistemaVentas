@@ -219,7 +219,7 @@
                                         <p class="text-theme-xs text-gray-500 dark:text-gray-400"
                                             x-text="'{{ $moneda }} ' + l.precio_estante.toFixed(2) + ' × ' + cantidadTexto(l.cantidad) + ' ' + l.unidad"></p>
                                     </div>
-                                    <button type="button" @click="quitar(i)" title="Quitar"
+                                    <button type="button" @click="quitar(i)" :aria-label="`Quitar ${l.nombre} del carrito`"
                                         class="rounded-lg p-1 text-gray-400 transition hover:bg-error-50 hover:text-error-500 dark:hover:bg-error-500/10">
                                         <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none">
                                             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2"
@@ -228,14 +228,17 @@
                                     </button>
                                 </div>
 
+                                {{-- Hay una fila de estas por producto en el carrito: sin nombre
+                                     propio, un lector de pantalla no dice de cuál está hablando. --}}
                                 <div class="mt-2 flex items-center justify-between gap-2">
                                     <div class="flex items-center gap-1">
-                                        <button type="button" @click="sumar(i, -1)"
+                                        <button type="button" @click="sumar(i, -1)" :aria-label="`Quitar una unidad de ${l.nombre}`"
                                             class="h-8 w-8 rounded-lg border border-gray-200 text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]">−</button>
                                         <input type="number" inputmode="decimal" :step="l.decimal ? '0.001' : '1'" min="0"
                                             x-model.number="l.cantidad" @change="normalizar(i)"
+                                            :aria-label="`Cantidad de ${l.nombre}`"
                                             class="dark:bg-dark-900 h-8 w-20 rounded-lg border border-gray-300 bg-transparent px-2 text-center text-sm text-gray-800 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                        <button type="button" @click="sumar(i, 1)"
+                                        <button type="button" @click="sumar(i, 1)" :aria-label="`Agregar una unidad de ${l.nombre}`"
                                             class="h-8 w-8 rounded-lg border border-gray-200 text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]">+</button>
                                     </div>
                                     <span class="text-theme-sm font-semibold text-gray-800 dark:text-white/90"
@@ -436,12 +439,13 @@
                  campos que la venta realmente necesita. Cambiar de rubro,
                  desactivar o editar datos de contacto sigue siendo cosa del
                  módulo de Clientes. --}}
-            <div x-show="nuevoClienteAbierto" x-cloak
+            <div x-show="nuevoClienteAbierto" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-nuevo-cliente"
                 class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="nuevoClienteAbierto = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
-                    <h2 class="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">Registrar cliente</h2>
+                <div x-trap.inert.noscroll="nuevoClienteAbierto"
+                    class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 id="titulo-modal-nuevo-cliente" class="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">Registrar cliente</h2>
                     <p class="mb-6 text-theme-xs text-gray-500 dark:text-gray-400">
                         Se guarda y queda elegido para esta venta, sin perder lo que ya llevas en el carrito.
                     </p>

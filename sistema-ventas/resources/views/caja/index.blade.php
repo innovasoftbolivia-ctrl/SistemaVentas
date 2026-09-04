@@ -160,11 +160,13 @@
 
         {{-- Abrir caja --}}
         @puede('caja.abrir')
-            <div x-show="abriendo" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+            <div x-show="abriendo" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-abrir-caja"
+                class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                 <div @click="abriendo = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
-                    <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Abrir caja</h2>
+                <div x-trap.inert.noscroll="abriendo"
+                    class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 id="titulo-modal-abrir-caja" class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Abrir caja</h2>
                     <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                         Cuenta el efectivo con el que empiezas el turno. De ahí parte el arqueo al cerrar.
                     </p>

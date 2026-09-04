@@ -25,6 +25,7 @@
         "@laravel/multiplex": "^0.4.1"
     },
     "dependencies": {
+        "@alpinejs/focus": "^3.17.1",
         "alpinejs": "^3.16.2",
         "apexcharts": "^6.10.0",
         "axios": "^1.19.0",

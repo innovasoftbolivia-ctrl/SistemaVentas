@@ -9,7 +9,9 @@
 
     <x-common.preloader />
 
-    @yield('content')
+    <main>
+        @yield('content')
+    </main>
 
     @stack('scripts')
 </body>

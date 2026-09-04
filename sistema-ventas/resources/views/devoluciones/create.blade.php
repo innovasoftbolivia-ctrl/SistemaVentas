@@ -75,8 +75,11 @@
                                     </div>
 
                                     <div class="flex items-center gap-2">
+                                        {{-- Son varios inputs iguales, uno por línea: sin un nombre propio por
+                                             fila, un lector de pantalla solo dice «0», sin decir de qué producto. --}}
                                         <input type="number" inputmode="decimal" min="0" :max="l.pendiente"
                                             :step="l.decimal ? '0.001' : '1'" x-model.number="l.cantidad"
+                                            :aria-label="`Cantidad a devolver de ${l.nombre}`"
                                             @change="normalizar(i)" placeholder="0"
                                             class="dark:bg-dark-900 h-11 w-24 rounded-lg border border-gray-300 bg-transparent px-3 text-center text-sm text-gray-800 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                         <button type="button" @click="l.cantidad = l.pendiente"

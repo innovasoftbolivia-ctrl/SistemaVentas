@@ -169,11 +169,13 @@
         {{-- Registrar movimiento --}}
         @if ($abierta && $esPropia)
             @puede('caja.abrir')
-                <div x-show="moviendo" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+                <div x-show="moviendo" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-movimiento-caja"
+                    class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                     <div @click="moviendo = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
-                        <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Movimiento de caja</h2>
+                    <div x-trap.inert.noscroll="moviendo"
+                        class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                        <h2 id="titulo-modal-movimiento-caja" class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Movimiento de caja</h2>
                         <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                             Para el dinero que entra o sale del cajón sin ser una venta: un adelanto, la compra de
                             hielo, un retiro parcial.
@@ -222,11 +224,13 @@
         {{-- Cerrar caja --}}
         @if ($abierta)
             @puede('caja.cerrar')
-                <div x-show="cerrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+                <div x-show="cerrando" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-cerrar-caja"
+                    class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
                     <div @click="cerrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-                    <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
-                        <h2 class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Cerrar caja</h2>
+                    <div x-trap.inert.noscroll="cerrando"
+                        class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                        <h2 id="titulo-modal-cerrar-caja" class="mb-2 text-xl font-semibold text-gray-800 dark:text-white/90">Cerrar caja</h2>
                         <p class="mb-6 text-sm text-gray-500 dark:text-gray-400">
                             Cuenta el efectivo que hay en el cajón. El sistema compara con lo esperado y registra la
                             diferencia: no se corrige, se explica.

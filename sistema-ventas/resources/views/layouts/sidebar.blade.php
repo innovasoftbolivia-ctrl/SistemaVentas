@@ -56,7 +56,14 @@
                             @foreach ($grupo['items'] as $item)
                                 @php $activo = Menu::esActivo($item['path']); @endphp
                                 <li>
+                                    {{-- `aria-label` en el enlace, no solo el texto visible: el texto se
+                                         oculta con `x-show` (queda fuera del árbol de accesibilidad) cuando
+                                         la barra está colapsada a solo íconos, que es el estado por
+                                         omisión. Sin esto, cada enlace llegaba sin nombre a un lector de
+                                         pantalla —el ícono es `aria-hidden`— y no había forma de saber a
+                                         dónde iba ninguno de los enlaces de navegación. --}}
                                     <a href="{{ url($item['path']) }}"
+                                        aria-label="{{ $item['name'] }}"
                                         class="menu-item group {{ $activo ? 'menu-item-active' : 'menu-item-inactive' }}"
                                         :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen)
                                             ? 'xl:justify-center'

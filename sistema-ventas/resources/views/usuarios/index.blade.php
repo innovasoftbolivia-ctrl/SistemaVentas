@@ -155,11 +155,13 @@
         </div>
 
         {{-- Baja --}}
-        <div x-show="borrando" x-cloak class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+        <div x-show="borrando" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-eliminar-cuenta"
+            class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
             <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
 
-            <div class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
-                <h2 class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar cuenta</h2>
+            <div x-trap.inert.noscroll="borrando"
+                class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                <h2 id="titulo-modal-eliminar-cuenta" class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar cuenta</h2>
                 <p class="mb-2 text-theme-sm text-gray-500 dark:text-gray-400">
                     ¿Eliminar la cuenta <b x-text="usuario"></b> de <span x-text="nombre"></span>?
                 </p>
