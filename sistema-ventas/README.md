@@ -113,60 +113,41 @@ docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventa
 > codificados y «Díaz» se guarda como «DÃ­az».
 
 Una base creada antes del 2026-08-21 necesita los parches de `docs/sql/parches` (los instaladores
-nuevos no: `01_schema_mysql.sql` ya los incorpora). Se aplican en orden y son idempotentes:
+nuevos no: `01_schema_mysql.sql` ya incorpora los que corrigen el esquema). `scripts/aplicar-parches.sh`
+lleva la cuenta de cuáles ya corrieron en cada base, en la propia tabla `parches_aplicados`, así
+que no hay que acordarse a mano:
 
 ```bash
-docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_21_devolucion_con_impuesto.sql
+./scripts/aplicar-parches.sh              # solo muestra qué falta, no toca nada
+./scripts/aplicar-parches.sh --aplicar    # aplica lo pendiente, en el orden correcto
 ```
+
+Para otra base que no sea `ventas_db` (por ejemplo, la de un cliente instalado aparte):
 
 ```bash
-docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_21_mas_vendidos_neto.sql
+BASE=ventas_db_cliente2 ./scripts/aplicar-parches.sh --aplicar
 ```
 
-Este corrige el arqueo cuando se devuelve una venta que **no** se cobró en efectivo: el
-procedimiento de cierre descontaba del cajón el importe íntegro de toda devolución, así que
-reembolsar por tarjeta dejaba al cajero con un sobrante a su nombre. Ahora descuenta solo la
-parte que en su día entró en efectivo. **Las sesiones ya cerradas no se tocan**: su
-`monto_esperado` es el arqueo firmado de aquel turno:
+**Ojo con los cuatro del 2026-08-23**: no corrigen nada del esquema, cargan el catálogo real de
+*este* negocio de referencia (70 productos en «Abarrotes», 70 en «Bebidas», la categoría
+«Cigarrillos», y `tasa_impuesto` en 0). Con los 12 productos de demostración el sistema funciona
+igual, y una instalación para un cliente nuevo casi seguro **no** los quiere —le meterían el
+catálogo de otro negocio—. Revisa la lista de pendientes antes de correr `--aplicar` a ciegas.
 
-```bash
-docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_26_devolucion_solo_efectivo.sql
-```
+Si igual hace falta reponer este catálogo de referencia (por ejemplo, reconstruyendo el entorno
+de desarrollo), el orden de esos cuatro importa: los de catálogo escriben los precios y el último
+(`sin_impuesto`) alinea el resto sobre ellos — pone `tasa_impuesto` en 0, así que el precio que se
+carga en el producto es el que paga el cliente, sin recargo. Las vistas se adaptan solas a ese
+cero: el POS deja de mostrar la línea «Impuesto», y la ficha del producto pide un único precio en
+vez de base y estante. Si algún día hace falta desglosar el IVA (13% en Bolivia), basta con volver
+a poner la tasa en `configuracion` y recalcular los precios base; los comprobantes ya emitidos no
+cambian, porque cada línea de venta congela su propia tasa.
 
-Los cuatro del 2026-08-23 no corrigen nada del esquema: dejan el sistema listo para el negocio
-real. Son opcionales —con los 12 productos de demostración el sistema funciona igual— y ninguna
-instalación los aplica sola. **El orden importa**: los de catálogo escriben los precios y el
-último alinea el resto sobre ellos.
-
-Cargan el catálogo real: 70 productos en «Abarrotes» y otros 70 en «Bebidas». Re-ejecutarlos
-repone los precios de este repositorio, así que pisan los que el negocio haya retocado a mano:
-
-```bash
-docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_23_abarrotes_catalogo_real.sql
-```
-
-```bash
-docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_23_bebidas_catalogo_real.sql
-```
-
-Saca los cigarrillos de «Bebidas», donde entran solo porque el catálogo de origen los lista ahí:
-
-```bash
-docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_23_categoria_cigarrillos.sql
-```
-
-Y este pone `tasa_impuesto` en 0: el precio que el negocio carga en el producto es el que paga el
-cliente, sin recargo. Va al final, porque ajusta los precios de demostración y los costos del
-kardex sobre lo que dejaron los parches anteriores:
-
-```bash
-docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 ventas_db < docs/sql/parches/2026_08_23_sin_impuesto.sql
-```
-
-Las vistas se adaptan solas a ese cero: el POS deja de mostrar la línea «Impuesto», y la ficha del
-producto pide un único precio en vez de base y estante. Si algún día hace falta desglosar el IVA
-(13% en Bolivia), basta con volver a poner la tasa en `configuracion` y recalcular los precios
-base; los comprobantes ya emitidos no cambian, porque cada línea de venta congela su propia tasa.
+El parche `2026_08_26_devolucion_solo_efectivo.sql` corrige el arqueo cuando se devuelve una venta
+que **no** se cobró en efectivo: el procedimiento de cierre descontaba del cajón el importe
+íntegro de toda devolución, así que reembolsar por tarjeta dejaba al cajero con un sobrante a su
+nombre. Ahora descuenta solo la parte que en su día entró en efectivo. **Las sesiones ya
+cerradas no se tocan**: su `monto_esperado` es el arqueo firmado de aquel turno.
 
 #### 2. Aplicación
 

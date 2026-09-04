@@ -1,0 +1,98 @@
+name: Pruebas
+
+# El esquema usa columnas generadas, ENUM y triggers de MySQL que SQLite no
+# reproduce (ver README, sección «Pruebas»), así que este workflow arma una
+# base MySQL real en vez de usar la base de datos en memoria más simple.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ventas123
+        # Mismo puerto que sistema-ventas/phpunit.xml (DB_PORT=13310): así el
+        # workflow no necesita pisar esa configuración para correr aquí.
+        ports:
+          - 13310:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pventas123"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, fileinfo, mysql, gd, bcmath, zip
+          coverage: none
+
+      - name: Dependencias de Composer
+        working-directory: sistema-ventas
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Clave de aplicación
+        working-directory: sistema-ventas
+        # phpunit.xml fuerza casi todo lo demás (ver DB_* con force="true"),
+        # pero no trae APP_KEY: sin este paso, Laravel arranca sin clave de
+        # cifrado y las pruebas HTTP (sesión, cookies firmadas) fallan.
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+
+      - name: Cargar el esquema en ventas_db_test
+        run: |
+          sed 's/ventas_db/ventas_db_test/g' docs/sql/01_schema_mysql.sql | \
+            mysql --host=127.0.0.1 --port=13310 --default-character-set=utf8mb4 -uroot -pventas123
+          sed 's/ventas_db/ventas_db_test/g' docs/sql/02_datos_iniciales.sql | \
+            mysql --host=127.0.0.1 --port=13310 --default-character-set=utf8mb4 -uroot -pventas123
+
+      - name: Pruebas
+        working-directory: sistema-ventas
+        run: php artisan test
+
+  estilo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+
+      - name: Dependencias de Composer
+        working-directory: sistema-ventas
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Pint (estilo de código PHP)
+        working-directory: sistema-ventas
+        run: ./vendor/bin/pint --test
+
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Dependencias de npm
+        working-directory: sistema-ventas
+        run: npm ci
+
+      - name: ESLint
+        working-directory: sistema-ventas
+        run: npm run lint
+
+      - name: Prettier
+        working-directory: sistema-ventas
+        run: npm run format
