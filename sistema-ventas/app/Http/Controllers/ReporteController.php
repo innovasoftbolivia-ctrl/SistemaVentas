@@ -31,6 +31,7 @@ class ReporteController extends Controller
             'desde' => $desde,
             'hasta' => $hasta,
             'resumen' => $this->resumenVentas($desde, $hasta),
+            'variacion' => $this->variacionVendido($desde, $hasta),
             'porDia' => $this->porDia($desde, $hasta),
             'porMetodo' => $this->porMetodoPago($desde, $hasta),
             'porCajero' => $this->porCajero($desde, $hasta),
@@ -311,6 +312,18 @@ class ReporteController extends Controller
             ->whereBetween('fecha', [$desde, $hasta])
             ->sum('total');
 
+        // Costo de lo vendido, para dar una ganancia y no solo un total cobrado.
+        // Usa el `precio_compra` DE HOY: es una aproximación, no el costo exacto
+        // que tenía el producto el día que se vendió (mismo criterio que ya usa
+        // el "margen estimado" del reporte de productos).
+        $costo = (float) DB::table('venta_detalle as vd')
+            ->join('ventas as v', 'v.id', '=', 'vd.venta_id')
+            ->join('productos as p', 'p.id', '=', 'vd.producto_id')
+            ->where('v.estado', '<>', 'ANULADA')
+            ->whereBetween('v.fecha', [$desde, $hasta])
+            ->selectRaw('COALESCE(SUM(vd.cantidad * p.precio_compra), 0) AS costo')
+            ->value('costo');
+
         $operaciones = (int) $ventas->operaciones;
         $vendido = (float) $ventas->vendido;
 
@@ -321,8 +334,38 @@ class ReporteController extends Controller
             'anuladas' => (int) $ventas->anuladas,
             'devuelto' => $devuelto,
             'neto' => round($vendido - $devuelto, 2),
+            'ganancia' => round($vendido - $devuelto - $costo, 2),
             'ticket' => $operaciones > 0 ? round($vendido / $operaciones, 2) : 0.0,
         ];
+    }
+
+    /**
+     * Cuánto más (o menos) se vendió que en el mismo largo de período,
+     * inmediatamente anterior. Sin esto, "vendiste Bs 352.95" no dice si es
+     * bueno o malo. Null si el período anterior no tuvo ventas: un porcentaje
+     * contra cero no significa nada.
+     */
+    private function variacionVendido(Carbon $desde, Carbon $hasta): ?float
+    {
+        $dias = (int) $desde->copy()->startOfDay()->diffInDays($hasta->copy()->startOfDay()) + 1;
+        $hastaAnterior = $desde->copy()->subSecond();
+        $desdeAnterior = $hastaAnterior->copy()->subDays($dias - 1)->startOfDay();
+
+        $vendidoAnterior = (float) DB::table('ventas')
+            ->whereBetween('fecha', [$desdeAnterior, $hastaAnterior])
+            ->where('estado', '<>', 'ANULADA')
+            ->sum('total');
+
+        if ($vendidoAnterior <= 0) {
+            return null;
+        }
+
+        $vendidoActual = (float) DB::table('ventas')
+            ->whereBetween('fecha', [$desde, $hasta])
+            ->where('estado', '<>', 'ANULADA')
+            ->sum('total');
+
+        return round(($vendidoActual - $vendidoAnterior) / $vendidoAnterior * 100, 1);
     }
 
     /** Serie diaria, con los días sin ventas rellenados en cero. */

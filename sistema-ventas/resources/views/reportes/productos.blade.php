@@ -20,17 +20,45 @@
 
         <x-common.rango-fechas :accion="route('reportes.productos')" :excel="route('reportes.productos.excel')" :pdf="route('reportes.productos.pdf')" :desde="$desde" :hasta="$hasta" />
 
+        {{-- Lo primero que un dueño de negocio se pregunta al abrir esto:
+             "¿qué me falta comprar?". Antes que cualquier cifra de inventario. --}}
+        @if ($alertas->isNotEmpty())
+            <div class="rounded-2xl border border-warning-200 bg-warning-50 p-6 dark:border-orange-900 dark:bg-orange-500/15">
+                <p class="flex items-center gap-2 text-title-sm font-bold text-warning-700 dark:text-orange-400">
+                    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"
+                            stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Tienes {{ $alertas->count() }} {{ $alertas->count() === 1 ? 'producto' : 'productos' }} por reponer
+                </p>
+                <p class="mt-1 text-theme-sm text-gray-600 dark:text-gray-300">
+                    Se están por acabar o ya se acabaron. Están en la lista de abajo.
+                </p>
+            </div>
+        @else
+            <div class="rounded-2xl border border-success-200 bg-success-50 p-6 dark:border-success-900 dark:bg-success-500/15">
+                <p class="flex items-center gap-2 text-title-sm font-bold text-success-700 dark:text-success-500">
+                    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M20 6 9 17l-5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    Todo tu inventario está en orden
+                </p>
+                <p class="mt-1 text-theme-sm text-gray-600 dark:text-gray-300">
+                    Ningún producto está por debajo de su stock mínimo hoy.
+                </p>
+            </div>
+        @endif
+
         {{-- Inventario, que es una foto de hoy y no depende del rango --}}
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <p class="text-theme-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            Estado del inventario · hoy
+        </p>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
             @php
                 $tarjetas = [
                     ['Productos en catálogo', number_format($inventario['productos']), 'text-gray-800 dark:text-white/90', null],
-                    ['Valor al costo', Config::importe($inventario['costo']), 'text-gray-800 dark:text-white/90',
-                        'capital inmovilizado'],
-                    ['Valor a precio de venta', Config::importe($inventario['venta']), 'text-gray-800 dark:text-white/90',
-                        'base, sin impuesto'],
-                    ['Margen potencial', Config::importe($inventario['margen']), 'text-success-700 dark:text-success-500',
-                        'si se vendiera todo'],
+                    ['Tienes invertido en estante', Config::importe($inventario['costo']), 'text-gray-800 dark:text-white/90', null],
+                    ['Si vendieras todo esto, ganarías', Config::importe($inventario['margen']), 'text-success-700 dark:text-success-500', null],
                 ];
             @endphp
 
@@ -45,16 +73,11 @@
             @endforeach
         </div>
 
-        <p class="text-theme-xs text-gray-500 dark:text-gray-400">
-            Las cifras de inventario son una foto de <b>hoy</b>: no dependen del período elegido, que sí filtra el
-            ranking de más vendidos.
-        </p>
-
         {{-- Alertas de stock --}}
         <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="flex flex-wrap items-center justify-between gap-3 px-6 py-5">
                 <div>
-                    <h2 class="text-base font-medium text-gray-800 dark:text-white/90">Alertas de reposición</h2>
+                    <h2 class="text-base font-medium text-gray-800 dark:text-white/90">Detalle de lo que reponer</h2>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         Productos que llegaron a su stock mínimo (objetivo O7).
                     </p>
@@ -109,6 +132,20 @@
                 </table>
             </div>
         </div>
+
+        <p class="text-theme-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            Lo más vendido · del período elegido
+        </p>
+
+        @if ($masVendidos->isNotEmpty())
+            <div class="rounded-2xl border border-brand-200 bg-brand-50 p-5 dark:border-brand-800 dark:bg-brand-500/10">
+                <p class="text-theme-sm text-gray-700 dark:text-gray-300">
+                    Tu producto estrella:
+                    <b class="text-brand-600 dark:text-brand-400">{{ $masVendidos->first()->nombre }}</b>,
+                    con <b>{{ Config::importe($masVendidos->first()->monto_vendido) }}</b> vendidos
+                </p>
+            </div>
+        @endif
 
         {{-- Más vendidos --}}
         @if ($masVendidos->isNotEmpty())

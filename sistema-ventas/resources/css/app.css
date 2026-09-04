@@ -297,11 +297,15 @@
   background-color: #344054;
 }
 @layer utilities {
-  /* For Remove Date Icon */
+  /* Solo la flechita de subir/bajar, que no pinta nada en una fecha: el
+     icono de calendario NO se toca. `display: none` en
+     `::-webkit-calendar-picker-indicator` no solo lo esconde: en Chrome le
+     quita el área que abre el selector al hacer clic, así que el calendario
+     dejaba de abrirse en cualquier campo de fecha del sistema (Reportes,
+     Devoluciones, Empleados, Ventas...). Venía heredado de la plantilla, sin
+     que nadie lo hubiera pedido. */
   input[type='date']::-webkit-inner-spin-button,
-  input[type='time']::-webkit-inner-spin-button,
-  input[type='date']::-webkit-calendar-picker-indicator,
-  input[type='time']::-webkit-calendar-picker-indicator {
+  input[type='time']::-webkit-inner-spin-button {
     display: none;
     -webkit-appearance: none;
   }

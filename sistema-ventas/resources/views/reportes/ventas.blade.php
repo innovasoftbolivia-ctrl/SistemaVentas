@@ -28,48 +28,67 @@
 
         <x-common.rango-fechas :accion="route('reportes.ventas')" :excel="route('reportes.ventas.excel')" :pdf="route('reportes.ventas.pdf')" :desde="$desde" :hasta="$hasta" />
 
-        {{-- Cifras del período --}}
-        @php
-            // Sin impuesto configurado (negocio que no factura todavía), la
-            // tarjeta no aporta nada: sería un «Bs 0.00» fijo en pantalla.
-            $tarjetas = [
-                ['Vendido', Config::importe($resumen['vendido']), 'text-gray-800 dark:text-white/90',
-                    $resumen['operaciones'].' operación(es)'],
-                ['Neto', Config::importe($resumen['neto']), 'text-success-700 dark:text-success-500',
-                    'descontando devoluciones'],
-                ['Ticket promedio', Config::importe($resumen['ticket']), 'text-gray-800 dark:text-white/90',
-                    'por operación'],
-            ];
-
-            if (Config::tasaImpuesto() > 0) {
-                $tarjetas[] = ['Impuesto', Config::importe($resumen['impuesto']), 'text-gray-800 dark:text-white/90',
-                    'incluido en el vendido'];
-            }
-        @endphp
-
-        <div class="grid grid-cols-2 gap-4 {{ count($tarjetas) === 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-3' }}">
-            @foreach ($tarjetas as [$etiqueta, $valor, $clase, $nota])
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-                    <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">{{ $etiqueta }}</p>
-                    <p class="text-title-sm font-semibold {{ $clase }}">{{ $valor }}</p>
-                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">{{ $nota }}</p>
-                </div>
-            @endforeach
+        {{-- La frase responde lo que de verdad se pregunta un dueño de
+             negocio ("¿cómo me fue?"), antes que la grilla de cifras sueltas.
+             La ganancia es aproximada: descuenta el costo de HOY de cada
+             producto vendido, no el que tenía el día de la venta (misma
+             salvedad que ya lleva el "margen estimado" de Productos). --}}
+        <div class="rounded-2xl border border-brand-200 bg-brand-50 p-6 dark:border-brand-800 dark:bg-brand-500/10">
+            @php
+                // `diffInDays` entre un `startOfDay` y un `endOfDay` no cae en un
+                // entero exacto (23:59:59.999999 de por medio) y deja un
+                // "30.999999999988 días" en pantalla si no se redondea a día.
+                $diasPeriodo = (int) $desde->copy()->startOfDay()->diffInDays($hasta->copy()->startOfDay()) + 1;
+            @endphp
+            <p class="text-theme-sm text-gray-600 dark:text-gray-300">
+                Del {{ $desde->format('d/m/Y') }} al {{ $hasta->format('d/m/Y') }}
+                ({{ $diasPeriodo }} {{ $diasPeriodo === 1 ? 'día' : 'días' }})
+            </p>
+            <p class="mt-1 text-title-md font-bold text-gray-800 dark:text-white/90">
+                Vendiste <span class="text-brand-600 dark:text-brand-400">{{ Config::importe($resumen['vendido']) }}</span>
+                y ganaste aproximadamente <span class="text-success-600 dark:text-success-500">{{ Config::importe($resumen['ganancia']) }}</span>
+            </p>
+            @if ($variacion !== null)
+                <p class="mt-2 flex items-center gap-1.5 text-theme-sm {{ $variacion >= 0 ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400' }}">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        @if ($variacion >= 0)
+                            <path d="M12 19V5M12 5l-6 6M12 5l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        @else
+                            <path d="M12 5v14M12 19l-6-6M12 19l6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        @endif
+                    </svg>
+                    {{ number_format(abs($variacion), 1) }}% {{ $variacion >= 0 ? 'más' : 'menos' }} que el período anterior
+                </p>
+            @endif
         </div>
 
-        @if ($resumen['anuladas'] > 0 || $resumen['devuelto'] > 0)
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-                    <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Anuladas</p>
-                    <p class="text-title-sm font-semibold text-error-600 dark:text-error-400">{{ number_format($resumen['anuladas']) }}</p>
-                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">no cuentan en el vendido</p>
-                </div>
-                <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-                    <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Devuelto</p>
-                    <p class="text-title-sm font-semibold text-error-600 dark:text-error-400">{{ Config::importe($resumen['devuelto']) }}</p>
-                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">salió del cajón</p>
-                </div>
+        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Operaciones</p>
+                <p class="text-title-sm font-semibold text-gray-800 dark:text-white/90">{{ number_format($resumen['operaciones']) }}</p>
+                <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">ventas cobradas</p>
             </div>
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Ticket promedio</p>
+                <p class="text-title-sm font-semibold text-gray-800 dark:text-white/90">{{ Config::importe($resumen['ticket']) }}</p>
+                <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">por venta</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Devoluciones</p>
+                <p class="text-title-sm font-semibold text-error-600 dark:text-error-400">{{ Config::importe($resumen['devuelto']) }}</p>
+                <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">ya restado de lo que ganaste</p>
+            </div>
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <p class="mb-1 text-theme-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Ventas anuladas</p>
+                <p class="text-title-sm font-semibold text-gray-800 dark:text-white/90">{{ number_format($resumen['anuladas']) }}</p>
+                <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">no afectan estas cifras</p>
+            </div>
+        </div>
+
+        @if (Config::tasaImpuesto() > 0)
+            <p class="text-theme-xs text-gray-500 dark:text-gray-400">
+                Impuesto del período: {{ Config::importe($resumen['impuesto']) }} (incluido en lo vendido).
+            </p>
         @endif
 
         {{-- Evolución diaria --}}
