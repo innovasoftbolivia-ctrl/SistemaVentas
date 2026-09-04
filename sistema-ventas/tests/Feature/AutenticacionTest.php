@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Empleado;
 use App\Models\Usuario;
+use Database\Seeders\CredencialesSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -127,5 +128,42 @@ class AutenticacionTest extends TestCase
         $this->assertNull($jorge->usuario);
         $this->assertSame('ACTIVO', $jorge->estado);
         $this->assertFalse(Auth::attempt(['usuario' => 'jorge', 'password' => 'lo-que-sea']));
+    }
+
+    // ------------------------------------------------- CredencialesSeeder
+
+    /**
+     * El seeder deja un primer acceso funcionando cuando todavía no hay
+     * contraseña real puesta (el volcado de docs/sql deja un hash de
+     * ejemplo, sin `password_actualizado_en`).
+     */
+    public function test_el_seeder_pone_la_contrasena_de_fabrica_en_una_cuenta_nueva(): void
+    {
+        $cuenta = Usuario::where('usuario', 'admin')->firstOrFail();
+        $cuenta->forceFill(['password_hash' => 'hash-de-ejemplo-no-usable', 'password_actualizado_en' => null])->save();
+
+        $this->seed(CredencialesSeeder::class);
+
+        $this->assertTrue(Hash::check('admin123', $cuenta->fresh()->password_hash));
+        $this->assertNotNull($cuenta->fresh()->password_actualizado_en);
+    }
+
+    /**
+     * El `entrypoint` de Docker corre este seeder en cada arranque del
+     * contenedor, no solo la primera vez. Si el negocio ya cambió su
+     * contraseña, un reinicio del servidor no debe devolvérsela a la de
+     * fábrica.
+     */
+    public function test_el_seeder_no_pisa_una_contrasena_que_ya_se_cambio(): void
+    {
+        $cuenta = $this->cuentaAdmin('la-clave-real-del-negocio');
+        // Lo que deja cualquier cambio de contraseña real (PerfilController,
+        // UsuarioController): es justo lo que el seeder mira para no tocarla.
+        $cuenta->forceFill(['password_actualizado_en' => now()])->save();
+
+        $this->seed(CredencialesSeeder::class);
+
+        $this->assertTrue(Hash::check('la-clave-real-del-negocio', $cuenta->fresh()->password_hash));
+        $this->assertFalse(Hash::check('admin123', $cuenta->fresh()->password_hash));
     }
 }

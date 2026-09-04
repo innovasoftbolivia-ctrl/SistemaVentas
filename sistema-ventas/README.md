@@ -629,8 +629,11 @@ sus propios datos de negocio.
 8. **HTTPS**, si el servidor es accesible por internet (no solo en la red del local): un proxy
    (nginx, Caddy, un balanceador del proveedor) delante del contenedor `nginx`, con su
    certificado. Este proyecto no lo resuelve por sí solo. Una vez que HTTPS esté activo, pon
-   también `SESSION_SECURE_COOKIE=true` en `sistema-ventas/.env.docker` — si lo pones en true
-   sin HTTPS, nadie puede iniciar sesión.
+   también en `sistema-ventas/.env.docker`:
+   - `SESSION_SECURE_COOKIE=true` — si lo pones en true sin HTTPS, nadie puede iniciar sesión.
+   - `TRUSTED_PROXIES` con la IP de ese proxy (o `*` si está en la misma red privada) — sin
+     esto la bitácora registra la IP del proxy en vez de la del cliente, y las URLs que arma
+     Laravel salen en `http://` aunque el visitante haya entrado por `https://`.
 
 ---
 

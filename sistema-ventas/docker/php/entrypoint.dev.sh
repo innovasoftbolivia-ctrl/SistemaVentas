@@ -70,12 +70,15 @@ if [ ! -e public/storage ]; then
     php artisan storage:link
 fi
 
-# --- Contraseñas de desarrollo ----------------------------------------------
+# --- Primer acceso -----------------------------------------------------------
 # El esquema y los datos los carga MySQL desde docs/sql al crear el volumen, no
 # las migraciones de Laravel. Ese volcado deja un hash de ejemplo que no
-# corresponde a ninguna contraseña real, así que hay que pasar el seeder.
-# Es idempotente: se limita a reescribir los hashes de las tres cuentas.
-log "asegurando las contraseñas de desarrollo"
+# corresponde a ninguna contraseña real, así que hace falta el seeder para
+# poder entrar la primera vez. Se puede correr en cada arranque sin cuidado:
+# el propio seeder solo toca cuentas que todavía no tienen una contraseña
+# real puesta, así que una vez que alguien cambia la suya, reiniciar el
+# contenedor no se la vuelve a pisar.
+log "asegurando el primer acceso"
 php artisan db:seed --class=CredencialesSeeder --force
 
 # En desarrollo la configuración NO se cachea, para que un cambio en
