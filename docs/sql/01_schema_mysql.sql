@@ -578,9 +578,52 @@ CREATE TABLE devolucion_detalle (
 --  8. INVENTARIO (KARDEX)
 -- =============================================================================
 
+-- Cabecera de una compra a proveedor (una guía o factura, con varias líneas
+-- de producto). `proveedor_id` y `documento_externo` viven aquí, no en cada
+-- línea de kardex: son datos de LA COMPRA, no de cada movimiento (2FN). Antes
+-- de esta tabla, una compra de 5 productos repetía esos dos datos 5 veces en
+-- `movimientos_inventario`.
+CREATE TABLE compras (
+    id                  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    proveedor_id        INT UNSIGNED NOT NULL,
+    usuario_id          INT UNSIGNED NOT NULL,
+    documento_externo   VARCHAR(30)  NULL,       -- guía o factura del proveedor
+    fecha               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    observacion         VARCHAR(255) NULL,
+    creado_en           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY ix_compras_proveedor (proveedor_id),
+    KEY ix_compras_fecha     (fecha),
+    CONSTRAINT fk_compras_proveedor FOREIGN KEY (proveedor_id) REFERENCES proveedores (id),
+    CONSTRAINT fk_compras_usuario   FOREIGN KEY (usuario_id)   REFERENCES usuarios (id)
+) ENGINE=InnoDB;
+
+CREATE TABLE compra_detalle (
+    id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    compra_id       INT UNSIGNED NOT NULL,
+    producto_id     INT UNSIGNED NOT NULL,
+    cantidad        DECIMAL(12,3) NOT NULL,
+    costo_unitario  DECIMAL(12,2) NOT NULL,
+    -- derivada de las dos anteriores: columna generada, no se puede desincronizar (3FN)
+    importe         DECIMAL(12,2) GENERATED ALWAYS AS (ROUND(cantidad * costo_unitario, 2)) STORED,
+    PRIMARY KEY (id),
+    KEY ix_compradet_compra   (compra_id),
+    KEY ix_compradet_producto (producto_id),
+    CONSTRAINT fk_compradet_compra   FOREIGN KEY (compra_id)   REFERENCES compras (id) ON DELETE CASCADE,
+    CONSTRAINT fk_compradet_producto FOREIGN KEY (producto_id) REFERENCES productos (id),
+    CONSTRAINT ck_compradet_cantidad CHECK (cantidad > 0),
+    CONSTRAINT ck_compradet_costo    CHECK (costo_unitario >= 0)
+) ENGINE=InnoDB;
+
 -- El documento que originó el movimiento se referencia con una FOREIGN KEY por origen,
 -- no con un par (tabla, id) sin integridad referencial. Un CHECK garantiza que cada
 -- origen traiga exactamente la referencia que le corresponde y ninguna otra.
+--
+-- `proveedor_id` y `documento_externo` siguen aquí, sueltos, para la pantalla
+-- de "Ingresar mercadería" (una línea a la vez, sin compra multi-línea detrás).
+-- `compra_id` es para cuando el origen SÍ viene de una compra con cabecera en
+-- `compras`; puede convivir con los dos campos sueltos o reemplazarlos según
+-- por dónde se haya registrado el ingreso.
 CREATE TABLE movimientos_inventario (
     id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     producto_id         INT UNSIGNED NOT NULL,
@@ -591,6 +634,7 @@ CREATE TABLE movimientos_inventario (
     venta_id            BIGINT UNSIGNED NULL,   -- VENTA, ANULACION
     devolucion_id       BIGINT UNSIGNED NULL,   -- DEVOLUCION
     proveedor_id        INT UNSIGNED NULL,      -- COMPRA
+    compra_id           INT UNSIGNED NULL,      -- COMPRA con cabecera (opcional)
     documento_externo   VARCHAR(30)  NULL,      -- COMPRA: guía o factura del proveedor
     cantidad            DECIMAL(12,3) NOT NULL, -- siempre positiva
     stock_anterior      DECIMAL(12,3) NOT NULL,
@@ -603,12 +647,14 @@ CREATE TABLE movimientos_inventario (
     KEY ix_movinv_venta      (venta_id),
     KEY ix_movinv_devolucion (devolucion_id),
     KEY ix_movinv_proveedor  (proveedor_id),
+    KEY ix_movinv_compra     (compra_id),
     KEY ix_movinv_fecha      (fecha),
     CONSTRAINT fk_movinv_producto   FOREIGN KEY (producto_id)   REFERENCES productos (id),
     CONSTRAINT fk_movinv_usuario    FOREIGN KEY (usuario_id)    REFERENCES usuarios (id),
     CONSTRAINT fk_movinv_venta      FOREIGN KEY (venta_id)      REFERENCES ventas (id),
     CONSTRAINT fk_movinv_devolucion FOREIGN KEY (devolucion_id) REFERENCES devoluciones (id),
     CONSTRAINT fk_movinv_proveedor  FOREIGN KEY (proveedor_id)  REFERENCES proveedores (id),
+    CONSTRAINT fk_movinv_compra     FOREIGN KEY (compra_id)     REFERENCES compras (id),
     CONSTRAINT ck_movinv_cantidad   CHECK (cantidad > 0),
     -- cada origen con su referencia, y sin las ajenas
     CONSTRAINT ck_movinv_origen CHECK (

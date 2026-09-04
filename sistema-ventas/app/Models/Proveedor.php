@@ -28,6 +28,11 @@ class Proveedor extends Model
         return $this->hasMany(Producto::class, 'proveedor_id');
     }
 
+    public function compras(): HasMany
+    {
+        return $this->hasMany(Compra::class, 'proveedor_id');
+    }
+
     public function scopeActivos(Builder $query): Builder
     {
         return $query->where('activo', 1);

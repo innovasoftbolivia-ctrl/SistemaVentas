@@ -21,7 +21,7 @@ class MovimientoInventario extends Model
 
     protected $fillable = [
         'producto_id', 'usuario_id', 'tipo', 'origen',
-        'venta_id', 'devolucion_id', 'proveedor_id', 'documento_externo',
+        'venta_id', 'devolucion_id', 'proveedor_id', 'compra_id', 'documento_externo',
         'cantidad', 'stock_anterior', 'stock_resultante',
         'costo_unitario', 'motivo', 'fecha',
     ];
@@ -50,6 +50,11 @@ class MovimientoInventario extends Model
     public function proveedor(): BelongsTo
     {
         return $this->belongsTo(Proveedor::class, 'proveedor_id');
+    }
+
+    public function compra(): BelongsTo
+    {
+        return $this->belongsTo(Compra::class, 'compra_id');
     }
 
     /** Cuánto sumó o restó al stock, con signo. */
