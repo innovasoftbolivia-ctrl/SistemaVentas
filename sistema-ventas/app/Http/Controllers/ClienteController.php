@@ -71,21 +71,31 @@ class ClienteController extends Controller
         );
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): RedirectResponse|JsonResponse
     {
         $datos = $this->validar($request);
 
-        $cliente = Cliente::create($datos);
+        // `nombre` lo arma MySQL (columna generada) al insertar: el modelo
+        // recién creado solo trae lo que se le mandó, así que sin refrescar
+        // queda vacío tanto aquí como en el mensaje de éxito.
+        $cliente = Cliente::create($datos)->fresh();
 
         Auditor::registrar('CLIENTE_CREADO', 'clientes', $cliente->id, [
             'nombre' => $cliente->nombre,
             'tipo_persona' => $cliente->tipo_persona,
         ]);
 
-        // Desde el punto de venta se vuelve al mostrador con el cliente elegido.
-        if ($request->boolean('desde_pos')) {
-            return redirect()->route('pos.index', ['cliente' => $cliente->id])
-                ->with('exito', "Cliente «{$cliente->nombre}» registrado y seleccionado.");
+        // Alta rápida desde el mostrador: el cajero no sale de /pos, así que
+        // el carrito que ya tenía armado no se pierde con una navegación de
+        // página completa. Si la validación falla, Laravel ya responde el
+        // 422 con los errores en JSON solo porque se pidió ese formato.
+        if ($request->wantsJson()) {
+            return response()->json([
+                'id' => $cliente->id,
+                'nombre' => $cliente->nombre,
+                'etiqueta' => $cliente->etiqueta,
+                'juridica' => $cliente->esJuridica(),
+            ], 201);
         }
 
         return redirect()->route('clientes.index')

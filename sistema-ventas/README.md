@@ -586,6 +586,71 @@ quedan intactos.
 
 ---
 
+## Nueva instalación (un cliente)
+
+Checklist para poner el sistema en el servidor de un negocio nuevo. El objetivo es que cada
+instalación tenga sus propias credenciales — para que filtrar una no comprometa a las demás — y
+sus propios datos de negocio.
+
+1. **Copiar el proyecto** al servidor y, desde la raíz del repositorio:
+
+   ```bash
+   cp .env.example .env
+   cp sistema-ventas/.env.docker.example sistema-ventas/.env.docker
+   ```
+
+2. **Clave y contraseña propias**, en `sistema-ventas/.env.docker`:
+
+   ```bash
+   php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"   # -> APP_KEY
+   ```
+
+   Pon una contraseña nueva en `DB_PASSWORD` (ese mismo archivo) y en `.env` (raíz) — tienen que
+   coincidir, es la misma base. Revisa también `APP_URL` (el dominio real del cliente) y que
+   `APP_DEBUG=false` (ya viene así en la plantilla: no lo cambies salvo para depurar algo puntual).
+
+3. **Levantar**:
+
+   ```bash
+   docker compose up -d --build
+   ```
+
+4. **Datos del negocio.** No hay pantalla para esto todavía — se edita directo en la tabla
+   `configuracion` (nombre, dirección, teléfono, identificación fiscal, moneda, y `tasa_impuesto`
+   en `0` si el negocio no factura con impuesto):
+
+   ```bash
+   docker exec -it ventas_mysql mysql --default-character-set=utf8mb4 -uroot -p ventas_db
+   ```
+
+   ```sql
+   UPDATE configuracion SET valor = 'Minimarket El Ahorro' WHERE clave = 'negocio_nombre';
+   UPDATE configuracion SET valor = 'Av. Principal 123'    WHERE clave = 'negocio_direccion';
+   -- y así con negocio_telefono, negocio_documento, moneda_simbolo, moneda_codigo, tasa_impuesto...
+   ```
+
+5. **Cuentas reales.** `CredencialesSeeder` deja usuarios de prueba (`admin`/`admin123`, etc.) —
+   sirven para instalar y probar, pero no para operar. Antes de entregarle el sistema al cliente,
+   crea sus cuentas reales desde **Personal → Empleados y Usuarios** y desactiva o cambia la
+   contraseña de las de prueba.
+
+6. **Backup programado.** Sin esto, un disco dañado se lleva el negocio entero — ver
+   [Copias de seguridad](#copias-de-seguridad) más abajo. No lo dejes para después.
+
+7. **Adminer apagado.** Por omisión ya no arranca solo (queda detrás de
+   `--profile tools`); confirma que no está corriendo si el servidor tiene el puerto expuesto a
+   internet:
+
+   ```bash
+   docker compose ps adminer   # no debería listar nada
+   ```
+
+8. **HTTPS**, si el servidor es accesible por internet (no solo en la red del local): un proxy
+   (nginx, Caddy, un balanceador del proveedor) delante del contenedor `nginx`, con su
+   certificado. Este proyecto no lo resuelve por sí solo.
+
+---
+
 ## Copias de seguridad
 
 `scripts/backup-db.sh`, desde la raíz del repositorio, vuelca `ventas_db` completa —incluidos

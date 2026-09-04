@@ -279,10 +279,15 @@
                                     {{ $c['etiqueta'] }}{{ $c['juridica'] ? ' — factura' : '' }}
                                 </option>
                             @endforeach
+                            {{-- Los que se registran sin salir del mostrador, en esta misma venta. --}}
+                            <template x-for="c in clientesNuevos" :key="c.id">
+                                <option :value="c.id" x-text="c.etiqueta + (c.juridica ? ' — factura' : '')"></option>
+                            </template>
                         </select>
                         <p class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
                             Persona jurídica recibe <b>factura</b>; el resto, <b>recibo</b>.
-                            <a href="{{ route('clientes.index') }}" class="text-brand-500 dark:text-brand-400 hover:text-brand-600">Registrar cliente</a>
+                            <button type="button" @click="abrirNuevoCliente()"
+                                class="text-brand-500 dark:text-brand-400 hover:text-brand-600">Registrar cliente</button>
                         </p>
                     </div>
 
@@ -426,6 +431,113 @@
                     <span class="text-base font-semibold" x-text="'{{ $moneda }} ' + total.toFixed(2)"></span>
                 </button>
             </div>
+
+            {{-- Alta rápida de cliente, sin salir del mostrador: solo los
+                 campos que la venta realmente necesita. Cambiar de rubro,
+                 desactivar o editar datos de contacto sigue siendo cosa del
+                 módulo de Clientes. --}}
+            <div x-show="nuevoClienteAbierto" x-cloak
+                class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+                <div @click="nuevoClienteAbierto = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
+
+                <div class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 class="mb-1 text-xl font-semibold text-gray-800 dark:text-white/90">Registrar cliente</h2>
+                    <p class="mb-6 text-theme-xs text-gray-500 dark:text-gray-400">
+                        Se guarda y queda elegido para esta venta, sin perder lo que ya llevas en el carrito.
+                    </p>
+
+                    <div class="space-y-5">
+                        <div class="grid grid-cols-2 gap-3">
+                            <button type="button" @click="nuevoCliente.persona = 'NATURAL'; nuevoCliente.tipo_documento = 'DNI'"
+                                :class="nuevoCliente.persona === 'NATURAL'
+                                    ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400'
+                                    : 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400'"
+                                class="rounded-xl border-2 px-4 py-3 text-left transition">
+                                <span class="block text-sm font-medium">Persona natural</span>
+                                <span class="block text-theme-xs opacity-75">Recibe recibo</span>
+                            </button>
+                            <button type="button" @click="nuevoCliente.persona = 'JURIDICA'; nuevoCliente.tipo_documento = 'RUC'"
+                                :class="nuevoCliente.persona === 'JURIDICA'
+                                    ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-400'
+                                    : 'border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400'"
+                                class="rounded-xl border-2 px-4 py-3 text-left transition">
+                                <span class="block text-sm font-medium">Persona jurídica</span>
+                                <span class="block text-theme-xs opacity-75">Recibe factura</span>
+                            </button>
+                        </div>
+
+                        <template x-if="nuevoCliente.persona === 'NATURAL'">
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">Nombres</label>
+                                    <input x-model="nuevoCliente.nombres" placeholder="Carlos"
+                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">Apellidos</label>
+                                    <input x-model="nuevoCliente.apellidos" placeholder="Mendoza Ríos"
+                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">Tipo de documento</label>
+                                    <select x-model="nuevoCliente.tipo_documento"
+                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                        <option value="DNI">DNI</option>
+                                        <option value="CE">Carné de extranjería</option>
+                                        <option value="PAS">Pasaporte</option>
+                                        <option value="SIN">Sin documento</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">Documento</label>
+                                    <input x-model="nuevoCliente.documento" placeholder="45678901"
+                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="nuevoCliente.persona === 'JURIDICA'">
+                            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div class="sm:col-span-2">
+                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">Razón social</label>
+                                    <input x-model="nuevoCliente.razon_social" placeholder="Servicios Generales Perú S.A.C."
+                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                                        RUC <span class="text-error-600 dark:text-error-400">*</span>
+                                    </label>
+                                    <input x-model="nuevoCliente.documento" placeholder="20512345678"
+                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">Sin RUC no se puede emitir factura.</p>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                                        Dirección <span class="text-error-600 dark:text-error-400">*</span>
+                                    </label>
+                                    <input x-model="nuevoCliente.direccion" placeholder="Av. Industrial 1420, Lima"
+                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">Obligatoria para la factura: es la dirección fiscal.</p>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="nuevoClienteError" x-cloak>
+                            <x-ui.alert variant="error" title="No se pudo registrar" :message="null">
+                                <span x-text="nuevoClienteError"></span>
+                            </x-ui.alert>
+                        </div>
+
+                        <div class="flex justify-end gap-3">
+                            <x-ui.button type="button" variant="outline" size="sm" @click="nuevoClienteAbierto = false">Cancelar</x-ui.button>
+                            <x-ui.button type="button" size="sm" @click="guardarNuevoCliente()"
+                                x-bind:disabled="nuevoClienteGuardando">
+                                <span x-text="nuevoClienteGuardando ? 'Guardando…' : 'Guardar y elegir'"></span>
+                            </x-ui.button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         @push('scripts')
@@ -443,6 +555,16 @@
                         referencia: '',
                         enviando: false,
 
+                        // Alta rápida de cliente desde el mostrador.
+                        clientesNuevos: [],
+                        nuevoClienteAbierto: false,
+                        nuevoClienteGuardando: false,
+                        nuevoClienteError: '',
+                        nuevoCliente: {
+                            persona: 'NATURAL', tipo_documento: 'DNI', documento: '',
+                            nombres: '', apellidos: '', razon_social: '', direccion: '',
+                        },
+
                         // Nombre de categoría por id, para la etiqueta de la tarjeta.
                         categorias: @js($categorias->pluck('nombre', 'id')),
 
@@ -458,6 +580,62 @@
 
                             const respuesta = await fetch(url, { headers: { 'Accept': 'application/json' } });
                             this.productos = await respuesta.json();
+                        },
+
+                        abrirNuevoCliente() {
+                            this.nuevoCliente = {
+                                persona: 'NATURAL', tipo_documento: 'DNI', documento: '',
+                                nombres: '', apellidos: '', razon_social: '', direccion: '',
+                            };
+                            this.nuevoClienteError = '';
+                            this.nuevoClienteAbierto = true;
+                        },
+
+                        /* Alta rápida sin salir del mostrador: la misma validación del
+                           módulo de Clientes, pero por fetch — así el carrito en curso
+                           no se pierde con una navegación de página completa. */
+                        async guardarNuevoCliente() {
+                            this.nuevoClienteError = '';
+                            this.nuevoClienteGuardando = true;
+
+                            const c = this.nuevoCliente;
+                            const datos = { tipo_persona: c.persona, tipo_documento: c.tipo_documento, documento: c.documento };
+
+                            if (c.persona === 'JURIDICA') {
+                                datos.razon_social = c.razon_social;
+                                datos.direccion = c.direccion;
+                            } else {
+                                datos.nombres = c.nombres;
+                                datos.apellidos = c.apellidos;
+                            }
+
+                            try {
+                                const respuesta = await fetch('{{ route('clientes.store') }}', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Accept': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                    },
+                                    body: JSON.stringify(datos),
+                                });
+
+                                const cuerpo = await respuesta.json();
+
+                                if (!respuesta.ok) {
+                                    const primero = cuerpo.errors ? Object.values(cuerpo.errors)[0]?.[0] : null;
+                                    this.nuevoClienteError = primero ?? cuerpo.message ?? 'No se pudo registrar el cliente.';
+                                    return;
+                                }
+
+                                this.clientesNuevos.push(cuerpo);
+                                this.clienteId = cuerpo.id;
+                                this.nuevoClienteAbierto = false;
+                            } catch (e) {
+                                this.nuevoClienteError = 'No se pudo conectar con el servidor. Intenta de nuevo.';
+                            } finally {
+                                this.nuevoClienteGuardando = false;
+                            }
                         },
 
                         /* Con el lector, el código llega completo y termina en Enter. */
