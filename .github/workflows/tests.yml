@@ -41,6 +41,20 @@ jobs:
         working-directory: sistema-ventas
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # El layout llama a @vite(...) en cada página: sin el manifest, cualquier
+      # prueba que renderice una vista real revienta con 500 (Vite manifest
+      # not found), aunque la prueba en sí no tenga nada que ver con el front.
+      - name: Compilar assets
+        working-directory: sistema-ventas
+        run: |
+          npm ci
+          npm run build
+
       - name: Clave de aplicación
         working-directory: sistema-ventas
         # phpunit.xml fuerza casi todo lo demás (ver DB_* con force="true"),
