@@ -40,7 +40,12 @@ function opciones(config) {
         theme: { mode: oscuro ? 'dark' : 'light' },
         colors: config.colores ?? PALETA,
         series,
-        labels: config.etiquetas ?? undefined,
+        // Ojo: la clave debe faltar del todo cuando no hay etiquetas, no
+        // valer `undefined` — con `labels: undefined` puesto explícito,
+        // ApexCharts revienta por dentro en los gráficos de tipo `bar`
+        // («Cannot read properties of undefined (reading 'length')»,
+        // en `parseDataAxisCharts`) y el gráfico queda en blanco.
+        ...(config.etiquetas ? { labels: config.etiquetas } : {}),
         xaxis: config.etiquetas
             ? undefined
             : {
@@ -94,6 +99,14 @@ function opciones(config) {
  * Con un ResizeObserver el gráfico sigue a su contenedor. Se compara el ancho
  * anterior para no redibujar cuando solo cambió el alto, y se espera al
  * siguiente fotograma para no reentrar en el propio observador.
+ *
+ * IMPORTANTE: hay que llamar a esto solo después de que `render()` termine
+ * (su promesa se resuelva). `ResizeObserver` dispara su primer aviso casi
+ * enseguida tras `observe()` —incluso sin que nada haya cambiado de
+ * tamaño—, y si ese aviso llama a `updateOptions()` mientras `render()`
+ * todavía está construyendo el gráfico por dentro, ApexCharts revienta con
+ * «Cannot read properties of undefined (reading 'length')» y el gráfico se
+ * queda en blanco, sin ningún aviso en pantalla.
  */
 function seguirAlContenedor(el, grafico) {
     if (typeof ResizeObserver === 'undefined') {
@@ -146,10 +159,12 @@ export function iniciarGraficos() {
             }
 
             const grafico = new ApexCharts(el, opciones(config));
-            grafico.render();
-            dibujados.push({ grafico, config });
 
-            seguirAlContenedor(el, grafico);
+            // `seguirAlContenedor` no debe engancharse hasta que `render()`
+            // termine de verdad (ver el comentario en esa función).
+            grafico.render().then(() => seguirAlContenedor(el, grafico));
+
+            dibujados.push({ grafico, config });
         });
 
         // El tema se cambia sin recargar, así que los gráficos se reajustan
