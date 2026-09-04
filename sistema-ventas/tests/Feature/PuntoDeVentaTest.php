@@ -518,6 +518,36 @@ class PuntoDeVentaTest extends TestCase
         $this->assertNotNull($venta->comprobante);
     }
 
+    /**
+     * El precio de línea siempre sale del catálogo del servidor, nunca del
+     * request: si se confiara en `precio_unitario` del navegador, bastaría
+     * mandarlo casi en cero para vender por debajo de precio sin pasar por
+     * la autorización de descuento (O4).
+     */
+    public function test_el_precio_de_linea_no_se_puede_manipular_desde_el_navegador(): void
+    {
+        $sesion = $this->turno();
+        $producto = $this->producto();
+
+        $respuesta = $this->actingAs($this->cajero())->post('/pos', [
+            'lineas' => [[
+                'producto_id' => $producto->id,
+                'cantidad' => 2,
+                'precio_unitario' => 0.01,
+            ]],
+            'pagos' => [[
+                'metodo_pago_id' => $this->efectivo()->id,
+                'monto_recibido' => 10.00,
+            ]],
+        ]);
+
+        $venta = Venta::where('sesion_caja_id', $sesion->id)->latest('id')->firstOrFail();
+
+        $respuesta->assertRedirect(route('ventas.show', $venta));
+        $this->assertSame('8.99', $venta->total);
+        $this->assertSame('3.81', (string) $venta->detalle->first()->precio_unitario);
+    }
+
     /** Un descuento por encima del umbral necesita el permiso `ventas.descuento`. */
     public function test_el_cajero_no_descuenta_por_encima_del_umbral(): void
     {

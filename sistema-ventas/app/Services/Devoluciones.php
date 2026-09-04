@@ -129,10 +129,29 @@ class Devoluciones
             'venta_detalle_id' => $original->id,
             'producto_id' => $original->producto_id,
             'cantidad' => $cantidad,
-            // Se devuelve al precio al que se vendió, no al precio de hoy.
-            'precio_unitario' => $original->precio_unitario,
+            // Se devuelve lo que el cliente pagó por unidad, no el precio de
+            // lista: si la venta tuvo descuento de cabecera, `precio_unitario`
+            // de la línea original sigue siendo el de catálogo (el descuento
+            // solo vive en `ventas.descuento`, prorrateado sobre el total, no
+            // sobre cada línea). Sin este ajuste se devolvía —y se restaba del
+            // cajón al cerrar— más de lo que en realidad se cobró.
+            'precio_unitario' => self::precioNetoUnitario($venta, $original),
             'reingresa_stock' => $linea['reingresa_stock'] ?? true,
         ]);
+    }
+
+    /** El precio por unidad neto de descuento de línea y de cabecera, igual proporción que `sp_recalcular_venta`. */
+    private static function precioNetoUnitario(Venta $venta, VentaDetalle $original): float
+    {
+        $subtotal = (float) $venta->subtotal;
+        $factorCabecera = $subtotal > 0 ? ($subtotal - (float) $venta->descuento) / $subtotal : 1.0;
+
+        // `importe` ya descuenta el descuento de línea (si lo hubiera); dividir
+        // entre la cantidad da el precio neto por unidad antes de prorratear
+        // el descuento de cabecera.
+        $precioNetoDeLinea = (float) $original->importe / (float) $original->cantidad;
+
+        return round($precioNetoDeLinea * $factorCabecera, 2);
     }
 
     /**

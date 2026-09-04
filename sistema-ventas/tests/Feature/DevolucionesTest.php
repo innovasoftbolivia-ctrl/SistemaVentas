@@ -124,6 +124,45 @@ class DevolucionesTest extends TestCase
         ]);
     }
 
+    /**
+     * `venta_detalle.precio_unitario` es el de catálogo: el descuento de
+     * cabecera solo vive en `ventas.descuento`, prorrateado sobre el total
+     * (igual que `sp_recalcular_venta`). Sin prorratearlo también en la
+     * devolución, devolver una venta con descuento reembolsaba más de lo que
+     * el cliente pagó —y restaba de más del cajón al cerrar.
+     */
+    public function test_devolver_una_venta_con_descuento_reembolsa_lo_que_se_pago(): void
+    {
+        $sesion = $this->turno();
+
+        // 2 × 10 = 20 de base, 2 de descuento (10%): factor 0.9.
+        // Impuesto bruto 20 × 0.18 = 3.60, neto 3.60 × 0.9 = 3.24.
+        // Total pagado: 20 − 2 + 3.24 = 21.24.
+        $venta = Ventas::registrar(
+            sesion: $sesion,
+            usuario: $sesion->usuarioApertura,
+            lineas: [['producto_id' => $this->producto()->id, 'cantidad' => 2, 'precio_unitario' => 10]],
+            pagos: [['metodo_pago_id' => MetodoPago::where('codigo', 'EFECTIVO')->value('id'), 'monto' => null]],
+            descuento: 2,
+        );
+
+        $this->assertSame('21.24', $venta->total);
+
+        $devolucion = Devoluciones::registrar(
+            venta: $venta,
+            usuario: $this->admin(),
+            sesion: $sesion,
+            lineas: [['venta_detalle_id' => $venta->detalle->first()->id, 'cantidad' => 2]],
+            motivo: 'El cliente se arrepintió de toda la compra',
+        );
+
+        // Devolución total: se reembolsa exactamente lo que se cobró, ni un
+        // céntimo más —el precio de catálogo sin descontar hubiera dado 23.60.
+        $this->assertSame($venta->fresh()->total, $devolucion->total);
+        $this->assertSame('21.24', $devolucion->total);
+        $this->assertSame('9.00', (string) $devolucion->detalle->first()->precio_unitario);
+    }
+
     /** Devolver todas las líneas deja la venta en DEVUELTA y la marca TOTAL. */
     public function test_devolver_todo_deja_la_venta_devuelta(): void
     {

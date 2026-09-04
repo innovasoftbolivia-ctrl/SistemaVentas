@@ -33,6 +33,9 @@ use RuntimeException;
 class Ventas
 {
     /**
+     * `precio_unitario` es solo para llamadores de confianza (no HTTP): ver
+     * el comentario en `agregarLineas`.
+     *
      * @param  array<int, array{producto_id: int, cantidad: float, precio_unitario?: float, descuento?: float}>  $lineas
      * @param  array<int, array{metodo_pago_id: int, monto: float, monto_recibido?: float|null, referencia?: string|null}>  $pagos
      */
@@ -132,6 +135,11 @@ class Ventas
                 // Copia histórica: la venta no cambia si mañana cambia el catálogo.
                 'descripcion' => $producto->nombre,
                 'cantidad' => $cantidad,
+                // `precio_unitario` explícito es para llamadores de confianza
+                // (pruebas, scripts internos): PosController, el único que
+                // recibe pedidos por HTTP, nunca lo manda —lo quitó de sus
+                // reglas de validación a propósito— así que el navegador jamás
+                // decide el precio de una venta real.
                 'precio_unitario' => $linea['precio_unitario'] ?? $producto->precio_venta,
                 'descuento' => $linea['descuento'] ?? 0,
             ]);

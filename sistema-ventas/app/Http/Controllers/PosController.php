@@ -104,7 +104,8 @@ class PosController extends Controller
             'lineas' => ['required', 'array', 'min:1'],
             'lineas.*.producto_id' => ['required', Rule::exists('productos', 'id')],
             'lineas.*.cantidad' => ['required', 'numeric', 'gt:0'],
-            'lineas.*.precio_unitario' => ['required', 'numeric', 'min:0'],
+            // El precio SIEMPRE sale del catálogo en `Ventas::registrar`, nunca
+            // de aquí: no se valida ni se usa, aunque el formulario lo mande.
 
             'pagos' => ['required', 'array', 'min:1'],
             'pagos.*.metodo_pago_id' => ['required', Rule::exists('metodos_pago', 'id')->where('activo', 1)],
@@ -148,6 +149,11 @@ class PosController extends Controller
     /**
      * El descuento por encima del umbral necesita autorización (O4).
      *
+     * La base se calcula con el precio del catálogo, nunca con lo que venga
+     * en el request: si se confiara en `precio_unitario` del cliente, bastaría
+     * mandarlo en 0 para que esta función no viera ningún descuento y dejara
+     * pasar una venta regalada sin pedir autorización.
+     *
      * @param  array<int, array<string, mixed>>  $lineas
      */
     private function descuentoNoAutorizado(float $descuento, array $lineas): ?string
@@ -156,8 +162,11 @@ class PosController extends Controller
             return null;
         }
 
+        $precios = Producto::whereIn('id', array_column($lineas, 'producto_id'))
+            ->pluck('precio_venta', 'id');
+
         $base = array_sum(array_map(
-            fn ($l) => (float) $l['cantidad'] * (float) $l['precio_unitario'],
+            fn ($l) => (float) $l['cantidad'] * (float) ($precios[$l['producto_id']] ?? 0),
             $lineas,
         ));
 
