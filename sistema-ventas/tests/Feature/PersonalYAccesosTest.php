@@ -101,6 +101,52 @@ class PersonalYAccesosTest extends TestCase
         );
     }
 
+    public function test_se_crea_un_rol_con_sus_permisos(): void
+    {
+        $permisos = Permiso::whereIn('codigo', ['ventas.registrar', 'reportes.ver'])
+            ->pluck('id')->all();
+
+        $this->actingAs($this->admin())->post('/roles', [
+            'nombre' => 'Supervisor de turno',
+            'descripcion' => 'Ventas y reportes, sin gestión de personal',
+            'permisos' => $permisos,
+        ])->assertRedirect(route('roles.index'));
+
+        $rol = Rol::where('nombre', 'Supervisor de turno')->firstOrFail();
+        $this->assertEqualsCanonicalizing(
+            ['ventas.registrar', 'reportes.ver'],
+            $rol->permisos->pluck('codigo')->all(),
+        );
+    }
+
+    public function test_no_se_repite_el_nombre_de_un_rol(): void
+    {
+        $this->actingAs($this->admin())->post('/roles', ['nombre' => 'Cajero'])
+            ->assertSessionHasErrors('nombre');
+    }
+
+    public function test_un_rol_sin_cuentas_se_elimina(): void
+    {
+        $rol = Rol::create(['nombre' => 'Rol de prueba temporal', 'activo' => true]);
+
+        $this->actingAs($this->admin())->delete("/roles/{$rol->id}")
+            ->assertRedirect(route('roles.index'));
+
+        $this->assertModelMissing($rol);
+    }
+
+    public function test_un_rol_con_cuentas_se_desactiva_en_vez_de_borrarse(): void
+    {
+        $rol = Rol::where('nombre', 'Cajero')->firstOrFail();
+        $this->assertTrue($rol->usuarios()->exists());
+
+        $this->actingAs($this->admin())->delete("/roles/{$rol->id}")
+            ->assertRedirect(route('roles.index'));
+
+        $this->assertModelExists($rol);
+        $this->assertFalse($rol->fresh()->activo);
+    }
+
     // ----------------------------------------------------------------- cargos
 
     public function test_se_crea_un_cargo(): void

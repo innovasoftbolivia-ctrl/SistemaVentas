@@ -76,7 +76,9 @@ Route::middleware(['auth', 'cuenta.vigente'])->group(function () {
     // pero el listado general de ventas es información de gestión.
     Route::middleware('permiso:ventas.registrar')->group(function () {
         Route::get('pos', [PosController::class, 'index'])->name('pos.index');
-        Route::get('pos/productos', [PosController::class, 'buscar'])->name('pos.productos');
+        Route::get('pos/productos', [PosController::class, 'buscar'])
+            ->middleware('throttle:60,1')
+            ->name('pos.productos');
         Route::post('pos', [PosController::class, 'store'])->name('pos.store');
     });
 
@@ -89,7 +91,9 @@ Route::middleware(['auth', 'cuenta.vigente'])->group(function () {
             ->name('comprobantes.imprimir');
 
         Route::get('clientes', [ClienteController::class, 'index'])->name('clientes.index');
-        Route::get('clientes/buscar', [ClienteController::class, 'buscar'])->name('clientes.buscar');
+        Route::get('clientes/buscar', [ClienteController::class, 'buscar'])
+            ->middleware('throttle:60,1')
+            ->name('clientes.buscar');
         Route::post('clientes', [ClienteController::class, 'store'])->name('clientes.store');
         Route::put('clientes/{cliente}', [ClienteController::class, 'update'])->name('clientes.update');
         Route::delete('clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy');

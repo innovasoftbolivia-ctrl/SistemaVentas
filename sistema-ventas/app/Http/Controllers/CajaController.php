@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
+use Throwable;
 
 class CajaController extends Controller
 {
@@ -131,6 +132,10 @@ class CajaController extends Controller
             );
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            // El procedimiento almacenado también puede avisar con SIGNAL
+            // (p. ej. si dos personas cierran la misma sesión a la vez).
+            return back()->with('error', $this->mensajeDeBase($e));
         }
 
         $diferencia = (float) $sesion->diferencia;
@@ -157,5 +162,17 @@ class CajaController extends Controller
             'egresos' => (float) $sesion->movimientos()->where('tipo', 'EGRESO')->sum('monto'),
             'esperado' => $sesion->estaAbierta() ? $sesion->efectivoEsperado() : (float) $sesion->monto_esperado,
         ];
+    }
+
+    /** Extrae el texto del SIGNAL de MySQL, que llega envuelto en ruido. */
+    private function mensajeDeBase(Throwable $e): string
+    {
+        if (preg_match('/SQLSTATE\[45000\].*?:\s*\d+\s+(.+?)(?: \(Connection:|$)/s', $e->getMessage(), $m)) {
+            return trim($m[1]);
+        }
+
+        report($e);
+
+        return 'No se pudo cerrar la caja. Inténtalo de nuevo.';
     }
 }

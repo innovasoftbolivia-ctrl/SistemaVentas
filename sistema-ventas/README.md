@@ -628,7 +628,9 @@ sus propios datos de negocio.
 
 8. **HTTPS**, si el servidor es accesible por internet (no solo en la red del local): un proxy
    (nginx, Caddy, un balanceador del proveedor) delante del contenedor `nginx`, con su
-   certificado. Este proyecto no lo resuelve por sí solo.
+   certificado. Este proyecto no lo resuelve por sí solo. Una vez que HTTPS esté activo, pon
+   también `SESSION_SECURE_COOKIE=true` en `sistema-ventas/.env.docker` — si lo pones en true
+   sin HTTPS, nadie puede iniciar sesión.
 
 ---
 

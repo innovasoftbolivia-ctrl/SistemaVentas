@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use RuntimeException;
+use Throwable;
 
 class VentaController extends Controller
 {
@@ -117,9 +118,25 @@ class VentaController extends Controller
             Ventas::anular($venta, Auth::user(), $datos['motivo_anulacion']);
         } catch (RuntimeException $e) {
             return back()->with('error', $e->getMessage());
+        } catch (Throwable $e) {
+            // El procedimiento almacenado también puede avisar con SIGNAL
+            // (p. ej. si dos personas anulan la misma venta a la vez).
+            return back()->with('error', $this->mensajeDeBase($e));
         }
 
         return back()->with('exito', 'Venta anulada. El stock volvió al inventario y el comprobante quedó anulado.');
+    }
+
+    /** Extrae el texto del SIGNAL de MySQL, que llega envuelto en ruido. */
+    private function mensajeDeBase(Throwable $e): string
+    {
+        if (preg_match('/SQLSTATE\[45000\].*?:\s*\d+\s+(.+?)(?: \(Connection:|$)/s', $e->getMessage(), $m)) {
+            return trim($m[1]);
+        }
+
+        report($e);
+
+        return 'No se pudo anular la venta. Inténtalo de nuevo.';
     }
 
     /**
