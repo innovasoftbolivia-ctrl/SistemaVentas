@@ -368,12 +368,28 @@ class ReporteController extends Controller
         return round(($vendidoActual - $vendidoAnterior) / $vendidoAnterior * 100, 1);
     }
 
-    /** Serie diaria, con los días sin ventas rellenados en cero. */
+    /**
+     * Serie diaria, con los días sin ventas rellenados en cero.
+     *
+     * `v_ventas_por_dia` es la definición oficial, pero agrupa por
+     * `DATE(fecha)` y no admite rango: filtrar por `dia` después de agrupar
+     * obliga a MySQL a recorrer la tabla `ventas` completa en cada consulta
+     * (confirmado con EXPLAIN — ni el índice de fecha ni el de estado sirven
+     * contra un `WHERE` sobre una columna ya calculada). Se repite la misma
+     * fórmula filtrando ANTES de agrupar, como ya hace `masVendidos()` con
+     * `v_productos_mas_vendidos` por el mismo motivo: así sí usa el índice.
+     * Un test compara ambas sobre todo el histórico para que no se separen.
+     */
     private function porDia(Carbon $desde, Carbon $hasta): array
     {
-        $filas = DB::table('v_ventas_por_dia')
-            ->whereBetween('dia', [$desde->toDateString(), $hasta->toDateString()])
-            ->orderBy('dia')
+        $filas = DB::table('ventas')
+            ->whereBetween('fecha', [$desde, $hasta])
+            ->where('estado', '<>', 'ANULADA')
+            ->groupBy(DB::raw('DATE(fecha)'))
+            ->selectRaw('DATE(fecha) AS dia')
+            ->selectRaw('COUNT(*) AS cantidad_ventas')
+            ->selectRaw('SUM(total) AS monto_total')
+            ->selectRaw('ROUND(AVG(total), 2) AS ticket_promedio')
             ->get()
             ->keyBy(fn ($f) => (string) $f->dia);
 
@@ -397,12 +413,25 @@ class ReporteController extends Controller
         return $serie;
     }
 
+    /**
+     * Mismo motivo que `porDia()`: `v_ventas_por_metodo_pago` agrupa por
+     * `DATE(fecha)` y filtrarla por rango obliga a un recorrido completo.
+     * Se repite la fórmula contra las tablas base, filtrando antes de
+     * agrupar, y de paso se ahorra la doble agregación (día→método y luego
+     * método) que hacía falta al consultar la vista.
+     */
     private function porMetodoPago(Carbon $desde, Carbon $hasta): Collection
     {
-        return DB::table('v_ventas_por_metodo_pago')
-            ->whereBetween('dia', [$desde->toDateString(), $hasta->toDateString()])
-            ->groupBy('metodo_pago')
-            ->selectRaw('metodo_pago, SUM(cantidad_ventas) AS ventas, SUM(monto) AS monto')
+        return DB::table('venta_pagos as vp')
+            ->join('ventas as v', function ($join) {
+                $join->on('v.id', '=', 'vp.venta_id')->where('v.estado', '<>', 'ANULADA');
+            })
+            ->join('metodos_pago as mp', 'mp.id', '=', 'vp.metodo_pago_id')
+            ->whereBetween('v.fecha', [$desde, $hasta])
+            ->groupBy('mp.nombre')
+            ->selectRaw('mp.nombre AS metodo_pago')
+            ->selectRaw('COUNT(DISTINCT v.id) AS ventas')
+            ->selectRaw('SUM(vp.monto) AS monto')
             ->orderByDesc('monto')
             ->get();
     }

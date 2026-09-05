@@ -49,12 +49,21 @@ class DashboardController extends Controller
         ]);
     }
 
-    /** Lo que lleva vendido hoy quien mira: es su propio trabajo. */
+    /**
+     * Lo que lleva vendido hoy quien mira: es su propio trabajo.
+     *
+     * `whereBetween` con las dos puntas del día, y no `whereDate()`: esta
+     * pantalla se carga en cada login, y `whereDate('fecha', ...)` compila a
+     * `WHERE DATE(fecha) = ...`, que no puede usar `ix_ventas_fecha` como
+     * rango —envuelve la columna en una función— y obliga a MySQL a recorrer
+     * toda la tabla `ventas` (confirmado con EXPLAIN). Con el rango explícito
+     * sí es un `Index range scan`.
+     */
     private function ventasPropias(Usuario $usuario): array
     {
         $fila = DB::table('ventas')
             ->where('usuario_id', $usuario->id)
-            ->whereDate('fecha', now()->toDateString())
+            ->whereBetween('fecha', [now()->startOfDay(), now()->endOfDay()])
             ->where('estado', '<>', 'ANULADA')
             ->selectRaw('COUNT(*) AS operaciones, COALESCE(SUM(total), 0) AS monto')
             ->first();
@@ -80,11 +89,15 @@ class DashboardController extends Controller
         ];
     }
 
-    /** @return array<string, float|int> */
+    /**
+     * @return array<string, float|int>
+     *
+     * Mismo motivo que `ventasPropias()`: rango explícito y no `whereDate()`.
+     */
     private function totalesDe(Carbon $dia): array
     {
         $fila = DB::table('ventas')
-            ->whereDate('fecha', $dia->toDateString())
+            ->whereBetween('fecha', [$dia->copy()->startOfDay(), $dia->copy()->endOfDay()])
             ->where('estado', '<>', 'ANULADA')
             ->selectRaw('COUNT(*) AS operaciones, COALESCE(SUM(total), 0) AS monto')
             ->first();
@@ -102,13 +115,22 @@ class DashboardController extends Controller
     /**
      * Serie de las últimas dos semanas, con los días sin ventas en cero para
      * que el gráfico no una días lejanos con una recta.
+     *
+     * `v_ventas_por_dia` es la definición oficial (ver `ReporteController`),
+     * pero agrupa por `DATE(fecha)` y filtrarla por rango después de agrupar
+     * obliga a un recorrido completo de `ventas` en cada visita a esta
+     * pantalla —la primera que carga cualquiera al entrar—. Se repite la
+     * misma fórmula contra la tabla base, filtrando antes de agrupar.
      */
     private function serie(): array
     {
         $desde = now()->subDays(self::DIAS_GRAFICO - 1)->startOfDay();
 
-        $filas = DB::table('v_ventas_por_dia')
-            ->whereBetween('dia', [$desde->toDateString(), now()->toDateString()])
+        $filas = DB::table('ventas')
+            ->whereBetween('fecha', [$desde, now()->endOfDay()])
+            ->where('estado', '<>', 'ANULADA')
+            ->groupBy(DB::raw('DATE(fecha)'))
+            ->selectRaw('DATE(fecha) AS dia, SUM(total) AS monto_total')
             ->get()
             ->keyBy(fn ($f) => (string) $f->dia);
 

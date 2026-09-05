@@ -169,6 +169,50 @@ class ReportesTest extends TestCase
         );
     }
 
+    /**
+     * `porDia()` y `porMetodoPago()` repiten las fórmulas de `v_ventas_por_dia`
+     * y `v_ventas_por_metodo_pago` contra las tablas base (filtrando antes de
+     * agrupar, para que el rango use el índice de fecha en vez de forzar un
+     * recorrido completo — ver el comentario en el controlador). Esta prueba
+     * compara ambas sobre todo el histórico para que las fórmulas no se
+     * separen con el tiempo, igual que ya hace el ranking de productos con su
+     * propia vista.
+     */
+    public function test_la_serie_y_el_desglose_coinciden_con_las_vistas_del_esquema(): void
+    {
+        $sesion = $this->turno();
+        $this->vender($sesion, 2);
+        $this->vender($sesion, 1, 'P-0009');
+
+        $respuesta = $this->actingAs($this->admin())->get(route('reportes.ventas', [
+            'desde' => now()->subYears(5)->toDateString(),
+            'hasta' => now()->toDateString(),
+        ]));
+
+        $serie = collect($respuesta->viewData('porDia'))->keyBy('dia');
+        $vistaPorDia = DB::table('v_ventas_por_dia')->get()->keyBy(fn ($f) => (string) $f->dia);
+
+        foreach ($vistaPorDia as $dia => $fila) {
+            $this->assertArrayHasKey($dia, $serie, "Falta el día {$dia} en la serie.");
+            $this->assertSame($fila->cantidad_ventas, $serie[$dia]['ventas']);
+            $this->assertSame((float) $fila->monto_total, $serie[$dia]['monto']);
+            $this->assertSame((float) $fila->ticket_promedio, $serie[$dia]['ticket']);
+        }
+
+        $porMetodo = $respuesta->viewData('porMetodo')->keyBy('metodo_pago');
+        $vistaPorMetodo = DB::table('v_ventas_por_metodo_pago')
+            ->selectRaw('metodo_pago, SUM(cantidad_ventas) AS ventas, SUM(monto) AS monto')
+            ->groupBy('metodo_pago')
+            ->get()
+            ->keyBy('metodo_pago');
+
+        foreach ($vistaPorMetodo as $metodo => $fila) {
+            $this->assertArrayHasKey($metodo, $porMetodo, "Falta el método «{$metodo}».");
+            $this->assertSame((int) $fila->ventas, (int) $porMetodo[$metodo]->ventas);
+            $this->assertSame((float) $fila->monto, (float) $porMetodo[$metodo]->monto);
+        }
+    }
+
     public function test_el_desglose_por_cajero_identifica_a_quien_vendio(): void
     {
         $sesion = $this->turno($this->cajero());
