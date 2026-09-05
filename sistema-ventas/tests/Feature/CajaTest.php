@@ -50,10 +50,40 @@ class CajaTest extends TestCase
 
     // -------------------------------------------------------------- permisos
 
-    /** Mismo grupo de permisos que ya protege la ficha del turno (`caja.show`). */
-    public function test_quien_ve_el_turno_tambien_ve_el_resumen_imprimible(): void
+    /**
+     * Solo el administrador cierra la caja (O4: el arqueo lo hace quien no
+     * tuvo la mano en el cajón durante el turno). El cajero abre y vende,
+     * pero perdió `caja.cerrar` — probarlo por HTTP y no llamando al
+     * servicio directo, porque el permiso se aplica en el middleware de la
+     * ruta, no dentro de `Cajas::cerrar()`.
+     */
+    public function test_el_cajero_ya_no_puede_cerrar_su_propia_caja(): void
+    {
+        $sesion = $this->turno($this->cajero());
+
+        $this->actingAs($this->cajero())
+            ->post(route('caja.cerrar', $sesion), ['monto_declarado' => 100])
+            ->assertForbidden();
+
+        $this->assertTrue($sesion->fresh()->estaAbierta());
+    }
+
+    public function test_el_administrador_si_puede_cerrar_la_caja_del_cajero(): void
+    {
+        $sesion = $this->turno($this->cajero());
+
+        $this->actingAs($this->admin())
+            ->post(route('caja.cerrar', $sesion), ['monto_declarado' => 100])
+            ->assertRedirect(route('caja.imprimir', $sesion));
+
+        $this->assertFalse($sesion->fresh()->estaAbierta());
+    }
+
+    /** Mismo grupo de permisos que ya protege la ficha del turno (`caja.show`), pero solo si ya está cerrada. */
+    public function test_quien_ve_el_turno_tambien_ve_el_resumen_imprimible_una_vez_cerrado(): void
     {
         $sesion = $this->turno();
+        Cajas::cerrar($sesion->fresh(), $this->admin(), 100);
 
         foreach ([$this->cajero(), $this->admin(), $this->almacenero()] as $usuario) {
             $this->actingAs($usuario)->get(route('caja.imprimir', $sesion))->assertOk();
@@ -62,15 +92,20 @@ class CajaTest extends TestCase
 
     // -------------------------------------------------------------- contenido
 
-    public function test_el_resumen_abierto_deja_el_arqueo_en_blanco_para_llenar_a_mano(): void
+    /**
+     * El resumen es la constancia del cierre, no un borrador para revisar
+     * antes: con la sesión todavía abierta no hay documento que mostrar —
+     * de haberlo, el arqueo saldría en blanco, que es justo lo que no se
+     * quiere.
+     */
+    public function test_no_se_puede_imprimir_el_resumen_con_el_turno_abierto(): void
     {
-        $sesion = $this->turno(inicial: 100);
-        $this->vender($sesion, 2);
+        $sesion = $this->turno();
 
-        $respuesta = $this->actingAs($this->admin())->get(route('caja.imprimir', $sesion))->assertOk();
-
-        $respuesta->assertSee('todavía no se cerró');
-        $respuesta->assertSee('Turno abierto — para revisar antes de cerrar', false);
+        $this->actingAs($this->admin())
+            ->get(route('caja.imprimir', $sesion))
+            ->assertRedirect(route('caja.show', $sesion))
+            ->assertSessionHas('error');
     }
 
     public function test_el_resumen_cerrado_muestra_lo_declarado_y_la_diferencia(): void
@@ -85,7 +120,6 @@ class CajaTest extends TestCase
 
         $respuesta->assertSee('Turno cerrado');
         $respuesta->assertSee('Faltó vuelto de una venta');
-        $respuesta->assertDontSee('todavía no se cerró');
     }
 
     public function test_el_desglose_por_metodo_de_pago_cuadra_con_lo_vendido(): void
@@ -107,6 +141,7 @@ class CajaTest extends TestCase
             lineas: [['producto_id' => $producto->id, 'cantidad' => 1, 'precio_unitario' => (float) $producto->precio_venta]],
             pagos: [['metodo_pago_id' => $tarjeta->id, 'monto' => null]],
         );
+        Cajas::cerrar($sesion->fresh(), $this->admin(), $sesion->fresh()->efectivoEsperado());
 
         $respuesta = $this->actingAs($this->admin())->get(route('caja.imprimir', $sesion))->assertOk();
 
@@ -118,6 +153,7 @@ class CajaTest extends TestCase
     {
         $sesion = $this->turno(inicial: 100);
         Cajas::movimiento($sesion, $this->cajero(), 'EGRESO', 'Pago a proveedor de bolsas', 15);
+        Cajas::cerrar($sesion->fresh(), $this->admin(), $sesion->fresh()->efectivoEsperado());
 
         $this->actingAs($this->admin())
             ->get(route('caja.imprimir', $sesion))

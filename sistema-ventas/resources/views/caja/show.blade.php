@@ -8,7 +8,11 @@
 @endphp
 
 @section('content')
-    <div x-data="{ moviendo: false, tipo: 'INGRESO', cerrando: false, declarado: {{ $resumen['esperado'] }}, esperado: {{ $resumen['esperado'] }} }"
+    {{-- `declarado: null`, no el esperado: si arrancara ya igualado, cerrar sin
+         cambiar nada reportaría «cuadrado» sin que nadie haya contado un
+         céntimo. El monto se cuenta y se escribe; el esperado ya lo calculó
+         el sistema, se muestra aparte como referencia, no como valor inicial. --}}
+    <div x-data="{ moviendo: false, tipo: 'INGRESO', cerrando: false, declarado: null, esperado: {{ $resumen['esperado'] }} }"
         @keydown.escape.window="moviendo = false; cerrando = false" class="space-y-6">
 
         {{-- Cabecera --}}
@@ -34,11 +38,15 @@
                 </div>
 
                 <div class="flex flex-wrap gap-2">
-                    {{-- Para revisar el turno con el cajero antes de cerrarlo, o como
-                         constancia firmada una vez cerrado (O4). --}}
-                    <x-ui.button size="sm" variant="outline" :href="route('caja.imprimir', $sesion)" target="_blank">
-                        Imprimir resumen
-                    </x-ui.button>
+                    {{-- Recién al cerrar, no antes: imprimirlo con el turno abierto
+                         dejaría el arqueo en blanco, que es justo lo que no se
+                         quiere (O4). Cerrar caja ya lleva directo a este mismo
+                         documento, ya firmable. --}}
+                    @unless ($abierta)
+                        <x-ui.button size="sm" variant="outline" :href="route('caja.imprimir', $sesion)" target="_blank">
+                            Imprimir resumen
+                        </x-ui.button>
+                    @endunless
 
                     @if ($abierta)
                         @puede('ventas.registrar')
@@ -252,12 +260,16 @@
                                 </div>
                             </div>
 
+                            {{-- Vacío hasta que se cuente de verdad: sin esto, el
+                                 campo ya venía igualado al esperado y cerrar sin
+                                 tocar nada reportaba «cuadrado» sin contar nada. --}}
                             <x-form.campo label="Efectivo contado" for="monto_declarado" name="monto_declarado" required>
                                 <x-form.input id="monto_declarado" name="monto_declarado" type="number" step="0.01"
-                                    min="0" x-model.number="declarado" required autofocus />
+                                    min="0" placeholder="Cuenta el cajón y escribe lo que hay" x-model.number="declarado"
+                                    required autofocus />
                             </x-form.campo>
 
-                            <div class="rounded-xl p-4"
+                            <div x-show="declarado !== null" x-cloak class="rounded-xl p-4"
                                 :class="(declarado - esperado) === 0
                                     ? 'bg-success-50 dark:bg-success-500/10'
                                     : 'bg-error-50 dark:bg-error-500/10'">

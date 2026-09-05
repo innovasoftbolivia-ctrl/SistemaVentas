@@ -54,13 +54,20 @@ class CajaController extends Controller
     }
 
     /**
-     * El resumen del turno listo para imprimir y firmar: lo que un
-     * supervisor revisa con el cajero antes de cerrar la caja (O4). Funciona
-     * con la sesión todavía abierta —para revisarla antes de confirmar el
-     * cierre— y también ya cerrada, como constancia.
+     * El resumen del turno listo para imprimir y firmar: constancia de que
+     * el administrador arqueó la caja junto al cajero al momento del cierre
+     * (O4). Por eso solo existe una vez cerrada la sesión —imprimirlo antes
+     * dejaría un documento con el arqueo en blanco, que es justo lo que no
+     * se quiere: el conteo se hace en el momento de cerrar, no antes ni
+     * aparte.
      */
-    public function imprimir(SesionCaja $sesion): View
+    public function imprimir(SesionCaja $sesion): View|RedirectResponse
     {
+        if ($sesion->estaAbierta()) {
+            return redirect()->route('caja.show', $sesion)
+                ->with('error', 'El resumen se imprime al cerrar la caja, no antes.');
+        }
+
         $sesion->load([
             'caja:id,nombre,ubicacion',
             'usuarioApertura:id,usuario,empleado_id',
@@ -168,15 +175,12 @@ class CajaController extends Controller
             return back()->with('error', $this->mensajeDeBase($e));
         }
 
-        $diferencia = (float) $sesion->diferencia;
-
-        $mensaje = match (true) {
-            $diferencia === 0.0 => 'Caja cerrada y cuadrada.',
-            $diferencia > 0 => 'Caja cerrada con un sobrante de '.Config::importe($diferencia).'.',
-            default => 'Caja cerrada con un faltante de '.Config::importe(abs($diferencia)).'.',
-        };
-
-        return redirect()->route('caja.show', $sesion)->with('exito', $mensaje);
+        // Directo al resumen para imprimir y firmar con el cajero: es el
+        // momento del cierre, no un paso aparte para más tarde. La diferencia
+        // ya se ve ahí mismo, en el arqueo del documento —no hace falta
+        // repetirla en un mensaje, que además no llegaría a mostrarse: esa
+        // vista es un documento propio, sin el layout que pinta los flashes.
+        return redirect()->route('caja.imprimir', $sesion);
     }
 
     /** @return array<string, float|int> */

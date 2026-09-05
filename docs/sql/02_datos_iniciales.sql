@@ -40,10 +40,13 @@ INSERT INTO permisos (codigo, modulo, descripcion) VALUES
 
 -- Administrador: todos los permisos
 INSERT INTO rol_permiso (rol_id, permiso_id) SELECT 1, id FROM permisos;
--- Cajero
+-- Cajero: abre su turno y vende, pero NO lo cierra — el cierre lo hace un
+-- administrador, que cuenta el efectivo junto al cajero y deja el resumen
+-- firmado. Es control, no desconfianza porque sí: el arqueo lo hace quien no
+-- tuvo la mano en el cajón durante el turno.
 INSERT INTO rol_permiso (rol_id, permiso_id)
 SELECT 2, id FROM permisos
- WHERE codigo IN ('ventas.registrar','caja.abrir','caja.cerrar');
+ WHERE codigo IN ('ventas.registrar','caja.abrir');
 -- Almacenero
 INSERT INTO rol_permiso (rol_id, permiso_id)
 SELECT 3, id FROM permisos

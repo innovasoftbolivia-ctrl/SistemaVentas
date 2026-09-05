@@ -1,7 +1,8 @@
 @php
     use App\Support\Config;
 
-    $abierta = $sesion->estaAbierta();
+    // Solo se llega aquí con la sesión ya cerrada: el controlador redirige
+    // si todavía está abierta (ver el comentario en CajaController::imprimir).
     $moneda = Config::moneda();
     $cajero = $sesion->usuarioApertura?->empleado?->nombre_completo ?? $sesion->usuarioApertura?->usuario;
 @endphp
@@ -80,7 +81,6 @@
             font-weight: 600;
         }
 
-        .estado.abierta { background: #fffaeb; color: #b54708; }
         .estado.cuadra { background: #ecfdf3; color: #067647; }
         .estado.difiere { background: #fef3f2; color: #b42318; }
 
@@ -156,8 +156,8 @@
                 <div class="fuerte" style="font-size: 16px;">Resumen de cierre de caja</div>
                 <div class="tenue">{{ $sesion->caja?->nombre }}@if ($sesion->caja?->ubicacion) · {{ $sesion->caja->ubicacion }}@endif</div>
             </div>
-            <span class="estado {{ $abierta ? 'abierta' : ((float) $sesion->diferencia === 0.0 ? 'cuadra' : 'difiere') }}">
-                {{ $abierta ? 'Turno abierto — para revisar antes de cerrar' : 'Turno cerrado' }}
+            <span class="estado {{ (float) $sesion->diferencia === 0.0 ? 'cuadra' : 'difiere' }}">
+                Turno cerrado
             </span>
         </div>
 
@@ -172,13 +172,7 @@
             </tr>
             <tr>
                 <td class="tenue">Cierre</td>
-                <td>
-                    @if ($abierta)
-                        <span class="tenue">— todavía no se cerró —</span>
-                    @else
-                        {{ $sesion->fecha_cierre?->format('d/m/Y H:i') }} · {{ $sesion->usuarioCierre?->usuario }}
-                    @endif
-                </td>
+                <td>{{ $sesion->fecha_cierre?->format('d/m/Y H:i') }} · {{ $sesion->usuarioCierre?->usuario }}</td>
             </tr>
         </table>
 
@@ -198,7 +192,7 @@
                 </div>
             </div>
             <div class="cifra">
-                <div class="etiqueta">{{ $abierta ? 'Efectivo esperado' : 'Esperado al cerrar' }}</div>
+                <div class="etiqueta">Esperado al cerrar</div>
                 <div class="valor">{{ Config::importe($resumen['esperado']) }}</div>
             </div>
         </div>
@@ -263,27 +257,17 @@
             </tr>
             <tr>
                 <td class="tenue">Efectivo contado</td>
-                <td class="derecha fuerte">
-                    @if ($abierta)
-                        <span style="display: inline-block; border-bottom: 1px solid #101828; width: 120px;">&nbsp;</span>
-                    @else
-                        {{ Config::importe($sesion->monto_declarado) }}
-                    @endif
-                </td>
+                <td class="derecha fuerte">{{ Config::importe($sesion->monto_declarado) }}</td>
             </tr>
             <tr>
                 <td class="tenue">Diferencia</td>
                 <td class="derecha fuerte">
-                    @if ($abierta)
-                        <span style="display: inline-block; border-bottom: 1px solid #101828; width: 120px;">&nbsp;</span>
-                    @else
-                        {{ (float) $sesion->diferencia > 0 ? '+' : '' }}{{ Config::importe($sesion->diferencia) }}
-                    @endif
+                    {{ (float) $sesion->diferencia > 0 ? '+' : '' }}{{ Config::importe($sesion->diferencia) }}
                 </td>
             </tr>
         </table>
 
-        @if (! $abierta && $sesion->observacion)
+        @if ($sesion->observacion)
             <p class="tenue"><span class="fuerte">Observación:</span> {{ $sesion->observacion }}</p>
         @endif
 
