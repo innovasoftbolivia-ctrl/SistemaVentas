@@ -18,6 +18,9 @@ use RuntimeException;
  */
 class Cajas
 {
+    /** Reintentos ante un deadlock; mismo criterio que `Ventas::REINTENTOS`. */
+    private const REINTENTOS = 3;
+
     /** La sesión abierta del usuario, si la tiene. */
     public static function sesionDe(Usuario $usuario): ?SesionCaja
     {
@@ -143,7 +146,7 @@ class Cajas
         // consulta de la conexión falla.
         DB::transaction(fn () => DB::select('CALL sp_cerrar_caja(?, ?, ?, ?)', [
             $sesion->id, $usuario->id, $declarado, $observacion,
-        ]));
+        ]), self::REINTENTOS);
 
         $sesion->refresh();
 

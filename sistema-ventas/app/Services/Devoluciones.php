@@ -26,6 +26,9 @@ use RuntimeException;
  */
 class Devoluciones
 {
+    /** Reintentos ante un deadlock; mismo criterio que `Ventas::REINTENTOS`. */
+    private const REINTENTOS = 3;
+
     /**
      * @param  array<int, array{venta_detalle_id: int, cantidad: float, reingresa_stock?: bool}>  $lineas
      */
@@ -108,7 +111,7 @@ class Devoluciones
             ], $usuario->id);
 
             return $devolucion->load('detalle.producto');
-        });
+        }, self::REINTENTOS);
     }
 
     /**

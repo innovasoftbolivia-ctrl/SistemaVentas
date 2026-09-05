@@ -18,6 +18,9 @@ use RuntimeException;
  */
 class Inventario
 {
+    /** Reintentos ante un deadlock; mismo criterio que `Ventas::REINTENTOS`. */
+    private const REINTENTOS = 3;
+
     /** Carga inicial de stock al dar de alta el producto. */
     public static function cargaInicial(Producto $producto, float $cantidad): ?MovimientoInventario
     {
@@ -72,7 +75,7 @@ class Inventario
                 stockResultante: $stockContado,
                 extra: ['motivo' => $motivo],
             );
-        });
+        }, self::REINTENTOS);
     }
 
     /**
@@ -100,7 +103,7 @@ class Inventario
             }
 
             return self::registrar($producto, $cantidad, $tipo, $origen, $anterior, $resultante, $extra);
-        });
+        }, self::REINTENTOS);
     }
 
     /**

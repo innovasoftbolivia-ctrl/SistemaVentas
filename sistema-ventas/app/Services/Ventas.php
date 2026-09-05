@@ -33,6 +33,16 @@ use RuntimeException;
 class Ventas
 {
     /**
+     * Intentos ante un deadlock de MySQL antes de darse por vencido.
+     *
+     * Tres y no uno porque el empate entre dos transacciones que se pelean por
+     * la misma fila es momentáneo: al reintentar, la otra ya terminó. Y tres y
+     * no treinta porque si el choque persiste hay algo de fondo que no se
+     * arregla insistiendo, y es mejor que el error salga a la luz.
+     */
+    private const REINTENTOS = 3;
+
+    /**
      * `precio_unitario` es solo para llamadores de confianza (no HTTP): ver
      * el comentario en `agregarLineas`.
      *
@@ -56,6 +66,16 @@ class Ventas
             throw new RuntimeException('No hay una caja abierta para registrar la venta.');
         }
 
+        // El segundo argumento son reintentos ante un deadlock de MySQL. Dos
+        // cajeros vendiendo el MISMO producto al mismo tiempo se pelean por la
+        // fila de `productos` (el trigger la bloquea con FOR UPDATE para
+        // descontar stock), y InnoDB resuelve el empate matando a una de las
+        // dos transacciones. Los datos nunca quedan mal —para eso está el
+        // bloqueo—, pero sin reintentar, a un cajero se le caía la venta con
+        // un «revisa el stock y los importes» que además no era cierto: no
+        // había problema de stock, solo mala suerte de milisegundos. Laravel
+        // reintenta la transacción entera, que se deshizo por completo al
+        // fallar, así que no queda nada a medias.
         return DB::transaction(function () use ($sesion, $usuario, $lineas, $pagos, $cliente, $descuento, $observacion) {
             $venta = Venta::create([
                 'cliente_id' => $cliente?->id,
@@ -97,7 +117,7 @@ class Ventas
             ], $usuario->id);
 
             return $venta->fresh(['detalle', 'pagos', 'comprobante']);
-        });
+        }, self::REINTENTOS);
     }
 
     /**
