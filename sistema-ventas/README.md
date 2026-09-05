@@ -590,18 +590,33 @@ sus propios datos de negocio.
    coincidir, es la misma base. Revisa también `APP_URL` (el dominio real del cliente) y que
    `APP_DEBUG=false` (ya viene así en la plantilla: no lo cambies salvo para depurar algo puntual).
 
-3. **Levantar**:
+3. **Compilar los assets** (una vez, y cada vez que cambie el código del frontend). No se
+   compilan dentro de la imagen: se generan aquí y la imagen los recoge, para que nginx —que los
+   sirve directo del disco, sin pasar por PHP— y la aplicación vean exactamente los mismos:
 
    ```bash
-   docker compose up -d --build
+   cd sistema-ventas && npm ci && npm run build && cd ..
    ```
 
-4. **Datos del negocio.** No hay pantalla para esto todavía — se edita directo en la tabla
+4. **Levantar, con la vía de producción**:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d --build
+   ```
+
+   Ojo con esto: `docker compose up` a secas levanta el entorno de **desarrollo**
+   (`docker-compose.yml`), que monta el código por bind mount, corre como root, deja la base
+   escuchando en un puerto de la máquina y muestra los errores de PHP en pantalla. Sirve para
+   trabajar en el proyecto, no para el servidor de un negocio. La versión de producción
+   (`docker-compose.prod.yml` + `Dockerfile.prod`) hornea el código en la imagen, corre como
+   usuario sin privilegios y no publica la base hacia fuera.
+
+5. **Datos del negocio.** No hay pantalla para esto todavía — se edita directo en la tabla
    `configuracion` (nombre, dirección, teléfono, identificación fiscal, moneda, y `tasa_impuesto`
    en `0` si el negocio no factura con impuesto):
 
    ```bash
-   docker exec -it ventas_mysql mysql --default-character-set=utf8mb4 -uroot -p ventas_db
+   docker exec -it ventas_mysql_prod mysql --default-character-set=utf8mb4 -uroot -p ventas_db
    ```
 
    ```sql
@@ -610,23 +625,19 @@ sus propios datos de negocio.
    -- y así con negocio_telefono, negocio_documento, moneda_simbolo, moneda_codigo, tasa_impuesto...
    ```
 
-5. **Cuentas reales.** `CredencialesSeeder` deja usuarios de prueba (`admin`/`admin123`, etc.) —
+6. **Cuentas reales.** `CredencialesSeeder` deja usuarios de prueba (`admin`/`admin123`, etc.) —
    sirven para instalar y probar, pero no para operar. Antes de entregarle el sistema al cliente,
    crea sus cuentas reales desde **Personal → Empleados y Usuarios** y desactiva o cambia la
    contraseña de las de prueba.
 
-6. **Backup programado.** Sin esto, un disco dañado se lleva el negocio entero — ver
+7. **Backup programado.** Sin esto, un disco dañado se lleva el negocio entero — ver
    [Copias de seguridad](#copias-de-seguridad) más abajo. No lo dejes para después.
 
-7. **Adminer apagado.** Por omisión ya no arranca solo (queda detrás de
-   `--profile tools`); confirma que no está corriendo si el servidor tiene el puerto expuesto a
-   internet:
+8. **Adminer no existe en producción.** `docker-compose.prod.yml` directamente no lo declara: un
+   cliente de base de datos sin autenticación propia no tiene por qué estar instalado en el
+   servidor de un negocio. (En desarrollo sigue disponible con `--profile tools`.)
 
-   ```bash
-   docker compose ps adminer   # no debería listar nada
-   ```
-
-8. **HTTPS**, si el servidor es accesible por internet (no solo en la red del local): un proxy
+9. **HTTPS**, si el servidor es accesible por internet (no solo en la red del local): un proxy
    (nginx, Caddy, un balanceador del proveedor) delante del contenedor `nginx`, con su
    certificado. Este proyecto no lo resuelve por sí solo. Una vez que HTTPS esté activo, pon
    también en `sistema-ventas/.env.docker`:

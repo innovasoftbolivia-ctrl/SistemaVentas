@@ -1,18 +1,27 @@
 # Lo que no debe entrar en el contexto de build.
 #
 # La imagen de desarrollo no copia el código (llega por bind mount), así que
-# esto es sobre todo para que el contexto no pese cientos de megas.
+# esto es sobre todo para que el contexto no pese cientos de megas. La imagen
+# de PRODUCCIÓN sí copia el código —de ahí que `.env`/`.env.docker` tengan que
+# quedar fuera sin excepción: son las credenciales reales de cada instalación,
+# y una imagen no es el lugar para guardarlas (quedarían en una capa para
+# siempre, visibles para cualquiera con acceso a la imagen). Las llevan los
+# contenedores en tiempo de ejecución vía `env_file`, nunca horneadas.
 
 vendor/
 node_modules/
-public/build/
+# public/build/ NO va aquí: la imagen de producción sí necesita esos assets
+# (Blade los busca vía manifest.json para armar las etiquetas <script>/<link>),
+# generados antes con `npm run build` — ver Dockerfile.prod.
 public/storage/
 public/hot
 public/_diag-*.html
+storage/app/public/*
 storage/framework/cache/*
 storage/framework/sessions/*
 storage/framework/views/*
 storage/logs/*
 .git/
 .env
+.env.docker
 .phpunit.result.cache
