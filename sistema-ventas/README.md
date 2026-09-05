@@ -650,16 +650,28 @@ sus propios datos de negocio.
 
 ## Copias de seguridad
 
-`scripts/backup-db.sh`, desde la raíz del repositorio, vuelca `ventas_db` completa —incluidos
-los procedimientos almacenados y triggers, que un `mysqldump` sin las banderas correctas deja
-fuera en silencio— comprimida y con fecha en el nombre, dentro de `backups/` (no se sube al
-repositorio). Borra solas las copias de más de 14 días (`RETENTION_DAYS` para cambiarlo).
+`scripts/backup-db.sh`, desde la raíz del repositorio, guarda **dos** archivos en `backups/`
+(que no se sube al repositorio), con la fecha y hora en el nombre:
+
+- `ventas_db_<fecha>.sql.gz` — la base completa, incluidos los procedimientos almacenados y los
+  triggers, que un `mysqldump` sin las banderas correctas deja fuera en silencio.
+- `ventas_fotos_<fecha>.tar.gz` — las fotos de producto. Van aparte porque no viven en la base:
+  la base solo guarda el nombre del archivo. Respaldar únicamente el SQL deja un catálogo entero
+  sin imágenes el día que haya que recuperar.
+
+Borra solas las copias de más de 14 días (`RETENTION_DAYS` para cambiarlo). Detecta por su
+cuenta si los contenedores son los de producción (`ventas_mysql_prod`) o los de desarrollo.
 
 ```bash
 ./scripts/backup-db.sh
 ```
 
-Para restaurar una copia (**sobrescribe** la base actual; pide confirmación):
+Antes de dar una copia por buena, el script comprueba que el volcado no esté corrupto ni
+truncado (busca la marca final que escribe `mysqldump`): un respaldo a medias, de esos que
+deja un disco lleno, es peor que ninguno, porque da tranquilidad hasta el día que hace falta.
+
+Para restaurar (**sobrescribe** la base actual; pide confirmación). Repone también las fotos si
+encuentra el `.tar.gz` de la misma fecha al lado:
 
 ```bash
 ./scripts/restore-db.sh backups/ventas_db_20260901_010000.sql.gz
@@ -671,8 +683,20 @@ En un servidor real, prográmalo con `cron`:
 0 1 * * *  cd /ruta/al/proyecto && ./scripts/backup-db.sh >> backups/backup.log 2>&1
 ```
 
+**Y saca las copias del servidor.** Un respaldo guardado en el mismo disco que la base no
+protege del caso más común de todos: que ese disco muera. Con `DESTINO_EXTERNO` apuntando a un
+disco USB montado o a una carpeta de red, cada respaldo se duplica ahí:
+
+```
+0 1 * * *  cd /ruta/al/proyecto && DESTINO_EXTERNO=/mnt/respaldos ./scripts/backup-db.sh >> backups/backup.log 2>&1
+```
+
 Y de cuando en cuando, prueba que una copia efectivamente restaura —una copia que nunca se
-probó a restaurar no es una copia de seguridad, es una promesa.
+probó a restaurar no es una copia de seguridad, es una promesa. Esta ya se probó: se tiró la
+base entera y las fotos, y se recuperó todo desde una copia con un solo comando. De ahí salió,
+justamente, el arreglo de que `restore-db.sh` ahora cree la base si no existe: hasta entonces
+la restauración moría con «Unknown database» en el único escenario que importa, el del
+servidor perdido.
 
 ---
 

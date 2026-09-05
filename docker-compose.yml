@@ -67,6 +67,10 @@ services:
       - ./sistema-ventas/docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       # nginx solo sirve estáticos: le basta public/ en modo lectura.
       - ./sistema-ventas/public:/var/www/html/public:ro
+      # Y las fotos de producto, que viven fuera de public/ (el enlace
+      # `public/storage` es absoluto y no se puede seguir desde aquí; ver el
+      # bloque `location ^~ /storage/` de default.conf).
+      - ./sistema-ventas/storage/app/public:/var/www/html/storage/app/public:ro
     depends_on: [app]
     healthcheck:
       # /up es el endpoint de salud de bootstrap/app.php: valida la cadena
