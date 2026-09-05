@@ -93,15 +93,6 @@
             @endforeach
         </div>
 
-        @unless ($abierta)
-            @php $dif = (float) $sesion->diferencia; @endphp
-            <x-ui.alert :variant="$dif == 0 ? 'success' : 'error'"
-                :title="$dif == 0
-                    ? 'La caja cuadró'
-                    : ($dif > 0 ? 'Sobrante de '.Config::importe($dif) : 'Faltante de '.Config::importe(abs($dif)))"
-                :message="'Esperado '.Config::importe($sesion->monto_esperado).' · contado '.Config::importe($sesion->monto_declarado)" />
-        @endunless
-
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
             {{-- Ventas del turno --}}
             <div class="lg:col-span-2">
