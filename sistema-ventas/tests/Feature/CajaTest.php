@@ -111,7 +111,6 @@ class CajaTest extends TestCase
         ]);
     }
 
-
     /** Mismo grupo de permisos que ya protege la ficha del turno (`caja.show`), pero solo si ya está cerrada. */
     public function test_quien_ve_el_turno_tambien_ve_el_resumen_imprimible_una_vez_cerrado(): void
     {
