@@ -9,6 +9,7 @@ use App\Support\Config;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
@@ -49,6 +50,35 @@ class CajaController extends Controller
                 ->orderByDesc('fecha')
                 ->paginate(15),
             'resumen' => $this->resumen($sesion),
+        ]);
+    }
+
+    /**
+     * El resumen del turno listo para imprimir y firmar: lo que un
+     * supervisor revisa con el cajero antes de cerrar la caja (O4). Funciona
+     * con la sesión todavía abierta —para revisarla antes de confirmar el
+     * cierre— y también ya cerrada, como constancia.
+     */
+    public function imprimir(SesionCaja $sesion): View
+    {
+        $sesion->load([
+            'caja:id,nombre,ubicacion',
+            'usuarioApertura:id,usuario,empleado_id',
+            'usuarioApertura.empleado:id,nombre_completo',
+            'usuarioCierre:id,usuario',
+            'movimientos.usuario:id,usuario',
+        ]);
+
+        return view('caja.imprimir', [
+            'sesion' => $sesion,
+            'resumen' => $this->resumen($sesion),
+            'porMetodo' => $this->porMetodoPago($sesion),
+            'negocio' => [
+                'nombre' => Config::get('negocio_nombre', config('app.name')),
+                'documento' => Config::get('negocio_documento'),
+                'direccion' => Config::get('negocio_direccion'),
+                'telefono' => Config::get('negocio_telefono'),
+            ],
         ]);
     }
 
@@ -162,6 +192,27 @@ class CajaController extends Controller
             'egresos' => (float) $sesion->movimientos()->where('tipo', 'EGRESO')->sum('monto'),
             'esperado' => $sesion->estaAbierta() ? $sesion->efectivoEsperado() : (float) $sesion->monto_esperado,
         ];
+    }
+
+    /**
+     * Cuánto se cobró por cada método en el turno: explica por qué «Vendido»
+     * y «Efectivo esperado» no coinciden —solo el efectivo pasa por el
+     * cajón— y es justo lo que hace falta para explicarle al cajero por qué
+     * cuadra (o no) al momento de firmar.
+     */
+    private function porMetodoPago(SesionCaja $sesion)
+    {
+        return DB::table('venta_pagos as vp')
+            ->join('ventas as v', function ($join) use ($sesion) {
+                $join->on('v.id', '=', 'vp.venta_id')
+                    ->where('v.sesion_caja_id', $sesion->id)
+                    ->where('v.estado', '<>', 'ANULADA');
+            })
+            ->join('metodos_pago as mp', 'mp.id', '=', 'vp.metodo_pago_id')
+            ->groupBy('mp.nombre', 'mp.afecta_caja')
+            ->selectRaw('mp.nombre AS metodo_pago, mp.afecta_caja, SUM(vp.monto) AS monto')
+            ->orderByDesc('monto')
+            ->get();
     }
 
     /** Extrae el texto del SIGNAL de MySQL, que llega envuelto en ruido. */

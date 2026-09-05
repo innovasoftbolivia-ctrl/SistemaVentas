@@ -138,6 +138,7 @@ Route::middleware(['auth', 'cuenta.vigente'])->group(function () {
     Route::middleware('permiso:caja.abrir,caja.cerrar,reportes.ver')->group(function () {
         Route::get('caja', [CajaController::class, 'index'])->name('caja.index');
         Route::get('caja/{sesion}', [CajaController::class, 'show'])->name('caja.show');
+        Route::get('caja/{sesion}/imprimir', [CajaController::class, 'imprimir'])->name('caja.imprimir');
     });
 
     Route::post('caja/abrir', [CajaController::class, 'abrir'])

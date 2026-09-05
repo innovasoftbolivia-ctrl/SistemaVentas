@@ -33,8 +33,14 @@
                     @endif
                 </div>
 
-                @if ($abierta)
-                    <div class="flex flex-wrap gap-2">
+                <div class="flex flex-wrap gap-2">
+                    {{-- Para revisar el turno con el cajero antes de cerrarlo, o como
+                         constancia firmada una vez cerrado (O4). --}}
+                    <x-ui.button size="sm" variant="outline" :href="route('caja.imprimir', $sesion)" target="_blank">
+                        Imprimir resumen
+                    </x-ui.button>
+
+                    @if ($abierta)
                         @puede('ventas.registrar')
                             @if ($esPropia)
                                 <x-ui.button size="sm" :href="route('pos.index')">Ir al mostrador</x-ui.button>
@@ -48,8 +54,8 @@
                         @puede('caja.cerrar')
                             <x-ui.button size="sm" variant="danger" @click="cerrando = true">Cerrar caja</x-ui.button>
                         @endpuede
-                    </div>
-                @endif
+                    @endif
+                </div>
             </div>
         </div>
 
