@@ -9,6 +9,7 @@ use App\Models\SesionCaja;
 use App\Models\Usuario;
 use App\Services\Cajas;
 use App\Services\Ventas;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -78,6 +79,38 @@ class CajaTest extends TestCase
 
         $this->assertFalse($sesion->fresh()->estaAbierta());
     }
+
+    /**
+     * El mismo cajero no puede terminar con dos turnos abiertos en dos cajas
+     * distintas: sin esto, `Cajas::sesionDe()` (que usa `->first()`, sin
+     * criterio de desempate) le atribuiría todas sus ventas siempre a una
+     * sola de las dos sesiones, de forma no determinista, mientras el
+     * efectivo real queda repartido entre dos cajones. La única defensa
+     * anterior era un SELECT-antes-de-INSERT en PHP —una condición de carrera
+     * real bajo dos peticiones simultáneas—, así que la garantía de verdad
+     * tiene que estar en la base: el índice único `uq_sesion_usuario_abierta`.
+     */
+    public function test_la_base_impide_dos_sesiones_abiertas_para_el_mismo_usuario(): void
+    {
+        $otraCaja = Caja::create(['nombre' => 'Caja 2', 'ubicacion' => 'Depósito']);
+        $usuario = $this->cajero();
+
+        $this->turno($usuario);
+
+        $this->expectException(QueryException::class);
+
+        // Directo al modelo, saltándose el chequeo de `Cajas::abrir()`: así se
+        // prueba el candado real (el de la base), no el atajo de PHP que solo
+        // cierra la ventana de carrera a medias.
+        SesionCaja::create([
+            'caja_id' => $otraCaja->id,
+            'usuario_apertura_id' => $usuario->id,
+            'fecha_apertura' => now(),
+            'monto_inicial' => 50,
+            'estado' => 'ABIERTA',
+        ]);
+    }
+
 
     /** Mismo grupo de permisos que ya protege la ficha del turno (`caja.show`), pero solo si ya está cerrada. */
     public function test_quien_ve_el_turno_tambien_ve_el_resumen_imprimible_una_vez_cerrado(): void

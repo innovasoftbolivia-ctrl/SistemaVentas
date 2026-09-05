@@ -172,7 +172,7 @@
                      la altura de la cabecera y el título de la página, unos `10rem`—
                      y con el número de `top-24` el pie (con el botón de cobrar)
                      quedaba unos 25 px fuera de la pantalla nada más cargar. --}}
-                <form method="POST" action="{{ route('pos.store') }}" @submit="preparar($event)" x-ref="carrito"
+                <form method="POST" action="{{ route('pos.store') }}" @submit.prevent="confirmarYEnviar($event)" x-ref="carrito"
                     class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-10rem)] xl:overflow-hidden">
                     @csrf
                     <div x-ref="campos"></div>
@@ -394,15 +394,18 @@
                          que no responde parece un fallo. Y en vez de repetir
                          «Cobrar Bs 0.00» dice qué falta para poder cobrar. --}}
                     <div class="flex-none space-y-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-                        <button type="submit" x-ref="cobrar" :disabled="!puedeCobrar || enviando"
+                        <button type="submit" x-ref="cobrar" :disabled="!puedeCobrar || enviando || verificando"
                             class="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-base font-semibold text-white transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 dark:disabled:bg-white/[0.06] dark:disabled:text-gray-500">
                             <template x-if="enviando">
                                 <span>Registrando…</span>
                             </template>
-                            <template x-if="!enviando && !carrito.length">
+                            <template x-if="!enviando && verificando">
+                                <span>Comprobando precios…</span>
+                            </template>
+                            <template x-if="!enviando && !verificando && !carrito.length">
                                 <span>Agrega un producto para cobrar</span>
                             </template>
-                            <template x-if="!enviando && carrito.length">
+                            <template x-if="!enviando && !verificando && carrito.length">
                                 <span class="flex items-center gap-2">
                                     <span x-text="'Cobrar {{ $moneda }} ' + total.toFixed(2)"></span>
                                     <kbd class="tecla" x-show="puedeCobrar">F4</kbd>
@@ -410,7 +413,11 @@
                             </template>
                         </button>
 
-                        <p x-show="carrito.length && !puedeCobrar && !enviando"
+                        <p x-show="precioActualizado && !enviando" x-cloak
+                            class="text-center text-theme-xs font-medium text-warning-700 dark:text-orange-400">
+                            El precio o el stock de algún producto cambió — revisa el total y vuelve a cobrar.
+                        </p>
+                        <p x-show="carrito.length && !puedeCobrar && !enviando && !precioActualizado"
                             class="text-center text-theme-xs text-gray-500 dark:text-gray-400" x-text="motivoBloqueo"></p>
                     </div>
                 </form>
@@ -558,6 +565,8 @@
                         recibido: null,
                         referencia: '',
                         enviando: false,
+                        verificando: false,
+                        precioActualizado: false,
 
                         // Alta rápida de cliente desde el mostrador.
                         clientesNuevos: [],
@@ -821,13 +830,71 @@
                             return Math.round((Number(n) + Number.EPSILON) * 100) / 100;
                         },
 
-                        /* Se arma el formulario en el momento de enviar: el carrito vive en Alpine. */
-                        preparar(e) {
-                            if (!this.puedeCobrar || this.enviando) {
-                                e.preventDefault();
-                                return;
+                        /* El carrito guarda el precio de cada línea desde que se agregó.
+                           Si alguien edita el producto mientras el cajero todavía no
+                           cobra, la pantalla queda con un total/vuelto viejo aunque el
+                           servidor siempre cobre el precio de catálogo actual — y si el
+                           precio bajó, el backend no tiene forma de notarlo (el efectivo
+                           recibido igual alcanza), así que la venta se registraría sin
+                           error con un vuelto real distinto al que ya se le dio al
+                           cliente mirando la pantalla. Por eso se refresca el carrito
+                           contra el catálogo justo antes de enviar, y si algo cambió se
+                           detiene: el cajero ve el total correcto y confirma de nuevo. */
+                        async confirmarYEnviar(e) {
+                            if (!this.puedeCobrar || this.enviando || this.verificando) return;
+
+                            this.verificando = true;
+                            this.precioActualizado = false;
+
+                            try {
+                                if (await this.refrescarPrecios()) {
+                                    this.precioActualizado = true;
+                                    return;
+                                }
+                            } finally {
+                                this.verificando = false;
                             }
 
+                            this.preparar(e);
+                            this.$refs.carrito.submit();
+                        },
+
+                        /* Compara precio/stock del carrito contra el catálogo. Devuelve
+                           true si algo cambió (y ya actualizó las líneas en el sitio). */
+                        async refrescarPrecios() {
+                            const ids = [...new Set(this.carrito.map(l => l.producto_id))];
+                            if (!ids.length) return false;
+
+                            const url = new URL('{{ route('pos.precios') }}', window.location.origin);
+                            url.searchParams.set('ids', ids.join(','));
+
+                            const respuesta = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                            const porId = Object.fromEntries((await respuesta.json()).map(p => [p.id, p]));
+
+                            let cambio = false;
+
+                            this.carrito.forEach(l => {
+                                const p = porId[l.producto_id];
+                                if (!p) return; // se desactivó: el backend lo frena al cobrar
+
+                                if (p.precio !== l.precio || p.precio_estante !== l.precio_estante) {
+                                    l.precio = p.precio;
+                                    l.precio_estante = p.precio_estante;
+                                    cambio = true;
+                                }
+
+                                if (p.stock !== l.stock) {
+                                    l.stock = p.stock;
+                                    if (l.cantidad > p.stock) l.cantidad = p.stock;
+                                    cambio = true;
+                                }
+                            });
+
+                            return cambio;
+                        },
+
+                        /* Se arma el formulario en el momento de enviar: el carrito vive en Alpine. */
+                        preparar(e) {
                             this.enviando = true;
 
                             const campos = this.$refs.campos;

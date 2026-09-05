@@ -292,6 +292,20 @@ ALTER TABLE sesiones_caja
         GENERATED ALWAYS AS (IF(estado = 'ABIERTA', caja_id, NULL)) VIRTUAL,
     ADD UNIQUE KEY uq_sesion_caja_abierta (caja_abierta_uk);
 
+-- Y solo una sesión ABIERTA por usuario: sin esto, `Cajas::abrir()` solo se
+-- protegía con un SELECT-antes-de-INSERT en PHP (una condición de carrera
+-- real bajo dos peticiones simultáneas), y un mismo cajero podía terminar con
+-- dos turnos abiertos en dos cajas físicas a la vez. `Cajas::sesionDe()` usa
+-- `->first()` sin criterio de desempate, así que con dos sesiones abiertas
+-- todas las ventas del cajero se atribuían siempre a una sola de las dos, de
+-- forma no determinista, mientras el efectivo real quedaba repartido entre
+-- dos cajones — el arqueo del cierre no cuadraba por un motivo que no era
+-- culpa del cajero.
+ALTER TABLE sesiones_caja
+    ADD COLUMN usuario_abierta_uk INT UNSIGNED
+        GENERATED ALWAYS AS (IF(estado = 'ABIERTA', usuario_apertura_id, NULL)) VIRTUAL,
+    ADD UNIQUE KEY uq_sesion_usuario_abierta (usuario_abierta_uk);
+
 CREATE TABLE movimientos_caja (
     id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
     sesion_caja_id  INT UNSIGNED NOT NULL,

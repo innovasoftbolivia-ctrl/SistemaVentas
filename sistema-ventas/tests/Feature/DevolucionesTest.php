@@ -163,6 +163,42 @@ class DevolucionesTest extends TestCase
         $this->assertSame('9.00', (string) $devolucion->detalle->first()->precio_unitario);
     }
 
+    /**
+     * El formulario de devolución tiene que mostrarle al cajero el mismo
+     * precio por unidad que `Devoluciones::registrar()` va a guardar — si
+     * muestra el de catálogo sin prorratear el descuento de cabecera, la
+     * pantalla promete devolver más dinero del que el sistema realmente
+     * descuenta del cajón.
+     */
+    public function test_el_formulario_muestra_el_precio_ya_prorrateado_por_el_descuento(): void
+    {
+        $sesion = $this->turno();
+
+        // Mismos datos que test_devolver_una_venta_con_descuento_reembolsa_lo_que_se_pago:
+        // precio de catálogo 10, descuento de cabecera 2 sobre 20 de base -> factor 0.9 -> precio neto 9.
+        $venta = Ventas::registrar(
+            sesion: $sesion,
+            usuario: $sesion->usuarioApertura,
+            lineas: [['producto_id' => $this->producto()->id, 'cantidad' => 2, 'precio_unitario' => 10]],
+            pagos: [['metodo_pago_id' => MetodoPago::where('codigo', 'EFECTIVO')->value('id'), 'monto' => null]],
+            descuento: 2,
+        );
+
+        $respuesta = $this->actingAs($this->admin())->get("/ventas/{$venta->id}/devolver")->assertOk();
+
+        // `@js()` envuelve el JSON en `JSON.parse('...')` con los caracteres
+        // especiales escapados como \uXXXX (JSON_HEX_*), para poder ir dentro
+        // de un atributo HTML entre comillas dobles sin romperlo. Se revierte
+        // ese escape para volver a tener el JSON original y decodificarlo.
+        preg_match("/devolucion\(JSON\.parse\('(.+?)'\)\)/s", $respuesta->getContent(), $m);
+        $this->assertNotEmpty($m, 'no se encontró el x-data del formulario de devolución');
+
+        $lineas = json_decode(json_decode('"'.$m[1].'"'), true);
+        $linea = collect($lineas)->firstWhere('id', $venta->detalle->first()->id);
+
+        $this->assertEqualsWithDelta(9.0, $linea['precio'], 0.001, 'el formulario debería mostrar el precio neto de descuento (9), no el de catálogo (10)');
+    }
+
     /** Devolver todas las líneas deja la venta en DEVUELTA y la marca TOTAL. */
     public function test_devolver_todo_deja_la_venta_devuelta(): void
     {

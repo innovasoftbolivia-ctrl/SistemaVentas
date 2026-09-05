@@ -315,13 +315,17 @@ class ReporteController extends Controller
         // Costo de lo vendido, para dar una ganancia y no solo un total cobrado.
         // Usa el `precio_compra` DE HOY: es una aproximación, no el costo exacto
         // que tenía el producto el día que se vendió (mismo criterio que ya usa
-        // el "margen estimado" del reporte de productos).
+        // el "margen estimado" del reporte de productos). `cantidad -
+        // cantidad_devuelta` y no `cantidad`: lo devuelto ya se restó del
+        // ingreso (`$devuelto` abajo), así que su costo tampoco puede seguir
+        // contando — si no, una venta devuelta del todo mostraría "pérdida"
+        // por el costo de mercadería que en realidad volvió intacta al estante.
         $costo = (float) DB::table('venta_detalle as vd')
             ->join('ventas as v', 'v.id', '=', 'vd.venta_id')
             ->join('productos as p', 'p.id', '=', 'vd.producto_id')
             ->where('v.estado', '<>', 'ANULADA')
             ->whereBetween('v.fecha', [$desde, $hasta])
-            ->selectRaw('COALESCE(SUM(vd.cantidad * p.precio_compra), 0) AS costo')
+            ->selectRaw('COALESCE(SUM((vd.cantidad - vd.cantidad_devuelta) * p.precio_compra), 0) AS costo')
             ->value('costo');
 
         $operaciones = (int) $ventas->operaciones;

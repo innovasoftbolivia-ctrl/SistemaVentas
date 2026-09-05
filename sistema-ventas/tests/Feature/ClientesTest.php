@@ -45,6 +45,41 @@ class ClientesTest extends TestCase
         $this->actingAs($this->cajero())->get('/clientes')->assertOk();
     }
 
+    /**
+     * Ver clientes y crear/editar/borrar clientes son cosas distintas: el
+     * almacenero entra a la pantalla por `reportes.ver` (arriba), pero eso no
+     * debería alcanzar para mutar clientes — esa es una acción de venta
+     * (`ventas.registrar`), no de reportes.
+     */
+    public function test_el_almacenero_no_puede_mutar_clientes(): void
+    {
+        $cliente = Cliente::where('tipo_persona', 'NATURAL')->firstOrFail();
+
+        $this->actingAs($this->almacenero())
+            ->post('/clientes', [
+                'tipo_persona' => 'NATURAL',
+                'tipo_documento' => 'DNI',
+                'documento' => '99999999',
+                'nombres' => 'Alguien',
+                'apellidos' => 'Nuevo',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($this->almacenero())
+            ->put("/clientes/{$cliente->id}", [
+                'tipo_persona' => 'NATURAL',
+                'tipo_documento' => $cliente->tipo_documento,
+                'documento' => $cliente->documento,
+                'nombres' => 'Intento de edición',
+                'apellidos' => $cliente->apellidos,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($this->almacenero())
+            ->delete("/clientes/{$cliente->id}")
+            ->assertForbidden();
+    }
+
     // ---------------------------------------------------------------- CRUD
 
     public function test_se_actualiza_un_cliente(): void

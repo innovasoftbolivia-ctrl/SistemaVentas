@@ -9,6 +9,7 @@ use App\Support\Menu;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -23,6 +24,16 @@ class LoginController extends Controller
     private const MAX_INTENTOS = 5;
 
     private const BLOQUEO_SEGUNDOS = 60;
+
+    /**
+     * Hash de una contraseña que no existe, para comparar contra ella cuando
+     * el usuario no existe. Sin esto, `usuario inexistente` respondía sin
+     * pasar por bcrypt mientras `contraseña incorrecta` sí (~100-300ms de
+     * `Hash::check`): el mensaje de error es igual en ambos casos, pero el
+     * tiempo de respuesta no lo era, y alcanza para enumerar usuarios
+     * válidos midiendo la latencia de /login sin depender del mensaje.
+     */
+    private const HASH_DUMMY = '$2y$12$3/5X.WfE7cz0o.dEmQUjMOCyoW10W2dp0ks9/dk6ObVbvS9TnYfF6';
 
     public function create(): View
     {
@@ -45,7 +56,13 @@ class LoginController extends Controller
             ->where('usuario', $datos['usuario'])
             ->first();
 
-        if (! $cuenta || ! Auth::validate(['usuario' => $datos['usuario'], 'password' => $datos['password']])) {
+        // Siempre se calcula un Hash::check, exista o no la cuenta —contra el
+        // hash real o contra el dummy—: así ambos casos tardan lo mismo.
+        // `getAuthPassword()` y no `->password`: el esquema llama a la
+        // columna `password_hash` (ver el docblock del propio método).
+        $claveValida = Hash::check($datos['password'], $cuenta?->getAuthPassword() ?? self::HASH_DUMMY);
+
+        if (! $cuenta || ! $claveValida) {
             RateLimiter::hit($this->claveThrottle($request), self::BLOQUEO_SEGUNDOS);
             $cuenta?->increment('intentos_fallidos');
 

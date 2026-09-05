@@ -136,6 +136,40 @@ class ReportesTest extends TestCase
         );
     }
 
+    /**
+     * La ganancia también tiene que descontar el costo de lo devuelto, no
+     * solo el dinero: si el costo sigue contando unidades que ya volvieron
+     * al estante, una venta muy devuelta muestra menos ganancia (o pérdida)
+     * de la que en realidad hubo.
+     */
+    public function test_la_ganancia_descuenta_tambien_el_costo_de_lo_devuelto(): void
+    {
+        $sesion = $this->turno();
+        $venta = $this->vender($sesion, 5, 'P-0004');
+        $producto = Producto::where('codigo', 'P-0004')->firstOrFail();
+
+        $devolucion = Devoluciones::registrar($venta, $this->admin(), $sesion,
+            [['venta_detalle_id' => $venta->detalle->first()->id, 'cantidad' => 2]], 'Dos rotas');
+
+        $resumen = $this->actingAs($this->admin())
+            ->get(route('reportes.ventas', $this->hoy()))
+            ->viewData('resumen');
+
+        // Costo de las 3 unidades que se quedaron (5 vendidas − 2 devueltas), no de las 5.
+        $costoCorrecto = round(3 * (float) $producto->precio_compra, 2);
+        $gananciaEsperada = round($resumen['vendido'] - (float) $devolucion->total - $costoCorrecto, 2);
+
+        $this->assertSame($gananciaEsperada, $resumen['ganancia']);
+
+        // Antes del fix, el costo seguía contando las 5 unidades completas:
+        // la ganancia salía distinta (más baja) de lo que correspondía.
+        $costoDeAntesDelFix = round(5 * (float) $producto->precio_compra, 2);
+        $this->assertNotEquals(
+            round($resumen['vendido'] - (float) $devolucion->total - $costoDeAntesDelFix, 2),
+            $resumen['ganancia']
+        );
+    }
+
     /** Sin rellenar los huecos, el gráfico uniría días lejanos con una recta. */
     public function test_la_serie_diaria_rellena_los_dias_sin_ventas(): void
     {

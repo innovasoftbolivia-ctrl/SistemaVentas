@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @php
+    use App\Services\Devoluciones;
     use App\Support\Config;
 
     $moneda = Config::moneda();
@@ -34,7 +35,12 @@
                 'codigo' => $l->producto?->codigo,
                 'unidad' => $l->producto?->unidadMedida?->codigo,
                 'decimal' => (bool) $l->producto?->unidadMedida?->permite_decimal,
-                'precio' => (float) $l->precio_unitario,
+                // Neto de descuento de cabecera: es el mismo precio que
+                // Devoluciones::registrar() va a guardar y a descontar del
+                // cajón, no el precio de catálogo sin prorratear — si no, en
+                // una venta con descuento esta pantalla promete devolver más
+                // dinero del que el sistema realmente registra.
+                'precio' => Devoluciones::precioNetoUnitario($venta, $l),
                 'tasa' => $l->afecto_impuesto ? (float) $l->tasa_impuesto : 0,
                 'vendida' => (float) $l->cantidad,
                 'devuelta' => (float) $l->cantidad_devuelta,

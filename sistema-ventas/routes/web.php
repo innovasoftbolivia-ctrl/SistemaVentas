@@ -79,6 +79,9 @@ Route::middleware(['auth', 'cuenta.vigente'])->group(function () {
         Route::get('pos/productos', [PosController::class, 'buscar'])
             ->middleware('throttle:60,1')
             ->name('pos.productos');
+        Route::get('pos/precios', [PosController::class, 'precios'])
+            ->middleware('throttle:60,1')
+            ->name('pos.precios');
         Route::post('pos', [PosController::class, 'store'])->name('pos.store');
     });
 
@@ -94,6 +97,13 @@ Route::middleware(['auth', 'cuenta.vigente'])->group(function () {
         Route::get('clientes/buscar', [ClienteController::class, 'buscar'])
             ->middleware('throttle:60,1')
             ->name('clientes.buscar');
+    });
+
+    // Crear/editar/borrar clientes es una acción de venta (se dan de alta al
+    // vuelo en el mostrador), no de reportes: separado del grupo de arriba
+    // para que `reportes.ver` por sí solo (p. ej. el Almacenero) no alcance
+    // para modificar clientes, igual que ya pasa con devoluciones más abajo.
+    Route::middleware('permiso:ventas.registrar')->group(function () {
         Route::post('clientes', [ClienteController::class, 'store'])->name('clientes.store');
         Route::put('clientes/{cliente}', [ClienteController::class, 'update'])->name('clientes.update');
         Route::delete('clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy');

@@ -55,6 +55,24 @@ class Devoluciones
         }
 
         return DB::transaction(function () use ($venta, $usuario, $sesion, $lineas, $motivo) {
+            // El chequeo de arriba se hizo sobre el `$venta` que cargó el
+            // controlador, sin bloquear la fila: si una anulación de esta
+            // misma venta está corriendo en paralelo (también dentro de su
+            // propia transacción, con su propio `FOR UPDATE`, desde
+            // `Ventas::anular()`), las dos podían leer "COMPLETADA" antes de
+            // que cualquiera confirme. Relee y bloquea aquí, ya dentro de la
+            // transacción: si la anulación va primero, esta espera y ve el
+            // estado ya actualizado; si va después, espera a que esta termine.
+            $venta = Venta::whereKey($venta->id)->lockForUpdate()->firstOrFail();
+
+            if (! $venta->admiteDevolucion()) {
+                throw new RuntimeException(match ($venta->estado) {
+                    'ANULADA' => 'La venta está anulada: su stock y su dinero ya se revirtieron.',
+                    'DEVUELTA' => 'Esta venta ya fue devuelta por completo.',
+                    default => 'Esta venta no admite devoluciones.',
+                });
+            }
+
             $devolucion = Devolucion::create([
                 'venta_id' => $venta->id,
                 'usuario_id' => $usuario->id,
@@ -140,8 +158,14 @@ class Devoluciones
         ]);
     }
 
-    /** El precio por unidad neto de descuento de línea y de cabecera, igual proporción que `sp_recalcular_venta`. */
-    private static function precioNetoUnitario(Venta $venta, VentaDetalle $original): float
+    /**
+     * El precio por unidad neto de descuento de línea y de cabecera, igual
+     * proporción que `sp_recalcular_venta`. Público porque el formulario de
+     * devolución también lo necesita: le muestra al cajero el mismo importe
+     * que este servicio va a registrar, no el precio de catálogo sin
+     * prorratear (ver DevolucionController::create).
+     */
+    public static function precioNetoUnitario(Venta $venta, VentaDetalle $original): float
     {
         $subtotal = (float) $venta->subtotal;
         $factorCabecera = $subtotal > 0 ? ($subtotal - (float) $venta->descuento) / $subtotal : 1.0;

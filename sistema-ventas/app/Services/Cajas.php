@@ -6,6 +6,7 @@ use App\Models\Caja;
 use App\Models\MovimientoCaja;
 use App\Models\SesionCaja;
 use App\Models\Usuario;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -32,24 +33,39 @@ class Cajas
             throw new RuntimeException('El monto inicial no puede ser negativo.');
         }
 
+        // Estos dos chequeos son solo para dar un mensaje entendible en el
+        // caso normal (sin carrera): el candado real que evita dos sesiones
+        // abiertas —a la vez en la misma caja, o a la vez para el mismo
+        // usuario en dos cajas distintas— son los índices únicos
+        // `uq_sesion_caja_abierta` / `uq_sesion_usuario_abierta` de la base.
+        // Un SELECT-antes-de-INSERT en PHP, sin más, no cierra la ventana de
+        // carrera entre dos peticiones simultáneas.
         if (self::sesionDe($usuario)) {
             throw new RuntimeException('Ya tienes una caja abierta. Ciérrala antes de abrir otra.');
         }
 
-        // La base tiene un índice único que impide dos sesiones abiertas en la
-        // misma caja; aquí se traduce a un mensaje entendible.
         if ($caja->sesionAbierta()->exists()) {
             throw new RuntimeException("La {$caja->nombre} ya está abierta por otro usuario.");
         }
 
-        $sesion = SesionCaja::create([
-            'caja_id' => $caja->id,
-            'usuario_apertura_id' => $usuario->id,
-            'fecha_apertura' => now(),
-            'monto_inicial' => $montoInicial,
-            'estado' => 'ABIERTA',
-            'observacion' => $observacion,
-        ]);
+        try {
+            $sesion = DB::transaction(fn () => SesionCaja::create([
+                'caja_id' => $caja->id,
+                'usuario_apertura_id' => $usuario->id,
+                'fecha_apertura' => now(),
+                'monto_inicial' => $montoInicial,
+                'estado' => 'ABIERTA',
+                'observacion' => $observacion,
+            ]));
+        } catch (QueryException $e) {
+            if (str_contains($e->getMessage(), 'uq_sesion_usuario_abierta')) {
+                throw new RuntimeException('Ya tienes una caja abierta. Ciérrala antes de abrir otra.');
+            }
+            if (str_contains($e->getMessage(), 'uq_sesion_caja_abierta')) {
+                throw new RuntimeException("La {$caja->nombre} ya está abierta por otro usuario.");
+            }
+            throw $e;
+        }
 
         Auditor::registrar('CAJA_ABIERTA', 'sesiones_caja', $sesion->id, [
             'caja' => $caja->nombre,
@@ -110,12 +126,24 @@ class Cajas
             throw new RuntimeException('El efectivo contado no puede ser negativo.');
         }
 
+        // `sp_cerrar_caja` hace su SELECT ... FOR UPDATE y su UPDATE final en
+        // sentencias separadas: sin envolverlo en una transacción de verdad,
+        // el autocommit de MySQL libera ese lock apenas termina el SELECT, no
+        // al terminar el procedimiento. Dos cierres de la misma sesión que se
+        // solapan (doble clic, dos administradores) podían pasar ambos el
+        // chequeo de "¿sigue abierta?" y terminar pisándose en silencio —
+        // "last write wins" sin ningún error para nadie. Envuelto en
+        // `DB::transaction()`, el lock se mantiene hasta el commit: el
+        // segundo cierre que llegue queda bloqueado hasta que el primero
+        // termine, y al reintentar ya encuentra la sesión `CERRADA` — el
+        // propio procedimiento lo rechaza con el SIGNAL que ya tenía.
+        //
         // `DB::select` y no `DB::statement`: el procedimiento termina con un
         // SELECT del arqueo, y ese resultado hay que consumirlo o la siguiente
         // consulta de la conexión falla.
-        DB::select('CALL sp_cerrar_caja(?, ?, ?, ?)', [
+        DB::transaction(fn () => DB::select('CALL sp_cerrar_caja(?, ?, ?, ?)', [
             $sesion->id, $usuario->id, $declarado, $observacion,
-        ]);
+        ]));
 
         $sesion->refresh();
 

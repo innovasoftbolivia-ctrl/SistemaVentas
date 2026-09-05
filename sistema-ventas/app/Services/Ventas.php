@@ -265,8 +265,15 @@ class Ventas
             throw new RuntimeException('Solo se puede anular una venta completada.');
         }
 
+        // Igual que `Cajas::cerrar()`: `sp_anular_venta` hace su SELECT ...
+        // FOR UPDATE y sus escrituras en sentencias separadas, así que sin
+        // envolverlo en una transacción real el lock no sobrevive más allá
+        // del propio SELECT (autocommit). Envuelto aquí, una anulación y una
+        // devolución que lleguen casi al mismo tiempo para la misma venta se
+        // serializan: la segunda espera, y al retomar ya ve el nuevo estado.
+        //
         // sp_anular_venta ya escribe su propia entrada en `auditoria`.
-        DB::statement('CALL sp_anular_venta(?, ?, ?)', [$venta->id, $usuario->id, $motivo]);
+        DB::transaction(fn () => DB::statement('CALL sp_anular_venta(?, ?, ?)', [$venta->id, $usuario->id, $motivo]));
 
         return $venta->fresh();
     }

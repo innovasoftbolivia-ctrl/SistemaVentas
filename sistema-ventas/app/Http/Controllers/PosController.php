@@ -87,6 +87,37 @@ class PosController extends Controller
         );
     }
 
+    /**
+     * Precio y stock ACTUALES de los productos que ya están en el carrito.
+     *
+     * El carrito vive en Alpine y guarda el precio del momento en que se
+     * agregó cada línea; si alguien edita el producto mientras el cajero
+     * todavía no cobra, la pantalla queda mostrando un total y un vuelto
+     * viejos aunque el servidor siempre cobre el precio de catálogo actual.
+     * El front llama esto justo antes de cobrar para refrescar el carrito
+     * con lo que realmente se va a cobrar, en vez de dejar que el cajero le
+     * dé el cambio equivocado a alguien confiando en una cifra desactualizada.
+     */
+    public function precios(Request $request): JsonResponse
+    {
+        $ids = collect(explode(',', (string) $request->query('ids')))
+            ->map(fn ($id) => (int) trim($id))
+            ->filter()
+            ->unique()
+            ->values();
+
+        $productos = Producto::activos()->whereIn('id', $ids)->get();
+
+        return response()->json(
+            $productos->map(fn (Producto $p) => [
+                'id' => $p->id,
+                'precio' => (float) $p->precio_venta,
+                'precio_estante' => $p->precio_estante,
+                'stock' => (float) $p->stock_actual,
+            ])
+        );
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $sesion = Cajas::sesionDe(Auth::user());
