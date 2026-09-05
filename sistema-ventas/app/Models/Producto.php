@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -93,6 +94,29 @@ class Producto extends Model
     public function scopeBajoMinimo(Builder $query): Builder
     {
         return $query->whereColumn('stock_actual', '<=', 'stock_minimo');
+    }
+
+    /**
+     * Las mismas filas y columnas que la vista `v_alertas_stock`, como
+     * consulta.
+     *
+     * Era la única vista que la aplicación leía de verdad (las demás se citan
+     * en los comentarios como definición de referencia, pero los reportes ya
+     * consultan las tablas base). Se reescribió porque un hosting compartido
+     * puede denegar `CREATE VIEW` —InfinityFree lo hace, con el error 1142— y
+     * sin esto el panel y los reportes se caían enteros.
+     *
+     * `ReportesTest` compara esta consulta contra la vista del esquema, para
+     * que las dos no se separen donde la vista sí existe.
+     */
+    public static function alertasDeStock(): \Illuminate\Database\Query\Builder
+    {
+        return DB::table('productos as p')
+            ->join('categorias as c', 'c.id', '=', 'p.categoria_id')
+            ->where('p.activo', 1)
+            ->whereColumn('p.stock_actual', '<=', 'p.stock_minimo')
+            ->selectRaw('p.id, p.codigo, p.nombre, c.nombre AS categoria')
+            ->selectRaw('p.stock_actual, p.stock_minimo, (p.stock_minimo - p.stock_actual) AS faltante');
     }
 
     // ------------------------------------------------------------- derivados

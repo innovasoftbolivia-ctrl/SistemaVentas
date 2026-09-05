@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Producto;
 use App\Models\Usuario;
 use App\Models\Venta;
 use App\Services\Cajas;
@@ -150,7 +151,7 @@ class DashboardController extends Controller
 
     private function alertas(): Collection
     {
-        return DB::table('v_alertas_stock')->orderByDesc('faltante')->limit(6)->get();
+        return Producto::alertasDeStock()->orderByDesc('faltante')->limit(6)->get();
     }
 
     private function ultimasVentas(): Collection

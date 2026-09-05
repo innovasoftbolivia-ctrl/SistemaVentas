@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Producto;
 use App\Services\Hojas;
 use App\Support\Config;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -47,7 +48,7 @@ class ReporteController extends Controller
             'desde' => $desde,
             'hasta' => $hasta,
             'masVendidos' => $this->masVendidos($desde, $hasta),
-            'alertas' => DB::table('v_alertas_stock')->orderByDesc('faltante')->get(),
+            'alertas' => Producto::alertasDeStock()->orderByDesc('faltante')->get(),
             'inventario' => $this->valorInventario(),
         ]);
     }
@@ -184,7 +185,7 @@ class ReporteController extends Controller
     private function documentoProductos(Carbon $desde, Carbon $hasta): array
     {
         $inventario = $this->valorInventario();
-        $alertas = DB::table('v_alertas_stock')->orderByDesc('faltante')->get();
+        $alertas = Producto::alertasDeStock()->orderByDesc('faltante')->get();
         $ranking = $this->masVendidos($desde, $hasta)->values();
 
         $totalVendido = (float) $ranking->sum('monto_vendido');

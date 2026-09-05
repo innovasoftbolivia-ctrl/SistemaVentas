@@ -62,6 +62,26 @@ class ReportesTest extends TestCase
         return ['desde' => now()->toDateString(), 'hasta' => now()->toDateString()];
     }
 
+    /**
+     * Tres pruebas de aquí comparan lo que calcula la aplicación contra las
+     * vistas del esquema, para que las fórmulas no se separen. Esa comparación
+     * solo tiene sentido donde las vistas existen: un hosting compartido puede
+     * denegar `CREATE VIEW` (InfinityFree lo hace, error 1142) y ahí la
+     * aplicación consulta las tablas base por su cuenta. En ese caso no hay
+     * nada contra qué comparar, y saltarse la prueba es más honesto que
+     * fingir que pasó.
+     */
+    private function requiereLasVistas(): void
+    {
+        $hay = DB::selectOne(
+            'SELECT COUNT(*) AS n FROM information_schema.VIEWS WHERE TABLE_SCHEMA = DATABASE()'
+        )->n;
+
+        if (! $hay) {
+            $this->markTestSkipped('La base no tiene vistas: no hay contra qué comparar.');
+        }
+    }
+
     // -------------------------------------------------------------- permisos
 
     /** `reportes.ver` lo tienen el administrador y el almacenero, no el cajero. */
@@ -214,6 +234,8 @@ class ReportesTest extends TestCase
      */
     public function test_la_serie_y_el_desglose_coinciden_con_las_vistas_del_esquema(): void
     {
+        $this->requiereLasVistas();
+
         $sesion = $this->turno();
         $this->vender($sesion, 2);
         $this->vender($sesion, 1, 'P-0009');
@@ -298,6 +320,8 @@ class ReportesTest extends TestCase
      */
     public function test_el_ranking_coincide_con_la_vista_del_esquema(): void
     {
+        $this->requiereLasVistas();
+
         $sesion = $this->turno();
         $conDevolucion = $this->vender($sesion, 3, 'P-0004');
         $this->vender($sesion, 2, 'P-0009');
@@ -383,6 +407,8 @@ class ReportesTest extends TestCase
 
     public function test_las_alertas_salen_de_la_vista_del_esquema(): void
     {
+        $this->requiereLasVistas();
+
         $producto = Producto::where('codigo', 'P-0011')->firstOrFail();
         $producto->update(['stock_minimo' => (float) $producto->stock_actual + 10]);
 
