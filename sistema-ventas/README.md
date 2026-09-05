@@ -700,6 +700,44 @@ servidor perdido.
 
 ---
 
+## Monitoreo
+
+`scripts/revisar-salud.sh` revisa las cuatro cosas que dejan al negocio sin vender —o sin red
+de seguridad— y que no avisan solas:
+
+1. **Los contenedores están corriendo.**
+2. **La aplicación responde y la base contesta.** Consulta `/up`, que no es el de fábrica: se le
+   enganchó una consulta real a la base (`app/Listeners/ComprobarBaseDeDatos.php`). El `/up` que
+   trae Laravel responde 200 en cuanto el framework arranca, sin tocar MySQL — o sea que decía
+   «todo bien» con la base caída y nadie pudiendo cobrar.
+3. **Queda espacio en disco.** Un disco lleno detiene MySQL y de paso hace fallar los respaldos:
+   se pierden las dos cosas a la vez.
+4. **Hay un respaldo reciente y no está vacío.** Es el que más silencio hace: un respaldo que
+   dejó de correr hace tres semanas se descubre el día que se necesita.
+
+```bash
+./scripts/revisar-salud.sh
+```
+
+Sale con código 0 si todo está bien y 1 si algo falla, así que desde `cron` avisa solo si el
+servidor tiene correo configurado. Cada cinco minutos:
+
+```
+*/5 * * * *  cd /ruta/al/proyecto && ./scripts/revisar-salud.sh >> backups/salud.log 2>&1
+```
+
+Para que avise por otro medio, `ALERTA_COMANDO` recibe el resumen por entrada estándar. Con un
+bot de Telegram —lo más práctico para que le llegue al celular del encargado:
+
+```
+*/5 * * * *  cd /ruta/al/proyecto && ALERTA_COMANDO='xargs -0 -I{} curl -s -o /dev/null --data-urlencode "chat_id=<ID>" --data-urlencode "text={}" https://api.telegram.org/bot<TOKEN>/sendMessage' ./scripts/revisar-salud.sh >> backups/salud.log 2>&1
+```
+
+Umbrales, por si el servidor pide otra cosa: `DISCO_MAXIMO` (85%), `BACKUP_MAX_HORAS` (30) y
+`URL_SALUD` (`http://localhost:8100/up`).
+
+---
+
 ## Mapa del código
 
 ```
