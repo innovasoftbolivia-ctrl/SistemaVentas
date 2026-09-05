@@ -75,6 +75,32 @@ jobs:
         working-directory: sistema-ventas
         run: php artisan test
 
+      # La misma batería, pero contra una base a la que se le QUITARON los
+      # procedimientos y los triggers, con LOGICA_EN_PHP=true: así corre la
+      # demo en hosting compartido, donde no se pueden crear (ver
+      # config/ventas.php y app/Services/ReglasEnPhp.php).
+      #
+      # Se borran de `ventas_db_test` en lugar de usar otra base porque
+      # phpunit.xml fuerza `DB_DATABASE` con force="true": apuntar a otro
+      # nombre desde el entorno es pelearse con esa precedencia, y este camino
+      # no deja lugar a dudas sobre contra qué base se corrió.
+      # Sin comillas invertidas alrededor de los nombres: son identificadores
+      # simples (sp_*, trg_*) y escaparlas a través de YAML, shell y mysql es
+      # una fuente de errores que no aporta nada.
+      - name: Quitar procedimientos y triggers
+        run: |
+          MYSQL="mysql --host=127.0.0.1 --port=13310 --default-character-set=utf8mb4 -uroot -pventas123"
+          $MYSQL -N -e "SELECT CONCAT('DROP PROCEDURE IF EXISTS ', ROUTINE_NAME, ';') FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='ventas_db_test';" > /tmp/quitar.sql
+          $MYSQL -N -e "SELECT CONCAT('DROP TRIGGER IF EXISTS ', TRIGGER_NAME, ';') FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='ventas_db_test';" >> /tmp/quitar.sql
+          $MYSQL ventas_db_test < /tmp/quitar.sql
+          echo "quedan $($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA='ventas_db_test';") procedimientos y $($MYSQL -N -e "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA='ventas_db_test';") triggers"
+
+      - name: Pruebas con la lógica en PHP
+        working-directory: sistema-ventas
+        env:
+          LOGICA_EN_PHP: 'true'
+        run: php artisan test
+
   estilo:
     runs-on: ubuntu-latest
     steps:

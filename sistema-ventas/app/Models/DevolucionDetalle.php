@@ -25,9 +25,12 @@ class DevolucionDetalle extends Model
 
     public $timestamps = false;
 
+    // Igual que en VentaDetalle: el régimen de impuesto lo copia un trigger,
+    // pero tiene que ser asignable para la vía sin triggers.
     protected $fillable = [
         'devolucion_id', 'venta_detalle_id', 'producto_id',
         'cantidad', 'precio_unitario', 'reingresa_stock',
+        'afecto_impuesto', 'tasa_impuesto',
     ];
 
     protected function casts(): array

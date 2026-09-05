@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ReglasEnPhp;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,10 +13,29 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  * (trabaja en el negocio pero no entra al sistema).
  *
  * `estado` es el vínculo laboral, no el acceso: al pasar a CESADO o
- * SUSPENDIDO un trigger de la base desactiva la cuenta asociada.
+ * SUSPENDIDO un trigger de la base desactiva la cuenta asociada. Donde no hay
+ * triggers, lo hace el evento de abajo (ver config/ventas.php).
  */
 class Empleado extends Model
 {
+    protected static function booted(): void
+    {
+        // Réplica de trg_empleados_after_update. Va en el modelo y no en el
+        // controlador para que valga por cualquier camino que cambie el
+        // estado, igual que el trigger.
+        static::updated(function (self $empleado) {
+            if (! ReglasEnPhp::activa()) {
+                return;
+            }
+
+            ReglasEnPhp::despuesDeActualizarEmpleado(
+                $empleado->id,
+                (string) $empleado->getOriginal('estado'),
+                (string) $empleado->estado,
+            );
+        });
+    }
+
     protected $table = 'empleados';
 
     const CREATED_AT = 'creado_en';

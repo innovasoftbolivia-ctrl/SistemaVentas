@@ -145,7 +145,7 @@ class Devoluciones
             throw new RuntimeException("«{$original->descripcion}» se devuelve por unidad entera.");
         }
 
-        DevolucionDetalle::create([
+        $datos = [
             'devolucion_id' => $devolucion->id,
             'venta_detalle_id' => $original->id,
             'producto_id' => $original->producto_id,
@@ -158,7 +158,22 @@ class Devoluciones
             // cajón al cerrar— más de lo que en realidad se cobró.
             'precio_unitario' => self::precioNetoUnitario($venta, $original),
             'reingresa_stock' => $linea['reingresa_stock'] ?? true,
-        ]);
+        ];
+
+        // Sin triggers, PHP hace lo que hacían: copiar el régimen de impuesto
+        // de la línea original y reingresar el stock (ver config/ventas.php).
+        if (ReglasEnPhp::activa()) {
+            DevolucionDetalle::create(ReglasEnPhp::antesDeInsertarLineaDevolucion($datos));
+            ReglasEnPhp::despuesDeInsertarLineaDevolucion(
+                $devolucion->id,
+                $original->id,
+                $original->producto_id,
+                $cantidad,
+                (bool) $datos['reingresa_stock'],
+            );
+        } else {
+            DevolucionDetalle::create($datos);
+        }
     }
 
     /**

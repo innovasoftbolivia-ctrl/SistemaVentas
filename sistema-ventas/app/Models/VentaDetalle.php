@@ -19,9 +19,14 @@ class VentaDetalle extends Model
 
     public $timestamps = false;
 
+    // `afecto_impuesto` y `tasa_impuesto` los pone normalmente un trigger de la
+    // base, pero tienen que ser asignables para la vía sin triggers, donde los
+    // calcula PHP (ver config/ventas.php). Con el trigger activo llegan en 0 y
+    // él los pisa, así que estar en esta lista no cambia nada en esa vía.
     protected $fillable = [
         'venta_id', 'producto_id', 'descripcion',
         'cantidad', 'precio_unitario', 'descuento',
+        'afecto_impuesto', 'tasa_impuesto',
     ];
 
     protected function casts(): array

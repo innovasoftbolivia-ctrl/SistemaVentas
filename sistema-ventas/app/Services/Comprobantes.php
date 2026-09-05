@@ -117,11 +117,17 @@ class Comprobantes
             }
 
             // El procedimiento ya escribe su propia entrada en `auditoria`.
-            DB::statement('CALL sp_sustituir_comprobante(?, ?, NULL, ?, ?, @nuevo_id, @numero)', [
-                $comprobante->id, $serie->id, $usuario->id, $motivo,
-            ]);
+            if (ReglasEnPhp::activa()) {
+                [$id] = ReglasEnPhp::sustituirComprobante(
+                    $comprobante->id, $serie->id, null, $usuario->id, $motivo
+                );
+            } else {
+                DB::statement('CALL sp_sustituir_comprobante(?, ?, NULL, ?, ?, @nuevo_id, @numero)', [
+                    $comprobante->id, $serie->id, $usuario->id, $motivo,
+                ]);
 
-            $id = DB::selectOne('SELECT @nuevo_id AS id')->id;
+                $id = DB::selectOne('SELECT @nuevo_id AS id')->id;
+            }
 
             if (! $id) {
                 throw new RuntimeException('No se pudo emitir el documento de reemplazo.');

@@ -90,7 +90,7 @@ class Ventas
             self::agregarLineas($venta, $lineas);
 
             // Primer recálculo: deja el subtotal, sin descuento todavía.
-            DB::statement('CALL sp_recalcular_venta(?)', [$venta->id]);
+            self::recalcular($venta->id);
 
             if ($descuento > 0) {
                 $venta->refresh();
@@ -102,7 +102,7 @@ class Ventas
                 $venta->update(['descuento' => $descuento]);
 
                 // Segundo recálculo: el impuesto baja en proporción al descuento.
-                DB::statement('CALL sp_recalcular_venta(?)', [$venta->id]);
+                self::recalcular($venta->id);
             }
 
             $venta->refresh();
@@ -118,6 +118,14 @@ class Ventas
 
             return $venta->fresh(['detalle', 'pagos', 'comprobante']);
         }, self::REINTENTOS);
+    }
+
+    /** Subtotal, impuesto y total desde el detalle. Lo hace la base, salvo en la vía portable. */
+    private static function recalcular(int $ventaId): void
+    {
+        ReglasEnPhp::activa()
+            ? ReglasEnPhp::recalcularVenta($ventaId)
+            : DB::statement('CALL sp_recalcular_venta(?)', [$ventaId]);
     }
 
     /**
@@ -149,7 +157,7 @@ class Ventas
                 );
             }
 
-            VentaDetalle::create([
+            $datos = [
                 'venta_id' => $venta->id,
                 'producto_id' => $producto->id,
                 // Copia histórica: la venta no cambia si mañana cambia el catálogo.
@@ -162,7 +170,16 @@ class Ventas
                 // decide el precio de una venta real.
                 'precio_unitario' => $linea['precio_unitario'] ?? $producto->precio_venta,
                 'descuento' => $linea['descuento'] ?? 0,
-            ]);
+            ];
+
+            // Sin triggers en la base, el régimen de impuesto y el descuento de
+            // stock los hace PHP (ver config/ventas.php).
+            if (ReglasEnPhp::activa()) {
+                VentaDetalle::create(ReglasEnPhp::antesDeInsertarLineaVenta($datos));
+                ReglasEnPhp::despuesDeInsertarLineaVenta($venta->id, $producto->id, $cantidad);
+            } else {
+                VentaDetalle::create($datos);
+            }
         }
     }
 
@@ -247,11 +264,15 @@ class Ventas
     {
         $serie = self::seriePara($cliente);
 
-        DB::statement('CALL sp_emitir_comprobante(?, ?, @comprobante_id, @numero)', [
-            $venta->id, $serie->id,
-        ]);
+        if (ReglasEnPhp::activa()) {
+            [$id] = ReglasEnPhp::emitirComprobante($venta->id, $serie->id);
+        } else {
+            DB::statement('CALL sp_emitir_comprobante(?, ?, @comprobante_id, @numero)', [
+                $venta->id, $serie->id,
+            ]);
 
-        $id = DB::selectOne('SELECT @comprobante_id AS id')->id;
+            $id = DB::selectOne('SELECT @comprobante_id AS id')->id;
+        }
 
         if (! $id) {
             throw new RuntimeException('No se pudo emitir el comprobante de la venta.');
@@ -293,7 +314,9 @@ class Ventas
         // serializan: la segunda espera, y al retomar ya ve el nuevo estado.
         //
         // sp_anular_venta ya escribe su propia entrada en `auditoria`.
-        DB::transaction(fn () => DB::statement('CALL sp_anular_venta(?, ?, ?)', [$venta->id, $usuario->id, $motivo]));
+        DB::transaction(fn () => ReglasEnPhp::activa()
+            ? ReglasEnPhp::anularVenta($venta->id, $usuario->id, $motivo)
+            : DB::statement('CALL sp_anular_venta(?, ?, ?)', [$venta->id, $usuario->id, $motivo]));
 
         return $venta->fresh();
     }

@@ -144,9 +144,11 @@ class Cajas
         // `DB::select` y no `DB::statement`: el procedimiento termina con un
         // SELECT del arqueo, y ese resultado hay que consumirlo o la siguiente
         // consulta de la conexión falla.
-        DB::transaction(fn () => DB::select('CALL sp_cerrar_caja(?, ?, ?, ?)', [
-            $sesion->id, $usuario->id, $declarado, $observacion,
-        ]), self::REINTENTOS);
+        DB::transaction(fn () => ReglasEnPhp::activa()
+            ? ReglasEnPhp::cerrarCaja($sesion->id, $usuario->id, $declarado, $observacion)
+            : DB::select('CALL sp_cerrar_caja(?, ?, ?, ?)', [
+                $sesion->id, $usuario->id, $declarado, $observacion,
+            ]), self::REINTENTOS);
 
         $sesion->refresh();
 
