@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\CajaController;
+use App\Http\Controllers\CajaFisicaController;
 use App\Http\Controllers\CargoController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClienteController;
@@ -159,6 +160,17 @@ Route::middleware(['auth', 'cuenta.vigente'])->group(function () {
 
     Route::post('caja/{sesion}/cerrar', [CajaController::class, 'cerrar'])
         ->middleware('permiso:caja.cerrar')->name('caja.cerrar');
+
+    // Las cajas FÍSICAS del local, no los turnos. En plural (`/cajas`) para no
+    // chocar con `caja/{sesion}` de arriba, y detrás de `configuracion.editar`
+    // porque dar de alta un puesto de cobro es administrar el local, no la
+    // operación diaria del cajero.
+    Route::middleware('permiso:configuracion.editar')->group(function () {
+        Route::get('cajas', [CajaFisicaController::class, 'index'])->name('cajas.index');
+        Route::post('cajas', [CajaFisicaController::class, 'store'])->name('cajas.store');
+        Route::put('cajas/{caja}', [CajaFisicaController::class, 'update'])->name('cajas.update');
+        Route::delete('cajas/{caja}', [CajaFisicaController::class, 'destroy'])->name('cajas.destroy');
+    });
 
     // ---- Catálogo: productos y sus tablas de apoyo ----
     Route::middleware('permiso:productos.gestionar')->group(function () {

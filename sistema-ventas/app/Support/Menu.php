@@ -29,6 +29,13 @@ class Menu
             $mostrador[] = ['icon' => 'caja', 'name' => 'Caja', 'path' => '/caja'];
         }
 
+        // Las cajas físicas (dar de alta un segundo puesto de cobro) son
+        // administración del local, no la operación diaria: por eso van con
+        // `configuracion.editar` y no con `caja.abrir`.
+        if (self::puede('configuracion.editar')) {
+            $mostrador[] = ['icon' => 'cajas', 'name' => 'Cajas del local', 'path' => '/cajas'];
+        }
+
         $grupos[] = ['title' => 'Mostrador', 'items' => $mostrador];
 
         if (self::puedeAlguno('ventas.registrar', 'reportes.ver')) {
@@ -195,6 +202,7 @@ class Menu
         'pos' => '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.75 4.75h1.6a1 1 0 0 1 .98.8l.42 2.1m0 0 1.5 7.1a1.5 1.5 0 0 0 1.47 1.2h8.06a1.5 1.5 0 0 0 1.4-.96l2.32-5.83a1 1 0 0 0-.93-1.37H5.75Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="19.5" r="1.4" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="19.5" r="1.4" stroke="currentColor" stroke-width="1.5"/></svg>',
 
         'caja' => '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2.75" y="7.75" width="18.5" height="12.5" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M2.75 11.75h18.5" stroke="currentColor" stroke-width="1.5"/><path d="M6.75 7.75l1.6-3.2a1.5 1.5 0 0 1 1.34-.8h4.62a1.5 1.5 0 0 1 1.34.8l1.6 3.2" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10.25 16h3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+        'cajas' => '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="2.75" y="9.75" width="11.5" height="10.5" rx="1.5" stroke="currentColor" stroke-width="1.5"/><path d="M2.75 13.25h11.5" stroke="currentColor" stroke-width="1.5"/><path d="M9.75 9.75V5.25a1.5 1.5 0 0 1 1.5-1.5h8a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-2.5" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.75 16.75h3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
 
         'ventas' => '<svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.75 20.25V10.5M9.75 20.25V6.75M14.75 20.25v-6M19.75 20.25V4.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M2.75 20.25h18.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
 
