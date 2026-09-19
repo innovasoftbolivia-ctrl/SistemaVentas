@@ -8,7 +8,7 @@
  *   <div data-apexchart='{"tipo":"area","categorias":[...],"series":[...]}'></div>
  */
 
-const PALETA = ['#465fff', '#12b76a', '#f79009', '#f04438', '#0ba5ec'];
+const PALETA = ['#0a6fe4', '#12b76a', '#f79009', '#f04438', '#7a5af8'];
 
 function esOscuro() {
     return document.documentElement.classList.contains('dark');
