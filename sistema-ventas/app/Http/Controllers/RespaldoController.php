@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Services\Auditor;
 use App\Services\Respaldos;
+use App\Support\Config;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Number;
 use Illuminate\View\View;
@@ -24,6 +25,8 @@ class RespaldoController extends Controller
 
     public function index(): View
     {
+        abort_unless(Config::respaldosVisibles(), 404);
+
         $respaldos = Respaldos::listar();
         $ultimo = $respaldos->firstWhere('tipo', 'base');
 
@@ -40,6 +43,8 @@ class RespaldoController extends Controller
 
     public function store(): RedirectResponse
     {
+        abort_unless(Config::respaldosVisibles(), 404);
+
         try {
             $hecho = Respaldos::crear();
         } catch (Throwable $e) {
@@ -72,6 +77,8 @@ class RespaldoController extends Controller
 
     public function descargar(string $nombre): BinaryFileResponse
     {
+        abort_unless(Config::respaldosVisibles(), 404);
+
         $ruta = Respaldos::ruta($nombre);
 
         abort_unless($ruta, 404);

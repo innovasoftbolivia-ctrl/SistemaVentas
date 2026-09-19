@@ -6,6 +6,7 @@ use App\Models\Permiso;
 use App\Models\Rol;
 use App\Services\Auditor;
 use App\Support\Administracion;
+use App\Support\Config;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,13 +19,15 @@ class RolController extends Controller
         return view('roles.index', [
             'title' => 'Roles y permisos',
             'trail' => ['Seguridad' => route('usuarios.index')],
-            'roles' => Rol::with('permisos:id,codigo,modulo,descripcion')
+            'roles' => Rol::with(['permisos' => fn ($q) => $q->select('permisos.id', 'codigo', 'modulo', 'descripcion')
+                ->whereNotIn('codigo', Config::permisosOcultos())])
                 ->withCount(['usuarios', 'usuarios as usuarios_activos_count' => fn ($q) => $q->activos()])
                 ->orderBy('nombre')
                 ->get(),
             // Agrupados por módulo para que el formulario se lea como el
             // sistema y no como una lista plana de códigos.
-            'permisosPorModulo' => Permiso::orderBy('modulo')->orderBy('codigo')->get()->groupBy('modulo'),
+            'permisosPorModulo' => Permiso::whereNotIn('codigo', Config::permisosOcultos())
+                ->orderBy('modulo')->orderBy('codigo')->get()->groupBy('modulo'),
         ]);
     }
 
@@ -65,7 +68,10 @@ class RolController extends Controller
             'activo' => $datos['activo'] ?? $rol->activo,
         ]);
 
-        $rol->permisos()->sync($datos['permisos'] ?? []);
+        // Un permiso escondido no llega en el formulario: el rol conserva el
+        // que ya tenía en vez de perderlo al guardar.
+        $ocultosQueTenia = $rol->permisos()->whereIn('codigo', Config::permisosOcultos())->pluck('permisos.id')->all();
+        $rol->permisos()->sync(array_unique([...array_map('intval', $datos['permisos'] ?? []), ...$ocultosQueTenia]));
 
         Auditor::registrar('ROL_ACTUALIZADO', 'roles', $rol->id, [
             'nombre' => $rol->nombre,

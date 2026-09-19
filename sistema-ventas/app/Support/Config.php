@@ -30,6 +30,23 @@ class Config
         return (bool) config('ventas.mostrar_facturacion', false);
     }
 
+    /** ¿Se ve la pantalla de respaldos? El respaldo nocturno corre igual. */
+    public static function respaldosVisibles(): bool
+    {
+        return (bool) config('ventas.mostrar_respaldos', false);
+    }
+
+    /**
+     * Permisos que no se muestran en Roles porque su pantalla está escondida.
+     * Siguen existiendo y quien los tenía los conserva.
+     *
+     * @return list<string>
+     */
+    public static function permisosOcultos(): array
+    {
+        return self::respaldosVisibles() ? [] : ['respaldos.gestionar'];
+    }
+
     /** Tasa del impuesto a las ventas como fracción: 0.13 para el IVA boliviano del 13 %. */
     public static function tasaImpuesto(): float
     {

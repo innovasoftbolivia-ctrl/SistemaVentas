@@ -169,7 +169,7 @@ class Menu
             $sistema[] = ['icon' => 'bitacora', 'name' => 'Bitácora', 'path' => '/bitacora'];
         }
 
-        if (self::puede('respaldos.gestionar')) {
+        if (Config::respaldosVisibles() && self::puede('respaldos.gestionar')) {
             $sistema[] = ['icon' => 'respaldos', 'name' => 'Respaldos', 'path' => '/respaldos'];
         }
 

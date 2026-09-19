@@ -90,6 +90,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Respaldos a la vista
+    |--------------------------------------------------------------------------
+    |
+    | El respaldo de todas las noches corre igual (routes/console.php) y queda
+    | en el servidor. Lo que se esconde es la pantalla Sistema > Respaldos y su
+    | permiso en Roles: al cliente no le hace falta verlos. En true vuelven.
+    |
+    */
+
+    'mostrar_respaldos' => (bool) env('MOSTRAR_RESPALDOS', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Quién desarrolló el sistema
     |--------------------------------------------------------------------------
     |
