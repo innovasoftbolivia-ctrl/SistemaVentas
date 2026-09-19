@@ -150,7 +150,7 @@
             cursor: pointer;
         }
 
-        .acciones .principal { background: #0a6fe4; border-color: #0a6fe4; color: #fff; }
+        .acciones .principal { background: #0a5cff; border-color: #0a5cff; color: #fff; }
 
         /* No se le pone `display`: el atributo `hidden` tiene que poder
            esconderlo solo, y una regla de display acá lo anularía. */

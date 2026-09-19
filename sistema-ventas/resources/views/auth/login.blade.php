@@ -81,7 +81,7 @@
             <div class="bg-brand-950 relative hidden h-full w-full items-center overflow-hidden lg:grid lg:w-1/2">
                 {{-- El halo azul del logo, detrás de la marca. --}}
                 <div aria-hidden="true"
-                    class="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_45%_at_50%_48%,rgba(10,124,240,0.30),transparent_70%)]">
+                    class="pointer-events-none absolute inset-0 bg-[radial-gradient(55%_45%_at_50%_48%,rgba(10,92,255,0.32),transparent_70%)]">
                 </div>
                 <div class="z-1 flex items-center justify-center">
                     <x-common.common-grid-shape />

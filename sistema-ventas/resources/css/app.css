@@ -55,24 +55,26 @@
   --color-current: currentColor;
   --color-transparent: transparent;
   --color-white: #ffffff;
-  --color-black: #0b1628;
+  --color-black: #060d24;
 
-  /* El azul de InnovaDevs, sacado del logo (cian #00dbfe → azul #0192f9 →
-     marino #011026). El 500 es un punto más oscuro que el del logo a
-     propósito: es el fondo de los botones, y con texto blanco tiene que
-     pasar el contraste mínimo de lectura (4,8:1; el del logo da 4,1:1). */
-  --color-brand-25: #f3f9ff;
-  --color-brand-50: #e8f3ff;
-  --color-brand-100: #d1e7ff;
-  --color-brand-200: #a6d0ff;
-  --color-brand-300: #6db3ff;
-  --color-brand-400: #2e8cf8;
-  --color-brand-500: #0a6fe4;
-  --color-brand-600: #0859c2;
-  --color-brand-700: #0a4a9e;
-  --color-brand-800: #0c3e82;
-  --color-brand-900: #0d3468;
-  --color-brand-950: #04142f;
+  /* Paleta de InnovaDevs (19/09/2026). Los valores marcados con * los fijó
+     el negocio; el resto de la escala se deriva de ellos con el mismo tono.
+       500* principal: botones y menú activo; lleva texto blanco (5,3:1)
+       600* al pasar el mouse
+       400* enlaces en modo oscuro (4,8:1 sobre una tarjeta)
+       50*  fondo del ítem activo en modo claro */
+  --color-brand-25: #f4f8ff;
+  --color-brand-50: #e8f1ff;
+  --color-brand-100: #d4e4ff;
+  --color-brand-200: #aecbff;
+  --color-brand-300: #7aa9ff;
+  --color-brand-400: #3380ff;
+  --color-brand-500: #0a5cff;
+  --color-brand-600: #0848d6;
+  --color-brand-700: #0a3aab;
+  --color-brand-800: #0e3187;
+  --color-brand-900: #102b6b;
+  --color-brand-950: #081636;
 
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;
@@ -96,10 +98,11 @@
   --color-gray-500: #667085;
   --color-gray-600: #475467;
   --color-gray-700: #344054;
-  --color-gray-800: #1b2940;
-  --color-gray-900: #0b1628;
-  --color-gray-950: #060f1f;
-  --color-gray-dark: #111d31;
+  /* Modo oscuro (fijados por el negocio): 900 fondo, dark tarjetas, 800 bordes. */
+  --color-gray-800: #16244a;
+  --color-gray-900: #060d24;
+  --color-gray-950: #030818;
+  --color-gray-dark: #0b1638;
 
   --color-orange-25: #fffaf5;
   --color-orange-50: #fff6ed;
@@ -163,7 +166,7 @@
   --shadow-theme-xs: 0px 1px 2px 0px rgba(16, 24, 40, 0.05);
   --shadow-theme-xl: 0px 20px 24px -4px rgba(16, 24, 40, 0.08), 0px 8px 8px -4px rgba(16, 24, 40, 0.03);
   --shadow-datepicker: -5px 0 0 #262d3c, 5px 0 0 #262d3c;
-  --shadow-focus-ring: 0px 0px 0px 4px rgba(10, 111, 228, 0.14);
+  --shadow-focus-ring: 0px 0px 0px 4px rgba(10, 92, 255, 0.14);
   --shadow-slider-navigation: 0px 1px 2px 0px rgba(16, 24, 40, 0.1), 0px 1px 3px 0px rgba(16, 24, 40, 0.1);
   --shadow-tooltip: 0px 4px 6px -2px rgba(16, 24, 40, 0.05), -8px 0px 20px 8px rgba(16, 24, 40, 0.05);
 
@@ -654,13 +657,13 @@ span.flatpickr-weekday,
 .flatpickr-day.selected.nextMonthDay,
 .flatpickr-day.startRange.nextMonthDay,
 .flatpickr-day.endRange.nextMonthDay {
-  background: #0a6fe4;
+  background: #0a5cff;
   @apply !border-brand-500 !bg-brand-500 hover:!border-brand-500 hover:!bg-brand-500;
 }
 .flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n + 1)),
 .flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n + 1)) {
-  box-shadow: -10px 0 0 #0a6fe4;
+  box-shadow: -10px 0 0 #0a5cff;
 }
 
 .flatpickr-months .flatpickr-prev-month svg,

@@ -82,7 +82,7 @@
             background: #fff; color: #344054; font-size: 13px; text-align: center;
             text-decoration: none; cursor: pointer; font-family: inherit;
         }
-        .acciones .principal { background: #0a6fe4; border-color: #0a6fe4; color: #fff; }
+        .acciones .principal { background: #0a5cff; border-color: #0a5cff; color: #fff; }
 
         @media print {
             body { background: #fff; padding: 0; }
