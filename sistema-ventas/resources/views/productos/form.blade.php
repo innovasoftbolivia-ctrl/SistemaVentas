@@ -31,6 +31,11 @@
     // «Suelto» va primero porque es el valor por defecto y porque es la
     // respuesta de la mitad del catálogo. «Otro…» se agrega en el slot, después
     // de la lista, que es donde se espera encontrar un cajón de sastre.
+    // El negocio vende de a uno: un producto nuevo arranca vendiéndose por
+    // unidad, y quien vende por kilo o por litro lo cambia.
+    $unidadPorDefecto = collect($unidadesInfo)->search(fn (array $u) => $u['codigo'] === 'UND') ?: null;
+    $unidadInicial = old('unidad_medida_id', $producto->unidad_medida_id ?? ($esEdicion ? null : $unidadPorDefecto));
+
     $opcionesEmpaque = ['__suelto' => 'Suelto — igual que lo vendo']
         + array_combine($empaquesUsuales, $empaquesUsuales);
 @endphp
@@ -46,7 +51,22 @@
             afecto: @js((bool) old('afecto_impuesto', $producto->afecto_impuesto ?? true)),
 
             unidades: @js($unidadesInfo),
-            unidad: Number(@js(old('unidad_medida_id', $producto->unidad_medida_id ?? ''))) || null,
+            unidad: Number(@js($unidadInicial ?? '')) || null,
+            unidadSuelta: @js($unidadPorDefecto),
+            /* Caja y paquete son envases, no lo que se despacha: si al decir
+               que el producto llega en caja la unidad de venta quedó en caja o
+               paquete, pasa a unidad. Vender cajas enteras sigue siendo posible
+               —se elige «Suelto» arriba y «Caja» abajo—. */
+            unidadDeEnvase() {
+                return ['CAJA', 'PQT'].includes(this.unidadCodigo);
+            },
+            init() {
+                this.$watch('empaqueElegido', (valor) => {
+                    if (valor !== '__suelto' && this.unidadSuelta && this.unidadDeEnvase()) {
+                        this.unidad = this.unidadSuelta;
+                    }
+                });
+            },
 
             /* El empaque se elige de una lista y ya no viene con «Caja» puesto:
                un valor por defecto que nadie eligió terminaba guardado tal cual,
@@ -86,6 +106,9 @@
             },
             get unidadNombre() {
                 return this.unidades[this.unidad]?.nombre ?? 'unidad';
+            },
+            get unidadPlural() {
+                return this.unidades[this.unidad]?.plural ?? 'unidades';
             },
             get pasoUnidad() {
                 return this.unidades[this.unidad]?.decimal ? 0.001 : 1;
@@ -240,12 +263,10 @@
                                         x-model.number="contenidoEmpaque"
                                         x-bind:placeholder="pasoUnidad === 1 ? '24' : '46'" />
                                 </div>
-                                {{-- El código y no el nombre: «UND por caja» no necesita
-                                     plural, y «unidads» es lo que salía al pegarle una
-                                     «s» a «unidad». Las reglas del plural ya viven en
-                                     el servidor y no hace falta una segunda copia aquí. --}}
+                                {{-- En palabras, con el plural que arma el servidor
+                                     (Palabras::plural): «unidades por caja». --}}
                                 <span class="text-theme-sm text-gray-500 dark:text-gray-400">
-                                    <span x-text="unidadCodigo || 'unidades'"></span>
+                                    <span x-text="unidadPlural"></span>
                                     por <span x-text="empaque"></span>
                                 </span>
                             </div>
@@ -286,7 +307,7 @@
                             <p class="text-gray-700 dark:text-gray-300">
                                 Compras de a <b><span x-text="empaque"></span> de
                                     <span x-text="contenido"></span>
-                                    <span x-text="unidadCodigo"></span></b>
+                                    <span x-text="unidadPlural"></span></b>
                                 y vendes de a <b><span x-text="unidadNombre"></span></b>.
                                 {{-- «el número de» y no «cuántas»: en castellano el
                                      artículo depende del género y esto vale igual para
@@ -343,7 +364,7 @@
                         <p x-show="compraPorCaja && compra > 0" x-cloak
                             class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
                             = {{ $moneda }} <b x-text="compraUnidad.toFixed(2)"></b> por
-                            <span x-text="unidadCodigo"></span>, que es lo que se guarda
+                            <span x-text="unidadNombre"></span>, que es lo que se guarda
                         </p>
                     </x-form.campo>
 
@@ -490,7 +511,7 @@
                     <x-form.cantidad-empaque campo="stock_inicial" prefijo="ini_" label="Stock inicial"
                         help="Las unidades contadas físicamente. Queda registrado como carga inicial en el kardex."
                         valor="0" :requerido="false" hay-empaque="hayEmpaque" contenido="contenido"
-                        empaque="empaque" unidad="unidadCodigo" paso="pasoUnidad" />
+                        empaque="empaque" unidad="unidadPlural" paso="pasoUnidad" />
                 @endif
 
                 <x-form.campo label="Stock mínimo" for="stock_minimo" name="stock_minimo" required

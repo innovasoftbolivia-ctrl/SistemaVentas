@@ -307,7 +307,7 @@
                             :hay-empaque="$producto->tieneEmpaque() ? 'true' : 'false'"
                             :contenido="(float) $producto->contenido_empaque"
                             :empaque="json_encode(mb_strtolower($producto->nombre_empaque ?? ''))"
-                            :unidad="json_encode($unidad?->codigo ?? '')" :paso="$paso" />
+                            :unidad="json_encode($unidad ? App\Support\Palabras::plural($unidad->nombre) : 'unidades')" :paso="$paso" />
 
                         <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
                             <x-form.campo :label="$producto->tieneEmpaque() ? 'Costo' : 'Costo unitario'"

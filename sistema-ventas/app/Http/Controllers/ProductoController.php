@@ -502,6 +502,8 @@ class ProductoController extends Controller
             'unidadesInfo' => $unidades->mapWithKeys(fn (UnidadMedida $u) => [$u->id => [
                 'codigo' => $u->codigo,
                 'nombre' => mb_strtolower($u->nombre),
+                // «66 unidades» y no «66 UND»: la cuenta se lee en palabras.
+                'plural' => Palabras::plural($u->nombre),
                 'decimal' => (bool) $u->permite_decimal,
             ]]),
             'proveedores' => Proveedor::activos()->orderBy('razon_social')->pluck('razon_social', 'id'),
