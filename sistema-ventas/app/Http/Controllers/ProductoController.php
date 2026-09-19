@@ -445,6 +445,16 @@ class ProductoController extends Controller
     {
         $unidad = UnidadMedida::find($datos['unidad_medida_id']);
 
+        // Lo que llega en caja o paquete se vende de a uno: «10 paquetes de 6»
+        // son 60 unidades, no 60 paquetes. La pantalla ya no lo ofrece; esto
+        // cubre un envío que llegue igual.
+        if ($unidad && $request->boolean('viene_en_empaque') && in_array($unidad->codigo, ['CAJA', 'PQT'], true)) {
+            throw ValidationException::withMessages([
+                'unidad_medida_id' => 'Si llega en caja o paquete, en el mostrador se vende por unidad: elige «Unidad». '
+                    .'Para vender la caja entera, elige «Suelto» en cómo te lo entrega el proveedor y «Caja» aquí.',
+            ]);
+        }
+
         if (! $unidad || $unidad->permite_decimal) {
             return;
         }

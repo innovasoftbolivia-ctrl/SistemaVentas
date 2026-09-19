@@ -53,19 +53,32 @@
             unidades: @js($unidadesInfo),
             unidad: Number(@js($unidadInicial ?? '')) || null,
             unidadSuelta: @js($unidadPorDefecto),
-            /* Caja y paquete son envases, no lo que se despacha: si al decir
-               que el producto llega en caja la unidad de venta quedó en caja o
-               paquete, pasa a unidad. Vender cajas enteras sigue siendo posible
-               —se elige «Suelto» arriba y «Caja» abajo—. */
-            unidadDeEnvase() {
-                return ['CAJA', 'PQT'].includes(this.unidadCodigo);
+            /* Caja y paquete son envases, no lo que se despacha: el negocio
+               vende de a uno. Si el producto llega en caja o paquete, la unidad
+               de venta no puede ser caja ni paquete —«10 paquetes de 6» son 60
+               unidades, no 60 paquetes—: esas dos opciones se esconden de la
+               lista y, si ya estaban elegidas, pasa a unidad, en el orden en
+               que se contesten las dos preguntas. Vender la caja entera sigue
+               siendo posible: «Suelto» arriba y «Caja» abajo. */
+            esEnvase(id) {
+                return ['CAJA', 'PQT'].includes(this.unidades[id]?.codigo);
+            },
+            ajustarUnidadDeVenta() {
+                if (this.vieneEnEmpaque && this.unidadSuelta && this.esEnvase(this.unidad)) {
+                    this.unidad = this.unidadSuelta;
+                }
+                const lista = document.getElementById('unidad_medida_id');
+                if (!lista) return;
+                for (const opcion of lista.options) {
+                    const oculta = this.vieneEnEmpaque && this.esEnvase(Number(opcion.value));
+                    opcion.hidden = oculta;
+                    opcion.disabled = oculta;
+                }
             },
             init() {
-                this.$watch('empaqueElegido', (valor) => {
-                    if (valor !== '__suelto' && this.unidadSuelta && this.unidadDeEnvase()) {
-                        this.unidad = this.unidadSuelta;
-                    }
-                });
+                this.$watch('empaqueElegido', () => this.ajustarUnidadDeVenta());
+                this.$watch('unidad', () => this.ajustarUnidadDeVenta());
+                this.$nextTick(() => this.ajustarUnidadDeVenta());
             },
 
             /* El empaque se elige de una lista y ya no viene con «Caja» puesto:

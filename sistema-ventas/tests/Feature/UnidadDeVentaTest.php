@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Categoria;
 use App\Models\Producto;
 use App\Models\UnidadMedida;
 use App\Models\Usuario;
@@ -60,5 +61,54 @@ class UnidadDeVentaTest extends TestCase
         $this->admin()->get(route('productos.show', $producto))->assertOk()
             ->assertSee('&quot;unidades&quot;', false)
             ->assertDontSee('&quot;UND&quot;', false);
+    }
+
+    private function datos(string $unidad, array $mas = []): array
+    {
+        return [
+            'categoria_id' => Categoria::first()->id,
+            'unidad_medida_id' => UnidadMedida::where('codigo', $unidad)->value('id'),
+            'codigo' => 'P-9202',
+            'nombre' => 'Galletas de prueba',
+            'precio_compra' => '1.00',
+            'precio_venta' => '1.50',
+            'afecto_impuesto' => 1,
+            'stock_minimo' => '0',
+            'activo' => 1,
+            ...$mas,
+        ];
+    }
+
+    public function test_diez_paquetes_de_seis_son_sesenta_unidades(): void
+    {
+        $this->admin()->post(route('productos.store'), $this->datos('UND', [
+            'viene_en_empaque' => '1', 'nombre_empaque' => 'Paquete', 'contenido_empaque' => '6',
+            'empaques' => '10', 'sueltas' => '0',
+        ]))->assertSessionHasNoErrors()->assertRedirect();
+
+        $producto = Producto::where('codigo', 'P-9202')->firstOrFail();
+        $this->assertSame('UND', $producto->unidadMedida->codigo);
+        $this->assertEquals(60, (float) $producto->stock_actual);
+    }
+
+    public function test_lo_que_llega_en_caja_o_paquete_no_se_vende_por_caja_ni_paquete(): void
+    {
+        foreach (['PQT', 'CAJA'] as $unidad) {
+            $this->admin()->post(route('productos.store'), $this->datos($unidad, [
+                'viene_en_empaque' => '1', 'nombre_empaque' => 'Paquete', 'contenido_empaque' => '6',
+                'empaques' => '10', 'sueltas' => '0',
+            ]))->assertSessionHasErrors('unidad_medida_id');
+        }
+
+        $this->assertNull(Producto::where('codigo', 'P-9202')->first());
+    }
+
+    public function test_la_caja_entera_se_sigue_pudiendo_vender_si_llega_suelta(): void
+    {
+        $this->admin()->post(route('productos.store'), $this->datos('CAJA', [
+            'viene_en_empaque' => '0', 'stock_inicial' => '4',
+        ]))->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertSame('CAJA', Producto::where('codigo', 'P-9202')->firstOrFail()->unidadMedida->codigo);
     }
 }
