@@ -88,4 +88,15 @@ return [
 
     'mostrar_facturacion' => (bool) env('MOSTRAR_FACTURACION', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Quién desarrolló el sistema
+    |--------------------------------------------------------------------------
+    |
+    | Aparece, discreto, al pie de la pantalla de ingreso. Vacío, no se muestra.
+    |
+    */
+
+    'desarrollado_por' => (string) env('DESARROLLADO_POR', 'InnovaDevs'),
+
 ];

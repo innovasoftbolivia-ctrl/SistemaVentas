@@ -76,6 +76,15 @@
   --color-brand-900: #102b6b;
   --color-brand-950: #081636;
 
+  /* El azul marino de InnovaDevs con nombre propio, para lo que va siempre en
+     marino sin depender del tema (la pantalla de ingreso). Son los mismos
+     valores del modo oscuro. */
+  --color-marino-950: #040a1c;
+  --color-marino-900: #060d24;
+  --color-marino-800: #0b1638;
+  --color-marino-700: #16244a;
+  --color-marino-600: #26365e;
+
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;
   --color-blue-light-100: #e0f2fe;
