@@ -190,7 +190,7 @@
                      la altura de la cabecera y el título de la página, unos `10rem`—
                      y con el número de `top-24` el pie (con el botón de cobrar)
                      quedaba unos 25 px fuera de la pantalla nada más cargar. --}}
-                <form method="POST" action="{{ route('pos.store') }}" @submit.prevent="confirmarYEnviar($event)" x-ref="carrito"
+                <form method="POST" action="{{ route('pos.store') }}" @submit.prevent="confirmarYEnviar($event)" x-ref="carrito" id="pos-formulario"
                     class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-10rem)] xl:overflow-hidden">
                     @csrf
                     <div x-ref="campos"></div>
@@ -286,351 +286,489 @@
                         </div>
                     </div>
 
-                    {{-- Cliente --}}
-                    {{-- (dentro de la zona con scroll: sigue justo después del carrito) --}}
-                    <div class="border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-                        <label for="cliente" class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                            Cliente
-                        </label>
-                        {{-- La lista trae los primeros {{ $clientesEnLista }} por nombre. Con más,
-                             los del final se buscan: antes no había forma de elegirlos. --}}
-                        @if ($hayMasClientes)
-                            <div class="mb-2">
-                                <input type="search" x-model="clienteQ" @input.debounce.300ms="buscarCliente()"
-                                    aria-label="Buscar cliente por nombre o documento" placeholder="Buscar por nombre o documento"
-                                    data-buscar-cliente
-                                    class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                <ul x-show="clientesEncontrados.length" x-cloak class="mt-1 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-800">
-                                    <template x-for="c in clientesEncontrados" :key="c.id">
-                                        <li>
-                                            <button type="button" @click="elegirCliente(c)" x-text="c.etiqueta"
-                                                class="block w-full px-3 py-2 text-left text-theme-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]"></button>
-                                        </li>
-                                    </template>
-                                </ul>
-                                <p x-show="clienteQ.trim().length >= 2 && !buscandoCliente && !clientesEncontrados.length" x-cloak
-                                    class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">Ningún cliente coincide.</p>
-                            </div>
-                        @endif
-                        <select id="cliente" x-model.number="clienteId"
-                            class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            <option value="">{{ $clienteGenerico }} (venta al paso{{ App\Support\Config::facturacionVisible() ? ' — recibo' : '' }})</option>
-                            @foreach ($clientes as $c)
-                                <option value="{{ $c['id'] }}" data-juridica="{{ $c['juridica'] ? '1' : '0' }}">
-                                    {{ $c['etiqueta'] }}{{ $c['juridica'] && App\Support\Config::facturacionVisible() ? ' — factura' : '' }}
-                                </option>
-                            @endforeach
-                            {{-- Los que se registran sin salir del mostrador, en esta misma venta. --}}
-                            <template x-for="c in clientesNuevos" :key="c.id">
-                                <option :value="c.id" x-text="{{ App\Support\Config::facturacionVisible() ? "c.etiqueta + (c.factura ? ' — factura' : '')" : 'c.etiqueta' }}"></option>
-                            </template>
-                        </select>
-                        <p class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
-                            @facturacion Persona jurídica recibe <b>factura</b>; el resto, <b>recibo</b>. @endfacturacion
-                            <button type="button" @click="abrirNuevoCliente()"
-                                class="-my-2 px-1 py-2 font-medium text-brand-500 dark:text-brand-400 hover:text-brand-600">Registrar cliente</button>
-                        </p>
                     </div>
 
-                    {{-- Totales --}}
-                    {{-- `aria-live="polite"`: el total cambia solo, al añadir un
-                         artículo o teclear un descuento. Sin esto, quien usa
-                         lector de pantalla cobra sin haber oído el importe. --}}
-                    <div class="space-y-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800"
+                    {{-- Totales. `aria-live="polite"`: el total cambia solo, al
+                         añadir un artículo o teclear un descuento. Sin esto, quien
+                         usa lector de pantalla cobra sin haber oído el importe. --}}
+                    <div class="space-y-1.5 border-t border-gray-100 px-5 py-4 dark:border-gray-800"
                         aria-live="polite" aria-atomic="true">
-                        <div class="flex justify-between text-theme-sm text-gray-500 dark:text-gray-400">
+                        <div class="flex justify-between text-theme-xs text-gray-500 dark:text-gray-400">
                             <span>{{ App\Support\Config::facturacionVisible() ? 'Subtotal (base)' : 'Subtotal' }}</span>
-                            <span x-text="'{{ $moneda }} ' + subtotal.toFixed(2)"></span>
+                            <span class="tabular-nums" x-text="'{{ $moneda }} ' + subtotal.toFixed(2)"></span>
                         </div>
-
-                        {{-- El descuento se teclea en {{ $moneda }} o en %, pero a la venta
-                             y al ticket siempre llega el monto: el porcentaje solo es
-                             una forma de calcularlo. --}}
-                        <div class="flex items-center justify-between gap-3">
-                            <label for="descuento" class="text-theme-sm text-gray-500 dark:text-gray-400">Descuento</label>
-                            <div class="flex items-center gap-2">
-                                <div role="group" aria-label="Descontar en" class="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.05]">
-                                    <button type="button" @click="descuentoModo = 'monto'" :aria-pressed="descuentoModo === 'monto'"
-                                        :class="descuentoModo === 'monto' ? 'bg-white text-gray-800 shadow-theme-xs dark:bg-gray-800 dark:text-white/90' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
-                                        class="h-10 min-w-10 rounded-md px-2 text-theme-xs font-medium transition">{{ $moneda }}</button>
-                                    <button type="button" @click="descuentoModo = 'porcentaje'" :aria-pressed="descuentoModo === 'porcentaje'"
-                                        :class="descuentoModo === 'porcentaje' ? 'bg-white text-gray-800 shadow-theme-xs dark:bg-gray-800 dark:text-white/90' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
-                                        class="h-10 min-w-10 rounded-md px-2 text-theme-xs font-medium transition">%</button>
-                                </div>
-                                <input id="descuento" type="number" inputmode="decimal" min="0" x-model.number="descuento"
-                                    :step="descuentoModo === 'porcentaje' ? '0.5' : '0.01'"
-                                    :max="descuentoModo === 'porcentaje' ? 100 : null"
-                                    :aria-label="descuentoModo === 'porcentaje' ? 'Descuento en porcentaje' : 'Descuento en {{ $moneda }}'"
-                                    class="dark:bg-dark-900 h-11 w-24 rounded-lg border border-gray-300 bg-transparent px-2 text-right text-sm text-gray-800 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                            </div>
+                        <div x-show="descuentoValido > 0" x-cloak
+                            class="flex justify-between text-theme-xs text-gray-500 dark:text-gray-400">
+                            <span>Descuento</span>
+                            <span class="tabular-nums" x-text="'− {{ $moneda }} ' + descuentoValido.toFixed(2)"></span>
                         </div>
-
-                        <div class="flex items-center justify-between gap-3">
-                            <div class="flex flex-wrap gap-1.5">
-                                @foreach ([5, 10] as $rapido)
-                                    <button type="button" @click="descontarPorcentaje({{ $rapido }})"
-                                        :aria-pressed="descuentoModo === 'porcentaje' && Number(descuento) === {{ $rapido }}"
-                                        :class="descuentoModo === 'porcentaje' && Number(descuento) === {{ $rapido }}
-                                            ? 'bg-brand-500 text-white'
-                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.05] dark:text-gray-400 dark:hover:bg-white/10'"
-                                        class="min-h-10 rounded-lg px-3 text-theme-xs font-medium transition">{{ $rapido }} %</button>
-                                @endforeach
-                                <button type="button" x-show="descuentoValido > 0" @click="descuento = 0"
-                                    class="min-h-10 rounded-lg px-2 text-theme-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Quitar</button>
-                            </div>
-                            <span x-show="descuentoModo === 'porcentaje' && descuentoValido > 0"
-                                class="text-theme-sm text-gray-500 tabular-nums dark:text-gray-400"
-                                x-text="'− {{ $moneda }} ' + descuentoValido.toFixed(2)"></span>
-                        </div>
-
-                        <p x-show="excedeDescuento" class="text-theme-xs text-warning-700 dark:text-orange-400">
-                            @if ($puedeDescontar)
-                                Este descuento supera el {{ $descuentoMaximo }}% habitual. Queda registrado a tu nombre.
-                            @else
-                                Tu rol permite hasta {{ $descuentoMaximo }}%. Por encima necesita autorización.
-                            @endif
-                        </p>
-
                         @if ($tasaImpuesto > 0 && App\Support\Config::facturacionVisible())
-                            <div class="flex justify-between text-theme-sm text-gray-500 dark:text-gray-400" data-impuesto-del-total>
+                            <div class="flex justify-between text-theme-xs text-gray-500 dark:text-gray-400" data-impuesto-del-total>
                                 <span>{{ $impuestoIncluido ? 'IVA incluido' : 'Impuesto' }} ({{ rtrim(rtrim(number_format($tasaImpuesto * 100, 2), '0'), '.') }}%)</span>
-                                <span x-text="'{{ $moneda }} ' + impuesto.toFixed(2)"></span>
+                                <span class="tabular-nums" x-text="'{{ $moneda }} ' + impuesto.toFixed(2)"></span>
                             </div>
                         @endif
-
-                        {{-- El total es la cifra que el cajero canta y el cliente
-                             mira: se le da su propio bloque para que no compita
-                             con el resto de la columna. --}}
-                        <div class="mt-1 flex items-baseline justify-between gap-3 rounded-xl bg-brand-50 px-4 py-3 dark:bg-brand-500/10">
-                            <span class="font-semibold text-gray-800 dark:text-white/90">Total</span>
-                            <span class="text-title-sm font-bold text-brand-600 dark:text-brand-400"
+                        <div class="flex items-baseline justify-between gap-3 pt-1">
+                            <span class="text-theme-sm font-semibold text-gray-700 dark:text-gray-300">Total</span>
+                            <span class="text-title-sm font-bold tabular-nums text-gray-900 dark:text-white"
                                 x-text="'{{ $moneda }} ' + total.toFixed(2)"></span>
                         </div>
+
+                        {{-- Abre la ventana de cobro; no envía nada. La forma de pago,
+                             el vuelto, el descuento y el cliente están allí: armar la
+                             venta y cobrarla son dos trabajos, y en un solo panel se
+                             peleaban el alto —la forma de pago quedaba al fondo de una
+                             lista que había que bajar—. Deshabilitado se ve gris, no
+                             azul claro: un botón azul que no responde parece un fallo. --}}
+                        <button type="button" x-ref="abrirCobro" @click="abrirCobro()" :disabled="!carrito.length || total <= 0"
+                            class="mt-2 flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-base font-semibold text-white transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 dark:disabled:bg-white/[0.06] dark:disabled:text-gray-500">
+                            <template x-if="!carrito.length">
+                                <span>Agrega un producto para cobrar</span>
+                            </template>
+                            <template x-if="carrito.length">
+                                <span class="flex items-center gap-2">
+                                    Cobrar
+                                    <kbd class="tecla">F4</kbd>
+                                </span>
+                            </template>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            {{-- La ventana de cobro. Va FUERA del formulario, igual que el alta de
+                 cliente: el panel del carrito es `sticky`, y un `sticky` encierra a
+                 sus hijos en su propia capa, así que dentro de él la barra de arriba
+                 y el menú lateral quedaban por encima de la ventana y le tapaban el
+                 título. El botón de confirmar y los campos donde un Enter debe
+                 cobrar se atan al formulario con `form=`. --}}
+            <div x-show="cobrando" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-cobro"
+                data-ventana-cobro
+                class="fixed inset-0 z-99999 flex items-start justify-center overflow-y-auto overscroll-contain p-4 sm:items-center sm:p-6">
+                <div @click="cerrarCobro()" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
+
+                <div x-trap.inert.noscroll="cobrando"
+                    class="relative flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white dark:bg-gray-900">
+
+                    <div class="flex-none border-b border-gray-100 px-6 pt-5 pb-4 dark:border-gray-800">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <h2 id="titulo-cobro" class="text-lg font-semibold text-gray-800 dark:text-white/90">Cobrar venta</h2>
+                                <p class="truncate text-theme-xs text-gray-500 dark:text-gray-400"
+                                    x-text="cantidadTexto(articulos) + (articulos == 1 ? ' artículo' : ' artículos')"></p>
+                            </div>
+                            <button type="button" @click="cerrarCobro()" aria-label="Volver al carrito"
+                                class="-mr-2 -mt-1 flex h-11 w-11 flex-none items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.05]">
+                                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                    <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {{-- Lo que se cobra, lo más grande de la ventana: es lo que
+                             el cajero le dice al cliente. --}}
+                        <div class="mt-3 flex items-baseline justify-between gap-3" aria-live="polite" aria-atomic="true">
+                            <span class="text-theme-sm text-gray-500 dark:text-gray-400">Total a cobrar</span>
+                            <span class="text-title-md font-bold tabular-nums text-gray-900 dark:text-white"
+                                x-text="'{{ $moneda }} ' + total.toFixed(2)" data-total-a-cobrar></span>
+                        </div>
+                        <p x-show="descuentoValido > 0" x-cloak class="text-right text-theme-xs text-gray-500 dark:text-gray-400"
+                            x-text="'Incluye un descuento de {{ $moneda }} ' + descuentoValido.toFixed(2)"></p>
+
+                        {{-- Si el servidor rechazó el cobro, la ventana vuelve a
+                             abrirse con lo que ya estaba cargado: el motivo va
+                             aquí, donde se está mirando, y no arriba en la página
+                             tapado por el fondo de la ventana. --}}
+                        @if ($huboError && (session('error') || $errors->any()))
+                            <div x-show="huboError" class="mt-3 rounded-lg bg-error-50 px-3 py-2 text-theme-sm text-error-700 dark:bg-error-500/10 dark:text-error-400" role="alert">
+                                {{ session('error') ?: $errors->first() }}
+                            </div>
+                        @endif
                     </div>
 
-                    {{-- Pago --}}
-                    <div class="space-y-4 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
+                    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            {{-- Pago --}}
+            <div class="space-y-4 px-6 py-4">
 
-                        {{-- Un QR que el cliente ya pagó y no llegó a venta: se puede
-                             usar en esta, así nadie paga dos veces. --}}
-                        <div x-show="qrLibres.length" x-cloak class="rounded-xl bg-warning-50 px-4 py-3 dark:bg-orange-500/10" data-qr-libres>
-                            <p class="text-theme-xs font-medium text-warning-700 dark:text-orange-400">
-                                QR ya pagados que no llegaron a una venta:
-                            </p>
-                            <template x-for="c in qrLibres" :key="c.id">
-                                <div class="mt-2 flex items-center justify-between gap-2">
-                                    <span class="text-theme-sm text-warning-700 dark:text-orange-400"
-                                        x-text="'#' + c.id + ' · {{ $moneda }} ' + c.monto.toFixed(2)"></span>
-                                    <button type="button" @click="usarQrPagado(c)"
-                                        class="min-h-11 rounded-lg border border-warning-300 px-3 text-theme-xs font-medium text-warning-700 hover:bg-warning-100 dark:border-orange-500/40 dark:text-orange-400">
-                                        Usar en esta venta
-                                    </button>
-                                </div>
+                {{-- Un QR que el cliente ya pagó y no llegó a venta: se puede
+                     usar en esta, así nadie paga dos veces. --}}
+                <div x-show="qrLibres.length" x-cloak class="rounded-xl bg-warning-50 px-4 py-3 dark:bg-orange-500/10" data-qr-libres>
+                    <p class="text-theme-xs font-medium text-warning-700 dark:text-orange-400">
+                        QR ya pagados que no llegaron a una venta:
+                    </p>
+                    <template x-for="c in qrLibres" :key="c.id">
+                        <div class="mt-2 flex items-center justify-between gap-2">
+                            <span class="text-theme-sm text-warning-700 dark:text-orange-400"
+                                x-text="'#' + c.id + ' · {{ $moneda }} ' + c.monto.toFixed(2)"></span>
+                            <button type="button" @click="usarQrPagado(c)"
+                                class="min-h-11 rounded-lg border border-warning-300 px-3 text-theme-xs font-medium text-warning-700 hover:bg-warning-100 dark:border-orange-500/40 dark:text-orange-400">
+                                Usar en esta venta
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                {{-- Una tarjeta por forma de pago. Con una sola línea se ve
+                     igual que antes; la segunda aparece solo si el cliente
+                     parte el pago. --}}
+                <template x-for="(pago, i) in pagos" :key="i">
+                    <div :class="pagos.length > 1 ? 'rounded-xl border border-gray-200 p-3 dark:border-gray-800' : ''">
+
+                        <div class="mb-2 flex items-center justify-between gap-2">
+                            <span class="text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                                x-text="pagos.length > 1 ? 'Forma de pago ' + (i + 1) : '¿Cómo paga?'"></span>
+
+                            <button type="button" x-show="pagos.length > 1" @click="quitarPago(i)"
+                                class="rounded-lg px-2 py-1 text-theme-xs text-gray-400 transition hover:bg-gray-100 hover:text-error-600 dark:hover:bg-white/[0.05]">
+                                Quitar
+                            </button>
+                        </div>
+
+                        {{-- Los tres medios de todos los días, grandes y con ícono;
+                             los demás (billetera, transferencia) juntos en «Otro».
+                             Antes eran cinco botones de texto largo en dos filas. --}}
+                        <div class="grid gap-2" :class="metodosOtros.length ? 'grid-cols-4' : 'grid-cols-3'" data-medios-de-pago>
+                            <template x-for="m in metodosPrincipales" :key="m.id">
+                                <button type="button" @click="cambiarMetodo(pago, m.id); pago.verOtros = false; enfocarCobro(pago)"
+                                    :aria-pressed="pago.metodoId === m.id"
+                                    :class="pago.metodoId === m.id
+                                        ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400'
+                                        : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.03]'"
+                                    class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border-2 px-1 py-2 text-theme-xs font-semibold transition">
+                                    <span aria-hidden="true" x-html="iconoMetodo(m.codigo)"></span>
+                                    <span x-text="cortoMetodo(m)"></span>
+                                </button>
+                            </template>
+                            <button type="button" x-show="metodosOtros.length" @click="pago.verOtros = !pago.verOtros"
+                                :aria-expanded="!!pago.verOtros"
+                                :class="esOtroMetodo(pago)
+                                    ? 'border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-500/15 dark:text-brand-400'
+                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.03]'"
+                                class="flex min-h-16 flex-col items-center justify-center gap-1 rounded-xl border-2 px-1 py-2 text-theme-xs font-semibold transition">
+                                <span aria-hidden="true" x-html="iconoMetodo('OTRO')"></span>
+                                <span class="max-w-full truncate" x-text="esOtroMetodo(pago) ? cortoMetodo(metodos.find(m => m.id === pago.metodoId)) : 'Otro'"></span>
+                            </button>
+                        </div>
+                        <div x-show="pago.verOtros" x-cloak class="mt-2 flex flex-wrap gap-2">
+                            <template x-for="m in metodosOtros" :key="m.id">
+                                <button type="button" @click="cambiarMetodo(pago, m.id); pago.verOtros = false; enfocarCobro(pago)"
+                                    :aria-pressed="pago.metodoId === m.id"
+                                    :class="pago.metodoId === m.id
+                                        ? 'bg-brand-500 text-white'
+                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.05] dark:text-gray-400 dark:hover:bg-white/10'"
+                                    class="min-h-11 rounded-lg px-4 py-2 text-theme-xs font-medium transition"
+                                    x-text="m.nombre"></button>
                             </template>
                         </div>
 
-                        {{-- Una tarjeta por forma de pago. Con una sola línea se ve
-                             igual que antes; la segunda aparece solo si el cliente
-                             parte el pago. --}}
-                        <template x-for="(pago, i) in pagos" :key="i">
-                            <div class="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
+                        {{-- El importe solo hace falta cuando hay más de una
+                             forma: con una sola, cubre el total y punto. --}}
+                        <div x-show="pagos.length > 1" class="mt-3">
+                            <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                                Importe
+                                <span x-show="vacio(pago)" class="text-brand-500 dark:text-brand-400">— el resto</span>
+                            </label>
+                            <input type="number" inputmode="decimal" step="0.01" min="0" x-model="pago.monto" form="pos-formulario"
+                                :placeholder="montoDe(pago).toFixed(2)"
+                                class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
+                                Cubre <span class="font-medium" x-text="'{{ $moneda }} ' + montoDe(pago).toFixed(2)"></span>.
+                                Déjalo vacío para que tome lo que falte.
+                            </p>
+                        </div>
 
-                                <div class="mb-2 flex items-center justify-between gap-2">
-                                    <span class="text-theme-xs font-medium text-gray-500 dark:text-gray-400"
-                                        x-text="pagos.length > 1 ? 'Forma de pago ' + (i + 1) : 'Forma de pago'"></span>
+                        {{-- Con qué billete paga: un toque. «Exacto» cuando no hay
+                             vuelto. Tras elegirlo el foco pasa a «Confirmar cobro»,
+                             así un Enter cobra en vez de volver a tocar el billete.
+                             El campo queda para lo que no está en los botones. --}}
+                        <div x-show="esEfectivo(pago)" class="mt-4">
+                            <p class="mb-2 text-theme-xs font-medium text-gray-500 dark:text-gray-400">Recibido</p>
+                            <div class="grid grid-cols-5 gap-2">
+                                <button type="button" @click="pago.recibido = montoDe(pago); $refs.cobrar.focus()"
+                                    :class="Number(pago.recibido) === montoDe(pago)
+                                        ? 'bg-brand-500 text-white'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/[0.05] dark:text-gray-300 dark:hover:bg-white/10'"
+                                    class="min-h-12 rounded-lg px-1 text-theme-sm font-semibold transition">Exacto</button>
+                                <template x-for="s in sugerenciasDe(pago)" :key="s">
+                                    <button type="button" @click="pago.recibido = s; $refs.cobrar.focus()"
+                                        :class="Number(pago.recibido) === s
+                                            ? 'bg-brand-500 text-white'
+                                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-white/[0.05] dark:text-gray-300 dark:hover:bg-white/10'"
+                                        class="min-h-12 rounded-lg px-1 text-theme-sm font-semibold tabular-nums transition"
+                                        x-text="formatoBillete(s)"></button>
+                                </template>
+                            </div>
+                            <input type="number" inputmode="decimal" step="0.01" min="0" x-model.number="pago.recibido"
+                                aria-label="Efectivo recibido, otro monto" placeholder="Otro monto" data-recibido form="pos-formulario"
+                                class="dark:bg-dark-900 mt-2 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm tabular-nums text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
 
-                                    <button type="button" x-show="pagos.length > 1" @click="quitarPago(i)"
-                                        class="rounded-lg px-2 py-1 text-theme-xs text-gray-400 transition hover:bg-gray-100 hover:text-error-600 dark:hover:bg-white/[0.05]">
-                                        Quitar
+                        <div x-show="!esEfectivo(pago) && !esQr(pago)" class="mt-3">
+                            <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                                Número de operación
+                            </label>
+                            <input type="text" x-model="pago.referencia" form="pos-formulario" data-referencia
+                                :placeholder="exigeReferencia ? 'El del voucher o comprobante' : 'Opcional'"
+                                :aria-invalid="faltaReferencia(pago) ? 'true' : 'false'"
+                                class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
+
+                        {{-- Cobro por QR ------------------------------------------------
+                             El código se genera con el importe ya puesto: el cliente
+                             escanea y paga exactamente lo que debe, sin teclear nada.
+                             La venta NO existe todavía; se registra recién cuando el
+                             pago está confirmado. --}}
+                        <div x-show="esQr(pago)" class="mt-3">
+
+                            {{-- Todavía sin generar --}}
+                            <template x-if="!pago.qr">
+                                <div>
+                                    <button type="button" @click="generarQr(pago)" data-generar-qr
+                                        :disabled="montoDe(pago) <= 0 || pago.qrCargando"
+                                        class="w-full rounded-lg bg-brand-500 px-3 py-2.5 text-theme-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-white/10">
+                                        <span x-show="!pago.qrCargando"
+                                            x-text="'Generar QR por {{ $moneda }} ' + montoDe(pago).toFixed(2)"></span>
+                                        <span x-show="pago.qrCargando">Generando…</span>
                                     </button>
-                                </div>
-
-                                <div class="flex flex-wrap gap-2">
-                                    <template x-for="m in metodos" :key="m.id">
-                                        <button type="button" @click="cambiarMetodo(pago, m.id)"
-                                            :class="pago.metodoId === m.id
-                                                ? 'bg-brand-500 text-white'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.05] dark:text-gray-400 dark:hover:bg-white/10'"
-                                            class="min-h-11 rounded-lg px-4 py-3 text-theme-xs font-medium transition"
-                                            x-text="m.nombre"></button>
-                                    </template>
-                                </div>
-
-                                {{-- El importe solo hace falta cuando hay más de una
-                                     forma: con una sola, cubre el total y punto. --}}
-                                <div x-show="pagos.length > 1" class="mt-3">
-                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Importe
-                                        <span x-show="vacio(pago)" class="text-brand-500">— el resto</span>
-                                    </label>
-                                    <input type="number" inputmode="decimal" step="0.01" min="0" x-model="pago.monto"
-                                        :placeholder="montoDe(pago).toFixed(2)"
-                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                    <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
-                                        Cubre <span class="font-medium" x-text="'{{ $moneda }} ' + montoDe(pago).toFixed(2)"></span>.
-                                        Déjalo vacío para que tome lo que falte.
+                                    <p class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+                                        El código lleva el importe: el cliente no tiene que escribirlo.
                                     </p>
                                 </div>
+                            </template>
 
-                                <div x-show="esEfectivo(pago)" class="mt-3">
-                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Efectivo recibido
-                                    </label>
-                                    <input type="number" inputmode="decimal" step="0.01" min="0" x-model.number="pago.recibido"
-                                        :placeholder="montoDe(pago).toFixed(2)"
-                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            {{-- Ya generado: se muestra y se espera --}}
+                            <template x-if="pago.qr">
+                                <div class="rounded-xl border border-gray-200 p-3 text-center dark:border-gray-800">
 
-                                    <div class="mt-2 flex flex-wrap gap-1.5">
-                                        <template x-for="s in sugerenciasDe(pago)" :key="s">
-                                            <button type="button" @click="pago.recibido = s"
-                                                class="min-h-11 rounded-lg bg-gray-100 px-3 py-3 text-theme-xs text-gray-600 transition hover:bg-gray-200 dark:bg-white/[0.05] dark:text-gray-400 dark:hover:bg-white/10"
-                                                x-text="'{{ $moneda }} ' + s.toFixed(2)"></button>
+                                    <div x-show="!pago.qr.pagado" class="flex flex-col items-center">
+                                        {{-- El banco entrega la imagen ya hecha; el simulador, el
+                                             texto que hay que dibujar. --}}
+                                        <template x-if="pago.qr.imagen">
+                                            <img :src="pago.qr.payload" alt="Código QR para pagar" width="260" height="260"
+                                                class="h-[260px] w-[260px] rounded-lg bg-white p-2" />
                                         </template>
+                                        <template x-if="!pago.qr.imagen">
+                                            <canvas :id="'qr-' + pago.qr.id" class="rounded-lg bg-white p-2"></canvas>
+                                        </template>
+
+                                        {{-- El total cambió después de generar el QR: ese QR ya
+                                             no sirve, el servidor lo rechazaría. --}}
+                                        <p x-show="qrDesfasado(pago)" role="alert"
+                                            class="mt-2 rounded-lg bg-error-50 px-3 py-2 text-theme-xs text-error-700 dark:bg-error-500/10 dark:text-error-400"
+                                            x-text="'El total cambió: este QR es por {{ $moneda }} ' + pago.qr.monto.toFixed(2) + '. Cancélalo y genera otro por {{ $moneda }} ' + montoDe(pago).toFixed(2) + '.'"></p>
+
+                                        <p class="mt-2 text-theme-sm font-medium text-gray-800 dark:text-white/90"
+                                            x-text="'{{ $moneda }} ' + pago.qr.monto.toFixed(2)"></p>
+
+                                        <p class="mt-0.5 flex items-center justify-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+                                            <span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500"></span>
+                                            <span x-text="pago.qr.etiqueta"></span>
+                                        </p>
+
+                                        {{-- Sin banco detrás, el pago no puede llegar solo:
+                                             se dice, para que nadie crea que está roto. --}}
+                                        <p x-show="pago.qr.simulado"
+                                            class="mt-2 rounded-lg bg-warning-50 px-3 py-2 text-theme-xs text-warning-700 dark:bg-orange-500/10 dark:text-orange-400">
+                                            Sin banco conectado: el pago se confirma a mano.
+                                        </p>
+
+                                        <div class="mt-3 flex w-full flex-wrap gap-2">
+                                            {{-- Confirmar a mano hace falta igual cuando el
+                                                 banco está conectado: si su API se cae, el
+                                                 cajero mira el comprobante en el celular del
+                                                 cliente. Queda con su nombre en la bitácora. --}}
+                                            <button type="button" @click="confirmarQr(pago)"
+                                                class="flex-1 rounded-lg bg-success-500 px-3 py-2 text-theme-xs font-medium text-white transition hover:bg-success-600"
+                                                x-text="pago.qr.simulado ? 'Ya me pagó' : 'Verificar pago'">
+                                            </button>
+                                            <button type="button" @click="anularQr(pago)"
+                                                class="rounded-lg border border-gray-300 px-3 py-2 text-theme-xs font-medium text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]">
+                                                Cancelar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div x-show="pago.qr.pagado" class="py-3">
+                                        <p class="text-lg font-semibold text-success-700 dark:text-success-500">
+                                            Pago confirmado
+                                        </p>
+                                        <p x-show="qrDesfasado(pago)" role="alert"
+                                            class="mt-2 rounded-lg bg-error-50 px-3 py-2 text-theme-xs text-error-700 dark:bg-error-500/10 dark:text-error-400"
+                                            x-text="'El total cambió después de cobrar: el cliente pagó {{ $moneda }} ' + pago.qr.monto.toFixed(2) + ' y ahora son {{ $moneda }} ' + montoDe(pago).toFixed(2) + '. Deja el carrito como estaba o cobra la diferencia aparte.'"></p>
+                                        <p class="mt-0.5 text-theme-sm text-gray-500 dark:text-gray-400"
+                                            x-text="'{{ $moneda }} ' + pago.qr.monto.toFixed(2)"></p>
+                                        <p x-show="pago.qr.referencia" class="mt-1 font-mono text-theme-xs text-gray-500 dark:text-gray-400"
+                                            x-text="pago.qr.referencia"></p>
                                     </div>
                                 </div>
+                            </template>
 
-                                <div x-show="!esEfectivo(pago) && !esQr(pago)" class="mt-3">
-                                    <label class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
-                                        Número de operación
-                                    </label>
-                                    <input type="text" x-model="pago.referencia"
-                                        :placeholder="exigeReferencia ? 'El del voucher o comprobante' : 'Opcional'"
-                                        :aria-invalid="faltaReferencia(pago) ? 'true' : 'false'"
-                                        class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                                </div>
-
-                                {{-- Cobro por QR ------------------------------------------------
-                                     El código se genera con el importe ya puesto: el cliente
-                                     escanea y paga exactamente lo que debe, sin teclear nada.
-                                     La venta NO existe todavía; se registra recién cuando el
-                                     pago está confirmado. --}}
-                                <div x-show="esQr(pago)" class="mt-3">
-
-                                    {{-- Todavía sin generar --}}
-                                    <template x-if="!pago.qr">
-                                        <div>
-                                            <button type="button" @click="generarQr(pago)"
-                                                :disabled="montoDe(pago) <= 0 || pago.qrCargando"
-                                                class="w-full rounded-lg bg-brand-500 px-3 py-2.5 text-theme-sm font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:bg-gray-300 dark:disabled:bg-white/10">
-                                                <span x-show="!pago.qrCargando"
-                                                    x-text="'Generar QR por {{ $moneda }} ' + montoDe(pago).toFixed(2)"></span>
-                                                <span x-show="pago.qrCargando">Generando…</span>
-                                            </button>
-                                            <p class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
-                                                El código lleva el importe: el cliente no tiene que escribirlo.
-                                            </p>
-                                        </div>
-                                    </template>
-
-                                    {{-- Ya generado: se muestra y se espera --}}
-                                    <template x-if="pago.qr">
-                                        <div class="rounded-xl border border-gray-200 p-3 text-center dark:border-gray-800">
-
-                                            <div x-show="!pago.qr.pagado" class="flex flex-col items-center">
-                                                {{-- El banco entrega la imagen ya hecha; el simulador, el
-                                                     texto que hay que dibujar. --}}
-                                                <template x-if="pago.qr.imagen">
-                                                    <img :src="pago.qr.payload" alt="Código QR para pagar" width="260" height="260"
-                                                        class="h-[260px] w-[260px] rounded-lg bg-white p-2" />
-                                                </template>
-                                                <template x-if="!pago.qr.imagen">
-                                                    <canvas :id="'qr-' + pago.qr.id" class="rounded-lg bg-white p-2"></canvas>
-                                                </template>
-
-                                                {{-- El total cambió después de generar el QR: ese QR ya
-                                                     no sirve, el servidor lo rechazaría. --}}
-                                                <p x-show="qrDesfasado(pago)" role="alert"
-                                                    class="mt-2 rounded-lg bg-error-50 px-3 py-2 text-theme-xs text-error-700 dark:bg-error-500/10 dark:text-error-400"
-                                                    x-text="'El total cambió: este QR es por {{ $moneda }} ' + pago.qr.monto.toFixed(2) + '. Cancélalo y genera otro por {{ $moneda }} ' + montoDe(pago).toFixed(2) + '.'"></p>
-
-                                                <p class="mt-2 text-theme-sm font-medium text-gray-800 dark:text-white/90"
-                                                    x-text="'{{ $moneda }} ' + pago.qr.monto.toFixed(2)"></p>
-
-                                                <p class="mt-0.5 flex items-center justify-center gap-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
-                                                    <span class="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-500"></span>
-                                                    <span x-text="pago.qr.etiqueta"></span>
-                                                </p>
-
-                                                {{-- Sin banco detrás, el pago no puede llegar solo:
-                                                     se dice, para que nadie crea que está roto. --}}
-                                                <p x-show="pago.qr.simulado"
-                                                    class="mt-2 rounded-lg bg-warning-50 px-3 py-2 text-theme-xs text-warning-700 dark:bg-orange-500/10 dark:text-orange-400">
-                                                    Sin banco conectado: el pago se confirma a mano.
-                                                </p>
-
-                                                <div class="mt-3 flex w-full flex-wrap gap-2">
-                                                    {{-- Confirmar a mano hace falta igual cuando el
-                                                         banco está conectado: si su API se cae, el
-                                                         cajero mira el comprobante en el celular del
-                                                         cliente. Queda con su nombre en la bitácora. --}}
-                                                    <button type="button" @click="confirmarQr(pago)"
-                                                        class="flex-1 rounded-lg bg-success-500 px-3 py-2 text-theme-xs font-medium text-white transition hover:bg-success-600"
-                                                        x-text="pago.qr.simulado ? 'Ya me pagó' : 'Verificar pago'">
-                                                    </button>
-                                                    <button type="button" @click="anularQr(pago)"
-                                                        class="rounded-lg border border-gray-300 px-3 py-2 text-theme-xs font-medium text-gray-600 transition hover:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/[0.05]">
-                                                        Cancelar
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div x-show="pago.qr.pagado" class="py-3">
-                                                <p class="text-lg font-semibold text-success-700 dark:text-success-500">
-                                                    Pago confirmado
-                                                </p>
-                                                <p x-show="qrDesfasado(pago)" role="alert"
-                                                    class="mt-2 rounded-lg bg-error-50 px-3 py-2 text-theme-xs text-error-700 dark:bg-error-500/10 dark:text-error-400"
-                                                    x-text="'El total cambió después de cobrar: el cliente pagó {{ $moneda }} ' + pago.qr.monto.toFixed(2) + ' y ahora son {{ $moneda }} ' + montoDe(pago).toFixed(2) + '. Deja el carrito como estaba o cobra la diferencia aparte.'"></p>
-                                                <p class="mt-0.5 text-theme-sm text-gray-500 dark:text-gray-400"
-                                                    x-text="'{{ $moneda }} ' + pago.qr.monto.toFixed(2)"></p>
-                                                <p x-show="pago.qr.referencia" class="mt-1 font-mono text-theme-xs text-gray-500 dark:text-gray-400"
-                                                    x-text="pago.qr.referencia"></p>
-                                            </div>
-                                        </div>
-                                    </template>
-
-                                    <p x-show="pago.qrError"
-                                        class="mt-2 text-theme-xs text-error-600 dark:text-error-400"
-                                        x-text="pago.qrError"></p>
-                                </div>
-                            </div>
-                        </template>
-
-                        <button type="button" @click="agregarPago()"
-                            x-show="pagos.length < metodos.length && total > 0"
-                            class="min-h-11 w-full rounded-lg border border-dashed border-gray-300 px-3 py-3 text-theme-xs font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-500 dark:border-gray-700 dark:text-gray-400">
-                            + Dividir el pago en otra forma
-                        </button>
-
-                        {{-- Lo que todavía no está repartido: es el número que el
-                             cajero mira cuando el cliente paga en dos partes. --}}
-                        <div x-show="pagos.length > 1 && lineasSinMonto === 0 && Math.abs(restante) >= 0.005"
-                            class="flex items-baseline justify-between rounded-xl px-4 py-3"
-                            :class="restante > 0 ? 'bg-warning-50 dark:bg-orange-500/10' : 'bg-error-50 dark:bg-error-500/10'">
-                            <span class="text-theme-sm font-medium"
-                                :class="restante > 0 ? 'text-warning-700 dark:text-orange-400' : 'text-error-600 dark:text-error-400'"
-                                x-text="restante > 0 ? 'Falta por asignar' : 'Asignado de más'"></span>
-                            <span class="text-lg font-semibold"
-                                :class="restante > 0 ? 'text-warning-700 dark:text-orange-400' : 'text-error-600 dark:text-error-400'"
-                                x-text="'{{ $moneda }} ' + Math.abs(restante).toFixed(2)"></span>
+                            <p x-show="pago.qrError"
+                                class="mt-2 text-theme-xs text-error-600 dark:text-error-400"
+                                x-text="pago.qrError"></p>
                         </div>
+                    </div>
+                </template>
 
-                        <div x-show="vuelto > 0"
-                            class="flex items-baseline justify-between rounded-xl bg-success-50 px-4 py-3 dark:bg-success-500/10">
+                <button type="button" @click="agregarPago()"
+                    x-show="pagos.length < metodos.length && total > 0"
+                    class="min-h-11 w-full rounded-lg border border-dashed border-gray-300 px-3 py-3 text-theme-xs font-medium text-gray-500 transition hover:border-brand-400 hover:text-brand-500 dark:border-gray-700 dark:text-gray-400">
+                    + Dividir el pago en otra forma
+                </button>
+
+                {{-- Lo que todavía no está repartido: es el número que el
+                     cajero mira cuando el cliente paga en dos partes. --}}
+                <div x-show="pagos.length > 1 && lineasSinMonto === 0 && Math.abs(restante) >= 0.005"
+                    class="flex items-baseline justify-between rounded-xl px-4 py-3"
+                    :class="restante > 0 ? 'bg-warning-50 dark:bg-orange-500/10' : 'bg-error-50 dark:bg-error-500/10'">
+                    <span class="text-theme-sm font-medium"
+                        :class="restante > 0 ? 'text-warning-700 dark:text-orange-400' : 'text-error-600 dark:text-error-400'"
+                        x-text="restante > 0 ? 'Falta por asignar' : 'Asignado de más'"></span>
+                    <span class="text-lg font-semibold"
+                        :class="restante > 0 ? 'text-warning-700 dark:text-orange-400' : 'text-error-600 dark:text-error-400'"
+                        x-text="'{{ $moneda }} ' + Math.abs(restante).toFixed(2)"></span>
+                </div>
+
+            </div>
+            {{-- Descuento y cliente, plegados al final: casi ninguna venta
+                 de mostrador los usa, y abiertos empujaban la forma de
+                 pago —que sí se usa en todas— al fondo del panel. Se
+                 abren con un toque, y un descuento aplicado o un cliente
+                 elegido los deja abiertos a la fuerza: lo que cambia el
+                 cobro nunca queda escondido. --}}
+            <div class="border-t border-gray-100 dark:border-gray-800">
+                <button type="button" @click="masOpciones = !masOpciones" :aria-expanded="opcionesAbiertas"
+                    aria-controls="pos-opciones" data-mas-opciones
+                    class="flex min-h-12 w-full items-center justify-between gap-3 px-6 py-3 text-left transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                    <span class="text-theme-sm font-medium text-gray-700 dark:text-gray-300">Descuento y cliente</span>
+                    <span class="flex min-w-0 items-center gap-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                        <span class="truncate" x-text="resumenOpciones"></span>
+                        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                            class="flex-none transition-transform motion-reduce:transition-none" :class="opcionesAbiertas ? 'rotate-180' : ''">
+                            <path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </button>
+
+                <div id="pos-opciones" x-show="opcionesAbiertas" x-cloak>
+
+            {{-- Cliente --}}
+            <div class="border-t border-gray-100 px-6 py-4 dark:border-gray-800">
+                <label for="cliente" class="mb-1.5 block text-theme-xs font-medium text-gray-500 dark:text-gray-400">
+                    Cliente
+                </label>
+                {{-- La lista trae los primeros {{ $clientesEnLista }} por nombre. Con más,
+                     los del final se buscan: antes no había forma de elegirlos. --}}
+                @if ($hayMasClientes)
+                    <div class="mb-2">
+                        <input type="search" x-model="clienteQ" @input.debounce.300ms="buscarCliente()"
+                            aria-label="Buscar cliente por nombre o documento" placeholder="Buscar por nombre o documento"
+                            data-buscar-cliente
+                            class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        <ul x-show="clientesEncontrados.length" x-cloak class="mt-1 max-h-48 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-800">
+                            <template x-for="c in clientesEncontrados" :key="c.id">
+                                <li>
+                                    <button type="button" @click="elegirCliente(c)" x-text="c.etiqueta"
+                                        class="block w-full px-3 py-2 text-left text-theme-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-white/[0.03]"></button>
+                                </li>
+                            </template>
+                        </ul>
+                        <p x-show="clienteQ.trim().length >= 2 && !buscandoCliente && !clientesEncontrados.length" x-cloak
+                            class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">Ningún cliente coincide.</p>
+                    </div>
+                @endif
+                <select id="cliente" x-model.number="clienteId" x-ref="selectCliente"
+                    class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="">{{ $clienteGenerico }} (sin registrar{{ App\Support\Config::facturacionVisible() ? ' — recibo' : '' }})</option>
+                    @foreach ($clientes as $c)
+                        <option value="{{ $c['id'] }}" data-juridica="{{ $c['juridica'] ? '1' : '0' }}">
+                            {{ $c['etiqueta'] }}{{ $c['juridica'] && App\Support\Config::facturacionVisible() ? ' — factura' : '' }}
+                        </option>
+                    @endforeach
+                    {{-- Los que se registran sin salir del mostrador, en esta misma venta. --}}
+                    <template x-for="c in clientesNuevos" :key="c.id">
+                        <option :value="c.id" x-text="{{ App\Support\Config::facturacionVisible() ? "c.etiqueta + (c.factura ? ' — factura' : '')" : 'c.etiqueta' }}"></option>
+                    </template>
+                </select>
+                <p class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
+                    @facturacion Persona jurídica recibe <b>factura</b>; el resto, <b>recibo</b>. @endfacturacion
+                    <button type="button" @click="abrirNuevoCliente()"
+                        class="-my-2 px-1 py-2 font-medium text-brand-500 dark:text-brand-400 hover:text-brand-600">Registrar cliente</button>
+                </p>
+            </div>
+
+            {{-- Descuento --}}
+            <div class="space-y-2 border-t border-gray-100 px-6 py-4 dark:border-gray-800">
+                {{-- El descuento se teclea en {{ $moneda }} o en %, pero a la venta
+                     y al ticket siempre llega el monto: el porcentaje solo es
+                     una forma de calcularlo. --}}
+                <div class="flex items-center justify-between gap-3">
+                    <label for="descuento" class="text-theme-sm text-gray-500 dark:text-gray-400">Descuento</label>
+                    <div class="flex items-center gap-2">
+                        <div role="group" aria-label="Descontar en" class="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-white/[0.05]">
+                            <button type="button" @click="descuentoModo = 'monto'" :aria-pressed="descuentoModo === 'monto'"
+                                :class="descuentoModo === 'monto' ? 'bg-white text-gray-800 shadow-theme-xs dark:bg-gray-800 dark:text-white/90' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
+                                class="h-10 min-w-10 rounded-md px-2 text-theme-xs font-medium transition">{{ $moneda }}</button>
+                            <button type="button" @click="descuentoModo = 'porcentaje'" :aria-pressed="descuentoModo === 'porcentaje'"
+                                :class="descuentoModo === 'porcentaje' ? 'bg-white text-gray-800 shadow-theme-xs dark:bg-gray-800 dark:text-white/90' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'"
+                                class="h-10 min-w-10 rounded-md px-2 text-theme-xs font-medium transition">%</button>
+                        </div>
+                        <input id="descuento" form="pos-formulario" type="number" inputmode="decimal" min="0" x-model.number="descuento"
+                            :step="descuentoModo === 'porcentaje' ? '0.5' : '0.01'"
+                            :max="descuentoModo === 'porcentaje' ? 100 : null"
+                            :aria-label="descuentoModo === 'porcentaje' ? 'Descuento en porcentaje' : 'Descuento en {{ $moneda }}'"
+                            class="dark:bg-dark-900 h-11 w-24 rounded-lg border border-gray-300 bg-transparent px-2 text-right text-sm text-gray-800 focus:ring-2 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex flex-wrap gap-1.5">
+                        @foreach ([5, 10] as $rapido)
+                            <button type="button" @click="descontarPorcentaje({{ $rapido }})"
+                                :aria-pressed="descuentoModo === 'porcentaje' && Number(descuento) === {{ $rapido }}"
+                                :class="descuentoModo === 'porcentaje' && Number(descuento) === {{ $rapido }}
+                                    ? 'bg-brand-500 text-white'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-white/[0.05] dark:text-gray-400 dark:hover:bg-white/10'"
+                                class="min-h-10 rounded-lg px-3 text-theme-xs font-medium transition">{{ $rapido }} %</button>
+                        @endforeach
+                        <button type="button" x-show="descuentoValido > 0" @click="descuento = 0"
+                            class="min-h-10 rounded-lg px-2 text-theme-xs font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Quitar</button>
+                    </div>
+                    <span x-show="descuentoModo === 'porcentaje' && descuentoValido > 0"
+                        class="text-theme-sm text-gray-500 tabular-nums dark:text-gray-400"
+                        x-text="'− {{ $moneda }} ' + descuentoValido.toFixed(2)"></span>
+                </div>
+
+                <p x-show="excedeDescuento" class="text-theme-xs text-warning-700 dark:text-orange-400">
+                    @if ($puedeDescontar)
+                        Este descuento supera el {{ $descuentoMaximo }}% habitual. Queda registrado a tu nombre.
+                    @else
+                        Tu rol permite hasta {{ $descuentoMaximo }}%. Por encima necesita autorización.
+                    @endif
+                </p>
+
+            </div>
+
+                </div>
+            </div>
+
+                    </div>
+
+                    {{-- El vuelto y el botón, siempre a la vista al pie de la
+                         ventana: es lo último que se mira antes de cobrar. --}}
+                    <div class="flex-none space-y-2 border-t border-gray-100 px-6 py-4 dark:border-gray-800">
+                        <div x-show="vuelto > 0" x-cloak
+                            class="flex items-baseline justify-between rounded-xl bg-success-50 px-4 py-2.5 dark:bg-success-500/10"
+                            aria-live="polite" data-vuelto>
                             <span class="text-theme-sm font-medium text-success-700 dark:text-success-500">Vuelto</span>
-                            <span class="text-lg font-semibold text-success-700 dark:text-success-500"
+                            <span class="text-title-sm font-bold tabular-nums text-success-700 dark:text-success-500"
                                 x-text="'{{ $moneda }} ' + vuelto.toFixed(2)"></span>
                         </div>
-                    </div>
-                    {{-- Cierra la zona con scroll: de aquí para abajo el pie
-                         (botón de cobrar) queda fuera y siempre a la vista. --}}
-                    </div>
 
-                    {{-- Deshabilitado se ve gris, no azul claro: un botón azul
-                         que no responde parece un fallo. Y en vez de repetir
-                         «Cobrar Bs 0.00» dice qué falta para poder cobrar. --}}
-                    <div class="flex-none space-y-2 border-t border-gray-100 px-5 py-4 dark:border-gray-800">
-                        <button type="submit" x-ref="cobrar" :disabled="!puedeCobrar || enviando || verificando"
+                        {{-- Deshabilitado se ve gris, no azul claro: un botón azul
+                             que no responde parece un fallo. Y debajo dice qué
+                             falta para poder cobrar. --}}
+                        <button type="submit" form="pos-formulario" x-ref="cobrar" :disabled="!puedeCobrar || enviando || verificando"
                             class="flex h-14 w-full items-center justify-center gap-2 rounded-xl bg-brand-500 px-4 text-base font-semibold text-white transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-brand-500/40 disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-500 dark:disabled:bg-white/[0.06] dark:disabled:text-gray-500">
                             <template x-if="enviando">
                                 <span>Registrando…</span>
@@ -638,13 +776,10 @@
                             <template x-if="!enviando && verificando">
                                 <span>Comprobando precios…</span>
                             </template>
-                            <template x-if="!enviando && !verificando && !carrito.length">
-                                <span>Agrega un producto para cobrar</span>
-                            </template>
-                            <template x-if="!enviando && !verificando && carrito.length">
+                            <template x-if="!enviando && !verificando">
                                 <span class="flex items-center gap-2">
-                                    <span x-text="'Cobrar {{ $moneda }} ' + total.toFixed(2)"></span>
-                                    <kbd class="tecla" x-show="puedeCobrar">F4</kbd>
+                                    <span x-text="'Confirmar cobro de {{ $moneda }} ' + total.toFixed(2)"></span>
+                                    <kbd class="tecla" x-show="puedeCobrar">Enter</kbd>
                                 </span>
                             </template>
                         </button>
@@ -653,10 +788,10 @@
                             class="text-center text-theme-xs font-medium text-warning-700 dark:text-orange-400">
                             El precio o el stock de algún producto cambió — revisa el total y vuelve a cobrar.
                         </p>
-                        <p x-show="carrito.length && !puedeCobrar && !enviando && !precioActualizado"
+                        <p x-show="!puedeCobrar && !enviando && !precioActualizado && motivoBloqueo"
                             class="text-center text-theme-xs text-gray-500 dark:text-gray-400" x-text="motivoBloqueo"></p>
                     </div>
-                </form>
+                </div>
             </div>
 
             {{-- Barra flotante: en una pantalla de teléfono el carrito queda
@@ -800,7 +935,10 @@
                         carrito: [],
                         clienteId: {{ (int) request('cliente') ?: 'null' }},
                         descuento: 0,
-                        descuentoModo: 'monto', // 'monto' o 'porcentaje': cómo se lee `descuento`
+                        descuentoModo: 'monto',
+                        cobrando: false, // la ventana de cobro, abierta
+                        turnoDeFoco: 0, // cancela las búsquedas de foco que quedaron viejas
+                        masOpciones: false, // la sección plegada de descuento y cliente // 'monto' o 'porcentaje': cómo se lee `descuento`
                         /* Formas de pago de esta venta. El cliente puede pagar una
                            parte en efectivo y otra por QR o tarjeta, así que esto es
                            una lista y no un método suelto.
@@ -854,7 +992,7 @@
                         maxDescuento: {{ $descuentoMaximo }},
                         puedeDescontar: {{ $puedeDescontar ? 'true' : 'false' }},
                         efectivos: @js($metodosPago->where('codigo', 'EFECTIVO')->pluck('id')->values()),
-                        metodos: @js($metodosPago->map(fn ($m) => ['id' => $m->id, 'nombre' => $m->nombre])->values()),
+                        metodos: @js($metodosPago->map(fn ($m) => ['id' => $m->id, 'codigo' => $m->codigo, 'nombre' => $m->nombre])->values()),
 
                         restaurarVentaEnCurso() {
                             let guardada = null;
@@ -871,12 +1009,107 @@
                             this.descuento = guardada.descuento ?? 0;
                             this.descuentoModo = guardada.descuentoModo || 'monto';
 
+                            // El servidor rechazó el cobro: se vuelve a la ventana de
+                            // cobro, con lo que ya estaba cargado y el motivo a la vista.
+                            this.$nextTick(() => this.abrirCobro());
+
                             if (Array.isArray(guardada.pagos) && guardada.pagos.length) {
                                 this.pagos = guardada.pagos;
                                 this.pagos.forEach(p => {
                                     if (p.qr && !p.qr.pagado) this.$nextTick(() => { this.pintarQr(p); this.vigilarQr(p); });
                                 });
                             }
+                        },
+
+                        /* La ventana de cobro. Se abre con el pedido armado y se cierra
+                           sin perder nada: lo cargado en ella sigue ahí al reabrirla. */
+                        abrirCobro() {
+                            if (!this.carrito.length || this.total <= 0) return;
+
+                            this.cobrando = true;
+                            this.precioActualizado = false;
+                            this.enfocarCobro(this.pagos[0]);
+                        },
+
+                        cerrarCobro() {
+                            if (this.enviando) return;
+
+                            this.cobrando = false;
+                            this.$nextTick(() => this.$refs.abrirCobro?.focus());
+                        },
+
+                        /* A dónde va el foco al abrir el cobro o elegir un medio: al
+                           monto recibido si es efectivo, y si no al botón de confirmar.
+
+                           Reintenta hasta que el destino se vea: `x-show` muestra la
+                           ventana en el cuadro de dibujo siguiente, y un `focus()` sobre
+                           algo todavía oculto no hace nada —el foco se quedaba en el
+                           buscador de atrás—. Si el atrapado de foco se adelanta y pone el
+                           suyo, este lo corrige después. */
+                        enfocarCobro(pago, intentos = 40) {
+                            // Un toque nuevo cancela la búsqueda anterior: si el cajero
+                            // toca QR y enseguida Efectivo, la del QR no puede terminar
+                            // después y llevarse el foco a «Generar QR».
+                            const turno = ++this.turnoDeFoco;
+                            const confirmar = () => this.$refs.cobrar?.offsetParent && !this.$refs.cobrar.disabled ? this.$refs.cobrar : null;
+                            const visible = (sel) => [...this.$root.querySelectorAll(sel)].find(el => el.offsetParent && !el.disabled);
+
+                            const buscar = () => {
+                                if (turno !== this.turnoDeFoco || !this.cobrando) return;
+
+                                // Solo el campo del medio elegido, lo que falta completar:
+                                // el monto recibido, generar el QR, el número de operación.
+                                // Si no falta nada, confirmar —que deshabilitado no toma el
+                                // foco, y entonces se caía al principio de la página—.
+                                const destino = !pago ? confirmar()
+                                    : this.esEfectivo(pago) ? visible('[data-recibido]')
+                                    : this.esQr(pago) ? (visible('[data-generar-qr]') || confirmar())
+                                    : (visible('[data-referencia]') || confirmar());
+
+                                if (destino) destino.focus();
+                                else if (intentos-- > 0) setTimeout(buscar, 40);
+                            };
+
+                            setTimeout(buscar, 40);
+                        },
+
+                        /* Los tres medios de todos los días van grandes; el resto, en «Otro». */
+                        get metodosPrincipales() {
+                            const orden = ['EFECTIVO', 'TARJETA', 'QR'];
+
+                            return this.metodos
+                                .filter(m => orden.includes(m.codigo))
+                                .sort((a, b) => orden.indexOf(a.codigo) - orden.indexOf(b.codigo));
+                        },
+
+                        get metodosOtros() {
+                            return this.metodos.filter(m => !['EFECTIVO', 'TARJETA', 'QR'].includes(m.codigo));
+                        },
+
+                        esOtroMetodo(pago) {
+                            return this.metodosOtros.some(m => m.id === pago.metodoId);
+                        },
+
+                        /* El nombre corto para el botón: «Tarjeta débito/crédito» no entra. */
+                        cortoMetodo(m) {
+                            if (!m) return '';
+
+                            return { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', QR: 'QR', BILLETERA: 'Billetera', TRANSFER: 'Transferencia' }[m.codigo] || m.nombre;
+                        },
+
+                        iconoMetodo(codigo) {
+                            const trazo = 'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"';
+
+                            return {
+                                EFECTIVO: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="2.75" y="6.75" width="18.5" height="10.5" rx="1.5" ${trazo}/><circle cx="12" cy="12" r="2.25" ${trazo}/><path d="M6 9.75v4.5M18 9.75v4.5" ${trazo}/></svg>`,
+                                TARJETA: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="2.75" y="5.75" width="18.5" height="12.5" rx="2" ${trazo}/><path d="M2.75 9.75h18.5M6.5 14.5h3" ${trazo}/></svg>`,
+                                QR: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="3.75" y="3.75" width="6.5" height="6.5" rx="1" ${trazo}/><rect x="13.75" y="3.75" width="6.5" height="6.5" rx="1" ${trazo}/><rect x="3.75" y="13.75" width="6.5" height="6.5" rx="1" ${trazo}/><path d="M13.75 13.75h2.5v2.5M20.25 13.75v6.5h-6.5v-2.5" ${trazo}/></svg>`,
+                            }[codigo] || `<svg width="22" height="22" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="18" cy="12" r="1.5" fill="currentColor"/></svg>`;
+                        },
+
+                        /* Los billetes, sin decimales cuando no los tienen: «50», no «50.00». */
+                        formatoBillete(s) {
+                            return Number.isInteger(s) ? String(s) : s.toFixed(2);
                         },
 
                         async cargar() {
@@ -1132,6 +1365,26 @@
                             ];
 
                             return id ? tonos[id % tonos.length] : 'bg-gray-100 text-gray-500 dark:bg-white/[0.06] dark:text-gray-400';
+                        },
+
+                        /* La sección de descuento y cliente se abre a mano, pero un
+                           descuento aplicado o un cliente elegido la mantienen
+                           abierta: lo que cambia el cobro no puede quedar escondido. */
+                        get opcionesAbiertas() {
+                            return this.masOpciones || this.descuentoValido > 0 || !!this.clienteId;
+                        },
+
+                        /* Lo que hay dentro, dicho en la propia barra plegada. */
+                        get resumenOpciones() {
+                            const partes = [];
+
+                            if (this.descuentoValido > 0) partes.push('− {{ $moneda }} ' + this.descuentoValido.toFixed(2));
+                            if (this.clienteId) {
+                                const nombre = this.$refs.selectCliente?.selectedOptions?.[0]?.textContent?.trim();
+                                partes.push(nombre || 'Cliente elegido');
+                            }
+
+                            return partes.join(' · ') || 'Opcional';
                         },
 
                         /* Lo que se descuenta: la suma de las líneas a su precio. Con el
@@ -1538,6 +1791,14 @@
                            contra el catálogo justo antes de enviar, y si algo cambió se
                            detiene: el cajero ve el total correcto y confirma de nuevo. */
                         async confirmarYEnviar(e) {
+                            // Un Enter en un campo del carrito envía el formulario: sin la
+                            // ventana abierta, eso abre el cobro, no cobra a ciegas.
+                            if (!this.cobrando) {
+                                this.abrirCobro();
+
+                                return;
+                            }
+
                             if (!this.puedeCobrar || this.enviando || this.verificando) return;
 
                             this.verificando = true;
@@ -1665,16 +1926,32 @@
                             if (this.descuentoValido > 0) oculto('descuento', this.descuentoValido.toFixed(2));
                         },
 
+                        /* F2 vuelve al buscador (cerrando el cobro si estaba abierto),
+                           F4 abre el cobro y, ya abierto, cobra; Esc lo cierra. El
+                           alta de cliente se cierra primero: va encima del cobro. */
                         atajos(e) {
                             if (e.key === 'F2') {
                                 e.preventDefault();
-                                this.$refs.buscador.focus();
-                                this.$refs.buscador.select();
+                                if (this.cobrando) this.cerrarCobro();
+                                this.$nextTick(() => {
+                                    this.$refs.buscador.focus();
+                                    this.$refs.buscador.select();
+                                });
                             }
 
-                            if (e.key === 'F4' && this.puedeCobrar) {
+                            if (e.key === 'F4') {
+                                if (!this.cobrando && this.carrito.length) {
+                                    e.preventDefault();
+                                    this.abrirCobro();
+                                } else if (this.cobrando && this.puedeCobrar) {
+                                    e.preventDefault();
+                                    this.$refs.cobrar.click();
+                                }
+                            }
+
+                            if (e.key === 'Escape' && this.cobrando && !this.nuevoClienteAbierto) {
                                 e.preventDefault();
-                                this.$refs.cobrar.click();
+                                this.cerrarCobro();
                             }
                         },
                     };
