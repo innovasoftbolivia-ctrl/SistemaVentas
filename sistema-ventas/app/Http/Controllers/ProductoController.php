@@ -58,6 +58,8 @@ class ProductoController extends Controller
 
         $productos = $this->aplicarOrden(
             Producto::with(['categoria:id,nombre', 'unidadMedida:id,codigo,nombre', 'proveedor:id,razon_social'])
+                // Para el aviso al eliminar: con historial se descataloga, sin él se borra.
+                ->withCount('movimientos')
                 ->buscar($filtros['buscar'])
                 ->when($filtros['categoria'], fn ($q, $id) => $q->where('categoria_id', $id))
                 ->when($filtros['proveedor'], fn ($q, $id) => $q->where('proveedor_id', $id))

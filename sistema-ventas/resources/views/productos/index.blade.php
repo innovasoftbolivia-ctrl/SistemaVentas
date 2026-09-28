@@ -10,7 +10,8 @@
 @endphp
 
 @section('content')
-    <div class="space-y-6">
+    <div x-data="{ borrando: false, id: null, nombre: '', conHistorial: false }"
+        @keydown.escape.window="borrando = false" class="space-y-6">
 
         {{-- Resumen del catálogo --}}
         <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
@@ -186,6 +187,22 @@
                                                     stroke-width="1.5" stroke-linejoin="round" />
                                             </svg>
                                         </a>
+
+                                        {{-- Eliminar sin entrar a la ficha, como en el resto
+                                             de los listados. Pregunta antes, y el aviso dice
+                                             lo que va a pasar de verdad con ESTE producto:
+                                             con historial se descataloga, sin él se borra. --}}
+                                        @puede('registros.eliminar')
+                                            <button type="button" title="Eliminar"
+                                                @click="id = {{ $producto->id }}; nombre = @js($producto->nombre); conHistorial = {{ $producto->movimientos_count > 0 ? 'true' : 'false' }}; borrando = true"
+                                                class="rounded-lg p-2 text-gray-500 transition hover:bg-error-50 hover:text-error-500 dark:text-gray-400 dark:hover:bg-error-500/10">
+                                                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                                    <path d="M4 7h16M10 11v6M14 11v6M5 7l1 13h12l1-13M9 7V4h6v3"
+                                                        stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                                                        stroke-linejoin="round" />
+                                                </svg>
+                                            </button>
+                                        @endpuede
                                     </div>
                                 </td>
                             </tr>
@@ -215,5 +232,35 @@
                 ganancia por unidad —venta menos compra— como porcentaje del precio de venta.
             @endif
         </p>
+
+        {{-- Baja --}}
+        @puede('registros.eliminar')
+            <div x-show="borrando" x-cloak role="dialog" aria-modal="true" aria-labelledby="titulo-modal-eliminar-producto"
+                class="fixed inset-0 z-99999 flex items-center justify-center overflow-y-auto overscroll-contain p-5">
+                <div @click="borrando = false" class="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"></div>
+
+                <div x-trap.inert.noscroll="borrando"
+                    class="relative max-h-[90vh] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl bg-white p-6 dark:bg-gray-900 sm:p-8">
+                    <h2 id="titulo-modal-eliminar-producto" class="mb-3 text-xl font-semibold text-gray-800 dark:text-white/90">Eliminar producto</h2>
+                    <p class="mb-2 text-theme-sm text-gray-500 dark:text-gray-400">
+                        ¿Eliminar <b x-text="nombre"></b>?
+                    </p>
+                    <p x-show="conHistorial" class="mb-6 text-theme-sm text-warning-700 dark:text-orange-400">
+                        Tiene movimientos de inventario o ventas, así que se <b>descatalogará</b> en lugar de
+                        eliminarse: las ventas de antes lo nombran y el kardex tiene que seguir cuadrando.
+                    </p>
+                    <p x-show="!conHistorial" class="mb-6 text-theme-sm text-gray-500 dark:text-gray-400">
+                        No tiene movimientos, así que se elimina de verdad. Esto no se puede deshacer.
+                    </p>
+
+                    <form method="POST" :action="`/productos/${id}`" class="flex justify-end gap-3">
+                        @csrf
+                        @method('DELETE')
+                        <x-ui.button type="button" variant="outline" size="sm" @click="borrando = false">Cancelar</x-ui.button>
+                        <x-ui.button type="submit" variant="danger" size="sm">Eliminar</x-ui.button>
+                    </form>
+                </div>
+            </div>
+        @endpuede
     </div>
 @endsection
