@@ -146,6 +146,39 @@ elif [ "$ULTIMO" != "programador" ]; then
     fi
 fi
 
+# --- 5. La copia externa está en OTRO disco y al día ----------------------------
+# La copia externa existe para el día que muere el disco del servidor. Si la
+# carpeta quedó en ese mismo disco (o es el punto de montaje de un USB que se
+# desconectó), el sistema igual dice «copiado también a /respaldos-copia» y todo
+# parece bien. Aquí se comprueba de verdad.
+COPIA_ACTIVA=""
+if [ -f sistema-ventas/.env.docker ]; then
+    COPIA_ACTIVA="$(grep -E '^RESPALDOS_COPIA=' sistema-ventas/.env.docker | tail -1 | cut -d= -f2- | tr -d '\r')"
+fi
+
+if [ -z "$COPIA_ACTIVA" ]; then
+    pasar "sin copia externa configurada (los respaldos solo viven en este servidor)"
+else
+    CARPETA_COPIA="$(grep -E '^RESPALDOS_COPIA_SERVIDOR=' .env 2>/dev/null | tail -1 | cut -d= -f2- | tr -d '\r')"
+
+    if [ -z "$CARPETA_COPIA" ]; then
+        fallar "RESPALDOS_COPIA está puesta pero falta RESPALDOS_COPIA_SERVIDOR en .env"
+    elif [ ! -d "$CARPETA_COPIA" ]; then
+        fallar "la carpeta de la copia externa ($CARPETA_COPIA) no existe: ¿el disco está desconectado?"
+    else
+        DISCO_COPIA="$(df -P "$CARPETA_COPIA" 2>/dev/null | awk 'NR==2 {print $1}')"
+        DISCO_PROYECTO="$(df -P . 2>/dev/null | awk 'NR==2 {print $1}')"
+
+        if [ -n "$DISCO_COPIA" ] && [ "$DISCO_COPIA" = "$DISCO_PROYECTO" ]; then
+            fallar "la copia externa ($CARPETA_COPIA) está en el MISMO disco que el sistema: si ese disco muere, se pierde todo. Ponla en un disco externo"
+        elif [ -n "$(find "$CARPETA_COPIA" -maxdepth 1 -name 'ventas_db_*.sql.gz' -size +1k -mmin "-$((BACKUP_MAX_HORAS * 60))" 2>/dev/null | head -1)" ]; then
+            pasar "copia externa al día en $CARPETA_COPIA (otro disco)"
+        else
+            fallar "la copia externa ($CARPETA_COPIA) no tiene ningún respaldo de las últimas ${BACKUP_MAX_HORAS}h. ¿Está montado el disco?"
+        fi
+    fi
+fi
+
 # --- Resumen --------------------------------------------------------------------
 echo
 if [ ${#PROBLEMAS[@]} -eq 0 ]; then

@@ -749,18 +749,19 @@ sin instalar nada en la máquina. Ver [04-entorno-docker.md](04-entorno-docker.m
 docker compose up -d
 ```
 
-Sobre un MySQL ya instalado, los scripts se ejecutan directamente y en este orden:
+Sobre un MySQL nuevo, los scripts se ejecutan directamente y en este orden:
 
 ```bash
+mysql -u root -p < docs/sql/00_crear_base.sql
 mysql -u root -p < docs/sql/01_schema_mysql.sql
-```
-
-```bash
 mysql -u root -p < docs/sql/02_datos_iniciales.sql
 ```
 
-> `01_schema_mysql.sql` comienza con `DROP DATABASE IF EXISTS ventas_db`. Ejecutarlo sobre
-> una instalación con datos reales los elimina; usarlo solo para crear el entorno desde cero.
+> Ninguno de los dos primeros borra nada: `00_crear_base.sql` solo crea la base si no existe, y
+> `01_schema_mysql.sql` falla en la primera tabla si la base ya estaba instalada. Antes el 01
+> empezaba con `DROP DATABASE IF EXISTS ventas_db`, y recargarlo en el servidor de un cliente
+> era perder el negocio. Para **borrar y volver a armar** una base de desarrollo o de pruebas
+> está `scripts/recrear-base-desarrollo.sh`, que pide confirmación y se niega a tocar producción.
 
 **Estado de verificación:** el esquema fue ejecutado y probado contra **MySQL 8.0.46** en el
 entorno Docker del proyecto. Se verificaron la creación de los 26+9+6+6 objetos, una venta

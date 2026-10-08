@@ -16,7 +16,6 @@
 --  Idempotente: el índice se crea solo si falta y el procedimiento se reemplaza.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 DROP PROCEDURE IF EXISTS tmp_exigir_sin_lineas_repetidas;

@@ -66,7 +66,7 @@ jobs:
 
       - name: Cargar el esquema en ventas_db_test
         run: |
-          sed 's/ventas_db/ventas_db_test/g' docs/sql/01_schema_mysql.sql | \
+          cat docs/sql/00_crear_base.sql docs/sql/01_schema_mysql.sql | sed 's/ventas_db/ventas_db_test/g' | \
             mysql --host=127.0.0.1 --port=13310 --default-character-set=utf8mb4 -uroot -pventas123
           sed 's/ventas_db/ventas_db_test/g' docs/sql/02_datos_iniciales.sql | \
             mysql --host=127.0.0.1 --port=13310 --default-character-set=utf8mb4 -uroot -pventas123
@@ -129,6 +129,7 @@ jobs:
       - name: Esquema y datos base de producción
         run: |
           MYSQL="mysql --host=127.0.0.1 --port=3306 --default-character-set=utf8mb4 -uroot -pventas123"
+          $MYSQL < docs/sql/00_crear_base.sql
           $MYSQL < docs/sql/01_schema_mysql.sql
           $MYSQL < docs/sql/produccion/02_datos_base.sql
 

@@ -193,6 +193,7 @@
                 <form method="POST" action="{{ route('pos.store') }}" @submit.prevent="confirmarYEnviar($event)" x-ref="carrito" id="pos-formulario"
                     class="flex flex-col rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] xl:sticky xl:top-24 xl:max-h-[calc(100vh-10rem)] xl:overflow-hidden">
                     @csrf
+                    @unEnvio
                     <div x-ref="campos"></div>
 
                     <div class="border-b border-gray-100 px-5 py-4 dark:border-gray-800">
@@ -570,6 +571,14 @@
                                         <p x-show="pago.qr.simulado"
                                             class="mt-2 rounded-lg bg-warning-50 px-3 py-2 text-theme-xs text-warning-700 dark:bg-orange-500/10 dark:text-orange-400">
                                             Sin banco conectado: el pago se confirma a mano.
+                                        </p>
+
+                                        {{-- Con el banco en su ambiente de pruebas el QR se
+                                             escanea y «se paga», pero el dinero no se mueve:
+                                             que nadie entregue mercadería por eso. --}}
+                                        <p x-show="pago.qr.pruebas" role="alert" data-qr-pruebas
+                                            class="mt-2 rounded-lg bg-error-50 px-3 py-2 text-theme-xs font-medium text-error-700 dark:bg-error-500/10 dark:text-error-400">
+                                            Ambiente de PRUEBAS del banco: este pago no es real. No entregues mercadería por él.
                                         </p>
 
                                         <div class="mt-3 flex w-full flex-wrap gap-2">

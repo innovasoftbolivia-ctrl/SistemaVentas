@@ -56,6 +56,18 @@ for arg in "$@"; do
     [ "$arg" = "--catalogo" ] && CATALOGO=1
 done
 
+# Un parche con `USE ventas_db;` adentro ignora la base que se le pide con
+# BASE=...: escribe en `ventas_db` y el registro de «ya aplicado» queda en la
+# otra. Así se le cambió a una base sin que nadie lo pidiera. Los parches no
+# eligen base —la elige este script—, y si alguno vuelve a traer un `USE`, no se
+# aplica nada.
+if grep -lE '^[[:space:]]*USE[[:space:]]' "$DIRECTORIO"/*.sql >/dev/null 2>&1; then
+    echo "ERROR: estos parches traen un USE y pisarían la base que pediste:" >&2
+    grep -lE '^[[:space:]]*USE[[:space:]]' "$DIRECTORIO"/*.sql | sed 's/^/  - /' >&2
+    echo "Quita esa línea de cada uno (la base la elige este script). No se aplicó nada." >&2
+    exit 1
+fi
+
 es_de_catalogo() {
     local archivo="$1" c
     for c in "${PARCHES_DE_CATALOGO[@]}"; do

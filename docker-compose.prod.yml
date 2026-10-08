@@ -64,7 +64,7 @@ services:
       # carpeta sincronizada, unidad de red) montada donde la busca
       # RESPALDOS_COPIA=/respaldos-copia. Sin montaje, la copia se quedaba
       # dentro del contenedor y se perdía al recrearlo.
-      - ${RESPALDOS_COPIA_SERVIDOR:-./respaldos-copia}:/respaldos-copia
+      - ${RESPALDOS_COPIA_SERVIDOR:?falta RESPALDOS_COPIA_SERVIDOR en el archivo .env - ver .env.example}:/respaldos-copia
     depends_on:
       mysql:
         condition: service_healthy
@@ -105,7 +105,7 @@ services:
       - ventas_storage:/var/www/html/storage/app/public
       - ventas_logs:/var/www/html/storage/logs
       - ventas_respaldos:/var/www/html/storage/app/respaldos
-      - ${RESPALDOS_COPIA_SERVIDOR:-./respaldos-copia}:/respaldos-copia
+      - ${RESPALDOS_COPIA_SERVIDOR:?falta RESPALDOS_COPIA_SERVIDOR en el archivo .env - ver .env.example}:/respaldos-copia
     depends_on:
       app:
         condition: service_healthy
@@ -195,6 +195,9 @@ services:
       # alfabético: el esquema y los datos BASE de producción. No el
       # 02_datos_iniciales.sql de desarrollo, que trae el negocio de
       # demostración (productos, clientes y empleados de ejemplo).
+      # Ninguno de los dos primeros borra nada: 00 crea la base solo si no
+      # existe, y 01 falla en la primera tabla si la base ya estaba instalada.
+      - ./docs/sql/00_crear_base.sql:/docker-entrypoint-initdb.d/00_crear_base.sql:ro
       - ./docs/sql/01_schema_mysql.sql:/docker-entrypoint-initdb.d/01_schema_mysql.sql:ro
       - ./docs/sql/produccion/02_datos_base.sql:/docker-entrypoint-initdb.d/02_datos_base.sql:ro
       - ./docs/sql/produccion/03_usuario_app.sh:/docker-entrypoint-initdb.d/03_usuario_app.sh:ro

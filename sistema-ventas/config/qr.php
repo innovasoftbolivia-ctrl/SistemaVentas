@@ -48,12 +48,20 @@ return [
     'pasarelas' => [
 
         /*
-        | Banco Económico (BEC QR Connect). Usuario, contraseña, llave y cuenta
-        | los entrega el banco. La URL por omisión es la de certificación; en
-        | producción el banco da otra.
+        | Banco Económico (BEC QR Connect). La dirección, el usuario, la
+        | contraseña, la llave y la cuenta los entrega el banco.
+        |
+        | La dirección NO tiene valor por omisión, a propósito: antes caía en la
+        | de certificación (pruebas) si se olvidaba, y el cliente escaneaba y
+        | «pagaba» en un ambiente donde el dinero no se mueve. Sin dirección, el
+        | sistema dice que falta configurarla. Con la de pruebas en un servidor de
+        | producción, tampoco cobra, salvo que se declare con
+        | QR_BANECO_PERMITIR_PRUEBAS=true (la fase de certificación en el servidor
+        | real). `php artisan qr:diagnostico` revisa todo esto.
         */
         'baneco' => [
-            'url_base' => env('QR_BANECO_URL', 'https://apimktdesa.baneco.com.bo/ApiGateway'),
+            'url_base' => env('QR_BANECO_URL'),
+            'permitir_pruebas' => (bool) env('QR_BANECO_PERMITIR_PRUEBAS', false),
             'usuario' => env('QR_BANECO_USUARIO'),
             'password' => env('QR_BANECO_PASSWORD'),
             'llave' => env('QR_BANECO_LLAVE'),

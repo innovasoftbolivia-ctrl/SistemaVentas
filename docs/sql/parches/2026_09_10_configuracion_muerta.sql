@@ -27,7 +27,6 @@
 --  `Ventas::serieDe()` lee para decidir qué documento emitir.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 DELETE FROM configuracion WHERE clave IN ('precio_incluye_impuesto', 'serie_nota_venta');

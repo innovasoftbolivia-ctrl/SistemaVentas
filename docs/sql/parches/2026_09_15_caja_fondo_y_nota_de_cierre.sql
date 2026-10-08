@@ -14,7 +14,6 @@
 --  reemplaza.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 SET @falta := (SELECT COUNT(*) = 0 FROM information_schema.COLUMNS

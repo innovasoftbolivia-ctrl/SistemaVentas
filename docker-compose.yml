@@ -125,8 +125,9 @@ services:
     volumes:
       - ventas_data:/var/lib/mysql
       # Al primer arranque el contenedor ejecuta estos scripts en orden
-      # alfabético. El mismo montaje sirve para volver a cargarlos a mano:
-      #   docker exec -i ventas_mysql mysql -uroot -p"$DB_PASSWORD" < docs/sql/01_schema_mysql.sql
+      # alfabético (00_crear_base, 01_schema, 02_datos_iniciales). Para BORRAR y
+      # volver a armar una base de desarrollo, no se carga el esquema a mano:
+      #   scripts/recrear-base-desarrollo.sh ventas_db_test
       - ./docs/sql:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\""]

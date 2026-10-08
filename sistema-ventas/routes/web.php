@@ -101,7 +101,10 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
         Route::get('pos/precios', [PosController::class, 'precios'])
             ->middleware('throttle:60,1')
             ->name('pos.precios');
-        Route::post('pos', [PosController::class, 'store'])->name('pos.store');
+        // Con `un.envio` como el resto de lo que mueve plata: con internet que se
+        // corta, el cajero da F5 y acepta «reenviar formulario»; sin este freno esa
+        // venta se registraba dos veces, con el stock descontado dos veces.
+        Route::post('pos', [PosController::class, 'store'])->middleware('un.envio')->name('pos.store');
 
         // ---- Cobro por QR ----
         // El QR se pide con el carrito armado y ANTES de que exista la venta:

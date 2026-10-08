@@ -182,6 +182,7 @@ class CobroQrController extends Controller
             'expira_en' => $cobro->expira_en?->toIso8601String(),
             'pagado' => $cobro->estaPagado(),
             'simulado' => CobrosQr::estaSimulado(),
+            'pruebas' => CobrosQr::enPruebas(),
             'referencia' => $cobro->referencia_bancaria,
         ];
     }

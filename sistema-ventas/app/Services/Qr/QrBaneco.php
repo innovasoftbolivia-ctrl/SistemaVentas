@@ -68,6 +68,8 @@ class QrBaneco implements PasarelaQr
 
     public function generar(CobroQr $cobro): CobroQr
     {
+        $this->exigirAmbiente();
+
         $respuesta = $this->llamar('post', 'api/qrsimple/generateQR', array_filter([
             'transactionId' => $this->transaccion($cobro),
             'accountCredit' => $this->cifrar($this->requerido('cuenta')),
@@ -94,6 +96,49 @@ class QrBaneco implements PasarelaQr
         $cobro->save();
 
         return $cobro;
+    }
+
+    /**
+     * ¿La dirección configurada es la del ambiente de PRUEBAS del banco
+     * (certificación)? Ahí el QR se escanea y «se paga», pero el dinero no se
+     * mueve. Se reconoce por el nombre del servidor.
+     */
+    public function enPruebas(): bool
+    {
+        $url = mb_strtolower(trim((string) ($this->config['url_base'] ?? '')));
+        $servidor = (string) (parse_url($url, PHP_URL_HOST) ?: $url);
+
+        return (bool) preg_match('/desa|test|prueba|cert|sandbox|uat/', $servidor);
+    }
+
+    /**
+     * Un servidor de producción no cobra contra el ambiente de pruebas: el
+     * cliente pagaría de mentira y la venta saldría registrada como cobrada.
+     * Para la fase de certificación en el servidor real se declara a propósito.
+     */
+    private function exigirAmbiente(): void
+    {
+        if (! app()->environment('production') || ! $this->enPruebas() || ($this->config['permitir_pruebas'] ?? false)) {
+            return;
+        }
+
+        Log::error('El cobro por QR apunta al ambiente de PRUEBAS del banco en un servidor de producción.', [
+            'servidor' => parse_url((string) ($this->config['url_base'] ?? ''), PHP_URL_HOST),
+        ]);
+
+        throw new RuntimeException('El cobro por QR está apuntando al ambiente de PRUEBAS del banco, donde los pagos no son reales. Cobra por otro medio y avisa al administrador.');
+    }
+
+    /**
+     * Para `php artisan qr:diagnostico --conectar`: pide un token al banco con
+     * las credenciales configuradas, sin generar ningún QR ni mover dinero.
+     * Lanza la misma excepción que lanzaría un cobro si algo falla.
+     */
+    public function probarAcceso(): void
+    {
+        Cache::forget($this->claveToken());
+
+        $this->token();
     }
 
     public function consultar(CobroQr $cobro): string

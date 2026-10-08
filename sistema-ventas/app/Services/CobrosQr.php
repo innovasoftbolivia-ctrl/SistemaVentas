@@ -53,6 +53,14 @@ class CobrosQr
         return self::pasarela()->codigo() === 'simulado';
     }
 
+    /** ¿Se está cobrando contra el ambiente de pruebas del banco? El mostrador lo avisa. */
+    public static function enPruebas(): bool
+    {
+        $pasarela = self::pasarela();
+
+        return $pasarela instanceof QrBaneco && $pasarela->enPruebas();
+    }
+
     /**
      * Genera un cobro por un importe. Todavía no hay venta: esto se pide con el
      * carrito armado y el cliente esperando con el celular en la mano.

@@ -111,14 +111,18 @@ Deja MySQL en `127.0.0.1:13310` (usuario `root`, la contraseña de tu `.env` —
 tienes uno, ver [Opción A](#opción-a--todo-con-docker-recomendada)) y Adminer en
 <http://localhost:8101>.
 
-Para volver a cargar el esquema a mano:
+Para **borrar** una base de desarrollo y volver a armarla con los datos de demostración:
 
 ```bash
-docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123 < docs/sql/01_schema_mysql.sql
+scripts/recrear-base-desarrollo.sh ventas_db            # o ventas_db_test; agrega --catalogo para el catálogo real
 ```
 
-> El `--default-character-set=utf8mb4` no es opcional: sin él los acentos entran doblemente
-> codificados y «Díaz» se guarda como «DÃ­az».
+Pide que escribas el nombre de la base para confirmar y se niega a tocar un contenedor de
+producción. `docs/sql/01_schema_mysql.sql` **ya no borra nada** (antes empezaba con un
+`DROP DATABASE`): contra una base ya instalada falla en la primera tabla y no cambia nada.
+
+> Si cargas los archivos a mano, el `--default-character-set=utf8mb4` no es opcional: sin él los
+> acentos entran doblemente codificados y «Díaz» se guarda como «DÃ­az».
 
 Una base creada antes del 2026-08-21 necesita los parches de `docs/sql/parches` (los instaladores
 nuevos no: `01_schema_mysql.sql` ya incorpora los que corrigen el esquema). `scripts/aplicar-parches.sh`
@@ -817,12 +821,11 @@ Las pruebas corren contra una copia real de la base, porque el esquema usa colum
 `ENUM` y triggers que SQLite no reproduce. Se crea una sola vez, desde la raíz del repositorio:
 
 ```bash
-sed 's/ventas_db/ventas_db_test/g' docs/sql/01_schema_mysql.sql | docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123
+scripts/recrear-base-desarrollo.sh ventas_db_test
 ```
 
-```bash
-sed 's/ventas_db/ventas_db_test/g' docs/sql/02_datos_iniciales.sql | docker exec -i ventas_mysql mysql --default-character-set=utf8mb4 -uroot -pventas123
-```
+(carga el esquema y los datos de demostración en `ventas_db_test`; si la base ya existía, la borra
+y la arma de nuevo, y para eso pide confirmación)
 
 Después:
 
@@ -847,6 +850,12 @@ sus propios datos de negocio.
    cp .env.example .env
    cp sistema-ventas/.env.docker.example sistema-ventas/.env.docker
    ```
+
+   En el `.env` de la raíz **decide dónde va la copia externa de los respaldos**
+   (`RESPALDOS_COPIA_SERVIDOR`): sin esa línea, `docker compose` se niega a arrancar. Antes tenía
+   una carpeta por omisión, junto al proyecto —en el mismo disco que la base—, y el sistema
+   anunciaba «copiado también a /respaldos-copia» como si fuera una copia de verdad. Los detalles
+   están en [Copias de seguridad](#copias-de-seguridad).
 
 2. **Clave y contraseña propias**, en `sistema-ventas/.env.docker`:
 
@@ -905,6 +914,19 @@ sus propios datos de negocio.
 
    Al entrar, el sistema obliga a cambiarla antes de hacer cualquier otra cosa.
 
+   **Crea de inmediato un segundo administrador** (**Seguridad → Usuarios**, con el rol
+   Administrador): una cuenta del dueño y otra de respaldo, guardada bajo llave. Con una sola, olvidar
+   la contraseña deja al negocio fuera de su propio sistema. Y si de todos modos pasa, desde el
+   servidor se le pone una contraseña temporal a cualquier cuenta —no hace falta tocar MySQL—:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec app php artisan usuario:clave admin
+   ```
+
+   Muestra la contraseña **en la pantalla**, una sola vez (no la guarda en ningún archivo ni en el
+   log), obliga a cambiarla al entrar y deja el movimiento en la bitácora. Si la cuenta estaba
+   desactivada, `--activar`; si prefieres escribir tú la contraseña, `--pedir`.
+
 6. **Datos del negocio y cuentas reales.** En **Sistema → Configuración**: nombre, NIT,
    dirección, teléfono, moneda y topes del cajero. En **Impuesto y precios**: si el negocio cobra IVA,
    la tasa y si los precios de venta ya lo incluyen (una instalación nueva arranca sin IVA y con los
@@ -927,24 +949,40 @@ sus propios datos de negocio.
    con todas las letras. Se hizo así a propósito: un simulador que se pagara solo daría la falsa
    impresión de que el cobro funciona.
 
-   Con **Banco Económico** («BEC QR Connect»), cuando entregue las credenciales, en
-   `sistema-ventas/.env.docker` (nunca en el repositorio):
+   **Banco Económico** («BEC QR Connect») está integrado y probado en certificación: lo único
+   que falta es el trámite con el banco. Cuando entregue los datos, se ponen en
+   `sistema-ventas/.env.docker` (nunca en el repositorio) y se revisa:
 
    ```
    QR_PASARELA=baneco
    QR_BANECO_URL=https://...        # la de PRODUCCIÓN que entregue el banco
    QR_BANECO_USUARIO=...
    QR_BANECO_PASSWORD=...
-   QR_BANECO_LLAVE=...
+   QR_BANECO_LLAVE=...              # 32 caracteres exactos
    QR_BANECO_CUENTA=...
-   QR_BANECO_SUCURSAL=...
+   QR_BANECO_SUCURSAL=...           # opcional
    ```
 
-   **Ojo con `QR_BANECO_URL`: si se deja vacía, apunta a certificación** (`apimktdesa`), donde
-   los pagos no son reales. El aviso de pago se le da al banco como
-   `https://<servidor>/api/qrsimple/notifyPaymentQR`; no trae firma, así que el sistema solo lo usa
-   para ir a consultar al banco, nunca lo da por bueno. Después de cambiar `.env.docker`,
-   `docker compose -f docker-compose.prod.yml up -d` (un `restart` no relee el archivo).
+   ```bash
+   docker compose -f docker-compose.prod.yml up -d        # un `restart` no relee el archivo
+   docker compose -f docker-compose.prod.yml exec app php artisan qr:diagnostico --conectar
+   ```
+
+   `qr:diagnostico` dice qué variable falta (sin mostrar ningún valor), si la dirección es la de
+   **pruebas** o la de producción, la dirección del aviso de pago que hay que darle al banco, y con
+   `--conectar` si el banco acepta el usuario y la contraseña, sin generar ningún QR ni mover dinero.
+
+   **Sin valor por omisión.** `QR_BANECO_URL` ya no tiene uno: antes, si se olvidaba, caía en el
+   ambiente de certificación, donde el cliente escaneaba y «pagaba» sin que el dinero se moviera.
+   Ahora el sistema dice que falta configurarla. Y un servidor de **producción** no cobra contra la
+   dirección de pruebas (el cajero ve que cobre por otro medio y queda en el log); para hacer la
+   **certificación en el servidor real**, se declara a propósito con
+   `QR_BANECO_PERMITIR_PRUEBAS=true`, y mientras tanto el mostrador avisa en cada QR «ambiente de
+   PRUEBAS: este pago no es real».
+
+   El aviso de pago se le da al banco como `https://<servidor>/api/qrsimple/notifyPaymentQR` (con
+   `APP_URL` ya en https); no trae firma, así que el sistema solo lo usa para ir a consultar al
+   banco, nunca lo da por bueno.
 
    Para otro banco, `QR_PASARELA=banco`:
 
@@ -998,6 +1036,12 @@ sudo mkdir -p /media/usb/respaldos-ventas && sudo chown 82:82 /media/usb/respald
 y en el `.env` de la raíz `RESPALDOS_COPIA_SERVIDOR=/media/usb/respaldos-ventas`, en
 `sistema-ventas/.env.docker` `RESPALDOS_COPIA=/respaldos-copia`, y `up -d`. Si la copia falla, el
 respaldo nocturno queda como fallido en la bitácora y en el log del programador.
+
+`RESPALDOS_COPIA_SERVIDOR` es **obligatoria**: sin ella `docker compose` no arranca. Si todavía no
+hay disco externo, ponle `./respaldos-copia` y deja `RESPALDOS_COPIA` vacío: los respaldos quedan
+solo en el servidor, y es una decisión que queda escrita. Si después se activa la copia pero la
+carpeta sigue en el mismo disco que el sistema, `scripts/revisar-salud.sh` lo marca como falla (una
+copia en el disco que muere no es una copia).
 
 `scripts/revisar-salud.sh` da por bueno un respaldo reciente tanto en `backups/` como en ese
 volumen. Para restaurar uno del volumen, primero sácalo al servidor:
@@ -1060,7 +1104,7 @@ servidor perdido.
 
 ## Monitoreo
 
-`scripts/revisar-salud.sh` revisa las cuatro cosas que dejan al negocio sin vender —o sin red
+`scripts/revisar-salud.sh` revisa las cinco cosas que dejan al negocio sin vender —o sin red
 de seguridad— y que no avisan solas:
 
 1. **Los contenedores están corriendo.**
@@ -1072,6 +1116,9 @@ de seguridad— y que no avisan solas:
    se pierden las dos cosas a la vez.
 4. **Hay un respaldo reciente y no está vacío.** Es el que más silencio hace: un respaldo que
    dejó de correr hace tres semanas se descubre el día que se necesita.
+5. **La copia externa está en OTRO disco y al día.** Con la copia activada, comprueba que la
+   carpeta existe, que no está en el mismo disco que el sistema y que tiene un respaldo de las
+   últimas horas (un USB desconectado deja la carpeta vacía y en el disco equivocado).
 
 ```bash
 ./scripts/revisar-salud.sh

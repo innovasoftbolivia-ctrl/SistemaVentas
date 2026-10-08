@@ -20,7 +20,6 @@
 --  Se puede correr dos veces.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 INSERT IGNORE INTO permisos (codigo, modulo, descripcion) VALUES

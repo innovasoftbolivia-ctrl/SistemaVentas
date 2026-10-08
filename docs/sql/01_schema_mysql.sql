@@ -8,10 +8,17 @@
 -- entran doblemente codificados ("Diaz" -> "DÃ­az").
 SET NAMES utf8mb4;
 
-DROP DATABASE IF EXISTS ventas_db;
-CREATE DATABASE ventas_db
-    DEFAULT CHARACTER SET utf8mb4
-    DEFAULT COLLATE utf8mb4_0900_ai_ci;
+-- ESTE ARCHIVO YA NO BORRA NADA. Antes empezaba con `DROP DATABASE ventas_db`, y
+-- en el servidor de un cliente el comando para «recargar el esquema» era un
+-- copiar-pegar de borrar el negocio entero. Ahora:
+--
+--   00_crear_base.sql                          crea la base si no existe
+--   01_schema_mysql.sql                        (este) crea las tablas; contra una
+--                                              base ya instalada falla en la
+--                                              primera tabla y no toca nada
+--   desarrollo/borrar_y_crear_base_DESTRUCTIVO.sql
+--                                              el DROP, solo para desarrollo y
+--                                              pruebas (scripts/recrear-base-desarrollo.sh)
 USE ventas_db;
 
 SET FOREIGN_KEY_CHECKS = 1;

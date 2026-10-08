@@ -93,10 +93,10 @@ Ejecutar una consulta suelta:
 docker exec ventas_mysql mysql -uroot -pventas123 ventas_db -t -e "SELECT * FROM v_empleados;"
 ```
 
-Volver a cargar el esquema tras editarlo (borra y recrea `ventas_db`):
+Volver a cargar el esquema tras editarlo (borra y recrea la base; pide confirmación):
 
 ```bash
-docker exec -i ventas_mysql mysql -uroot -pventas123 < docs/sql/01_schema_mysql.sql
+scripts/recrear-base-desarrollo.sh ventas_db
 ```
 
 ```bash

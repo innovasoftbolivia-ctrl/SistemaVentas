@@ -17,7 +17,6 @@
 --  Se puede correr dos veces: el permiso y la asignación no se duplican.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 INSERT IGNORE INTO permisos (codigo, modulo, descripcion)

@@ -19,7 +19,6 @@
 --  precios de estante sigan siendo los mismos que con el 18 % de antes.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 UPDATE configuracion

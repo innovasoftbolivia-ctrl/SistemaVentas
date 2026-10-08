@@ -14,7 +14,6 @@
 --  Idempotente: los índices se crean solo si faltan y los triggers se reemplazan.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 SET @falta := (SELECT COUNT(*) = 0 FROM information_schema.STATISTICS

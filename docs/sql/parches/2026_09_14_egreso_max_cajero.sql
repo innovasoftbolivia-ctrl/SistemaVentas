@@ -11,7 +11,6 @@
 --  Idempotente: INSERT IGNORE no pisa un valor ya elegido.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 INSERT IGNORE INTO configuracion (clave, valor, descripcion) VALUES

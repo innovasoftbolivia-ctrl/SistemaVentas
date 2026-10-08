@@ -12,7 +12,6 @@
 --  quedan en 0: no se le pide nada a quien ya trabaja con la suya.
 -- =============================================================================
 
-USE ventas_db;
 SET NAMES utf8mb4;
 
 SET @falta := (SELECT COUNT(*) = 0 FROM information_schema.COLUMNS
