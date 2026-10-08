@@ -201,16 +201,64 @@
             <x-common.component-card title="Movimientos de caja"
                 desc="Entradas y salidas de efectivo que no son ventas.">
                 @forelse ($sesion->movimientos->sortByDesc('fecha') as $movimiento)
-                    <div class="flex items-start justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 dark:border-gray-800">
-                        <div class="min-w-0">
-                            <p class="truncate text-theme-sm text-gray-800 dark:text-white/90">{{ $movimiento->concepto }}</p>
-                            <p class="text-theme-xs text-gray-500 dark:text-gray-400">
-                                {{ $movimiento->fecha?->format('H:i') }} · {{ $movimiento->usuario?->usuario }}
-                            </p>
+                    @php
+                        $anulado = $movimiento->anulacion !== null;
+                        $esAnulacion = $movimiento->esAnulacion();
+                        // Quien lo registró o quien puede cerrar la caja; solo con el turno abierto.
+                        $puedeAnular = $abierta && $puedeMover && ! $anulado && ! $esAnulacion
+                            && ((int) $movimiento->usuario_id === (int) auth()->id() || auth()->user()->tienePermiso('caja.cerrar'));
+                    @endphp
+                    <div x-data="{ anulando: {{ old('movimiento_a_anular') == $movimiento->id && $errors->has('motivo') ? 'true' : 'false' }} }"
+                        class="border-b border-gray-100 pb-3 last:border-0 dark:border-gray-800"
+                        @if ($anulado) data-movimiento-anulado @endif
+                        @if ($esAnulacion) data-movimiento-anulacion @endif>
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="truncate text-theme-sm text-gray-800 dark:text-white/90 {{ $anulado ? 'line-through opacity-60' : '' }}">{{ $movimiento->concepto }}</p>
+                                <p class="text-theme-xs text-gray-500 dark:text-gray-400">
+                                    {{ $movimiento->fecha?->format('H:i') }} · {{ $movimiento->usuario?->usuario }}
+                                    @if ($anulado)
+                                        · <span class="font-medium text-warning-700 dark:text-orange-400">anulado</span>
+                                    @elseif ($esAnulacion)
+                                        · <span class="font-medium text-warning-700 dark:text-orange-400">anula el #{{ $movimiento->anula_a_id }}</span>
+                                    @endif
+                                </p>
+                            </div>
+                            <div class="flex shrink-0 flex-col items-end gap-1">
+                                <span class="whitespace-nowrap text-theme-sm font-medium {{ $movimiento->tipo === 'INGRESO' ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400' }} {{ $anulado ? 'line-through opacity-60' : '' }}">
+                                    {{ $movimiento->tipo === 'INGRESO' ? '+' : '−' }}{{ Config::importe($movimiento->monto) }}
+                                </span>
+                                @if ($puedeAnular)
+                                    <button type="button" @click="anulando = !anulando" data-anular-movimiento
+                                        class="text-theme-xs font-medium text-gray-500 underline hover:text-error-600 dark:text-gray-400">Anular</button>
+                                @endif
+                            </div>
                         </div>
-                        <span class="whitespace-nowrap text-theme-sm font-medium {{ $movimiento->tipo === 'INGRESO' ? 'text-success-700 dark:text-success-500' : 'text-error-600 dark:text-error-400' }}">
-                            {{ $movimiento->tipo === 'INGRESO' ? '+' : '−' }}{{ Config::importe($movimiento->monto) }}
-                        </span>
+
+                        @if ($puedeAnular)
+                            <form method="POST" x-show="anulando" x-cloak
+                                action="{{ route('caja.movimiento.anular', [$sesion, $movimiento]) }}"
+                                class="mt-3 space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-white/[0.04]">
+                                @csrf
+                                @unEnvio
+                                <input type="hidden" name="movimiento_a_anular" value="{{ $movimiento->id }}">
+                                <label class="block text-theme-xs text-gray-600 dark:text-gray-400">
+                                    Se escribe un movimiento contrario por el mismo monto; el original no se borra.
+                                    ¿Por qué se anula?
+                                </label>
+                                <input type="text" name="motivo" maxlength="80" required minlength="5"
+                                    value="{{ old('movimiento_a_anular') == $movimiento->id ? old('motivo') : '' }}"
+                                    placeholder="Ej.: se tecleó 500 en vez de 50"
+                                    class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                @if (old('movimiento_a_anular') == $movimiento->id)
+                                    @error('motivo')<p class="text-theme-xs text-error-600">{{ $message }}</p>@enderror
+                                @endif
+                                <div class="flex justify-end gap-2">
+                                    <x-ui.button type="button" size="xs" variant="outline" @click="anulando = false">Cancelar</x-ui.button>
+                                    <x-ui.button type="submit" size="xs" variant="danger">Anular movimiento</x-ui.button>
+                                </div>
+                            </form>
+                        @endif
                     </div>
                 @empty
                     <p class="text-theme-sm text-gray-500 dark:text-gray-400">Sin movimientos en este turno.</p>

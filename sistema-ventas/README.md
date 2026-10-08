@@ -647,6 +647,36 @@ venta, porque la base exige `descuento <= subtotal` y el subtotal todavía es ce
 secuencia es insertar la venta sin descuento → insertar el detalle → recalcular → aplicar el
 descuento → recalcular otra vez (el impuesto baja en la misma proporción).
 
+### El mostrador en el día a día
+
+Lo que pasa alrededor del cobro, en la hora de más venta. Todo esto vive en el navegador de la caja
+salvo donde se dice.
+
+- **Sin conexión.** Si se corta internet o el servidor no responde, aparece un aviso rojo («Sin
+  conexión con el servidor») y el sistema reintenta solo cada 5 segundos. Mientras tanto no se puede
+  cobrar, y un escaneo no decide nada: antes la pistola «dejaba de funcionar» sin decir por qué, y con la
+  lista vieja un código bueno parecía no estar cargado. Lo que ya está en el carrito se conserva. Si lo que
+  venció es la **sesión**, la venta armada se guarda sola «en espera» y vuelve al ingresar de nuevo.
+- **Código de barras que no está.** El aviso «No hay ningún producto con el código…» trae el botón
+  **Asignar a un producto** para quien puede editar el catálogo: se busca el producto por nombre y se le
+  pone ese código; el producto entra al carrito como si se hubiera escaneado. Al instalar, la mayoría del
+  catálogo no tiene código de barras, y así se va completando con el uso. Solo se asigna a productos **sin**
+  código (cambiar uno existente es editar el producto: un toque equivocado haría que un código cobrara otra
+  mercadería), nunca a uno que ya es de otro, y queda en la bitácora. El cajero ve «avisa al encargado».
+- **Vaciar el carrito.** Un carrito de tres líneas o más pide confirmar («¿Vaciar 12 líneas?»), y en todos
+  los casos queda **Deshacer** durante diez segundos.
+- **Venta en espera.** «Poner en espera» guarda la venta y deja el mostrador limpio para el siguiente
+  cliente; las ventas en espera aparecen como fichas y se retoman con un toque (si ya había una armada,
+  intercambian lugar). Máximo cinco por turno; se guardan en el navegador de esa caja (por usuario y
+  turno), se descartan a las 12 horas y **no reservan stock**: al retomarlas se revisan precio y stock. No
+  se puede poner en espera una venta con un cobro por QR ya generado.
+- **Después de cobrar.** La ficha de la venta abre con el total, lo recibido y la **entrega de vuelto** en
+  grande, y el botón **Nueva venta** ya enfocado (un Enter). (Servidor: `venta_recien` en la sesión.)
+- **Vender bajo el costo.** El formulario del producto avisa en vivo cuando el precio queda por debajo
+  del costo (calculado por unidad, sin impuesto). Guardarlo exige marcar «Vender a pérdida a propósito»:
+  casi siempre es un cero de menos o el costo de la caja escrito como el de la unidad. Solo se pide al
+  crear o cuando cambian los precios.
+
 ### Comprobantes
 
 El tipo de documento lo decide **la serie**, y la serie sale de `configuracion`:
@@ -686,6 +716,16 @@ esperado = monto_inicial + cobrado en efectivo + ingresos − egresos − devolu
 
 Solo cuentan los métodos de pago con `afecta_caja = 1`: la tarjeta no deja dinero en el cajón. La
 diferencia es una columna generada, así que no puede desincronizarse; no se corrige, se explica.
+
+**Anular un movimiento.** Un egreso de Bs 500 tecleado en vez de Bs 50 se corrige con **Anular** en la
+lista de movimientos del turno. No se borra ni se edita nada: se escribe un movimiento contrario por el
+mismo monto, enlazado al original (`anula_a_id`), con el motivo. El original queda «anulado» (tachado) y el
+contra-asiento dice «anula el #…»; el efectivo esperado vuelve a lo que era y el resumen firmado del cierre
+se lee como un par. Reglas (`Cajas::anularMovimiento`): solo con el turno **abierto**; un movimiento se
+anula **una sola vez** (índice único en la base) y una anulación no se anula; lo hace quien lo registró o
+quien puede cerrar la caja; y no se anula un ingreso si sacarlo dejaría el cajón con menos efectivo del que
+debería tener (sería esconder un faltante). Queda en la bitácora con el motivo. Parche:
+`docs/sql/parches/2026_10_08_anular_movimiento_de_caja.sql`.
 
 ### Devoluciones
 

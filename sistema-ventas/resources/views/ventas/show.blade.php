@@ -11,6 +11,53 @@
     <div x-data="{ anulando: false, sustituyendo: {{ $errors->any() && old('motivo') !== null ? 'true' : 'false' }} }"
         @keydown.escape.window="anulando = false; sustituyendo = false" class="space-y-6">
 
+        {{-- Recién cobrada. Después de cobrar el cajero caía en esta ficha sin un
+             botón para seguir vendiendo, con el vuelto escondido al final: justo lo
+             que necesita en ese momento, con el cliente esperando. `autofocus` deja
+             «Nueva venta» a un Enter de distancia. --}}
+        @if (session('venta_recien') && ! $anulada)
+            @php
+                $recibido = (float) $venta->pagos->sum('monto_recibido');
+            @endphp
+            <div data-venta-recien role="status"
+                class="rounded-2xl border border-success-200 bg-success-50 p-5 dark:border-success-500/30 dark:bg-success-500/10 lg:p-6">
+                <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex flex-wrap items-end gap-x-8 gap-y-3">
+                        <div>
+                            <p class="text-theme-xs font-medium text-success-700 dark:text-success-500">Venta registrada</p>
+                            <p class="text-title-sm font-semibold text-gray-800 dark:text-white/90">{{ Config::importe($venta->total) }}</p>
+                        </div>
+
+                        @if ($recibido > 0)
+                            <div>
+                                <p class="text-theme-xs text-gray-500 dark:text-gray-400">Recibido en efectivo</p>
+                                <p class="text-theme-xl font-semibold text-gray-800 dark:text-white/90">{{ Config::importe($recibido) }}</p>
+                            </div>
+                        @endif
+
+                        @if ($venta->vuelto > 0)
+                            <div data-vuelto-recien>
+                                <p class="text-theme-xs font-medium text-success-700 dark:text-success-500">Entrega de vuelto</p>
+                                <p class="text-title-md font-bold text-success-700 dark:text-success-500">{{ Config::importe($venta->vuelto) }}</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="flex flex-wrap gap-2">
+                        @puede('ventas.registrar')
+                            <x-ui.button :href="route('pos.index')" autofocus data-nueva-venta x-init="$nextTick(() => $el.focus())">Nueva venta</x-ui.button>
+                        @endpuede
+                        @if ($comprobante)
+                            <x-ui.button variant="outline" target="_blank"
+                                :href="route('comprobantes.imprimir', [$comprobante, 'imprimir' => 1])">
+                                Imprimir ticket
+                            </x-ui.button>
+                        @endif
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- Cabecera --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">

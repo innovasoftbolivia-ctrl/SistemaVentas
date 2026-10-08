@@ -15,8 +15,9 @@
         </div>
     @else
         {{-- `pb-28` deja sitio en móvil a la barra flotante del carrito. --}}
-        <div x-data="mostrador()" x-init="restaurarVentaEnCurso(); cargar(); $nextTick(() => $refs.buscador?.focus())"
+        <div x-data="mostrador()" x-init="cargarEsperas(); restaurarVentaEnCurso(); cargar(); $nextTick(() => $refs.buscador?.focus())"
         @keydown.window="atajos($event)"
+        @online.window="reintentarConexion()" @offline.window="conexionPerdida()"
             class="grid grid-cols-1 gap-6 pb-28 xl:grid-cols-5 xl:pb-0">
 
             {{-- Catálogo --}}
@@ -39,15 +40,73 @@
 
                     </div>
 
+                    {{-- Sin red, el buscador y el escáner dejaban de responder sin decir
+                         nada: el cajero creía que la pistola se había roto. Ahora se
+                         dice, se reintenta solo y se impide cobrar hasta que vuelva. --}}
+                    <div x-show="sinConexion" x-cloak role="alert" data-sin-conexion
+                        class="mt-3 rounded-lg bg-error-50 px-3 py-2 text-theme-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">
+                        <strong>Sin conexión con el servidor.</strong>
+                        No se puede buscar ni cobrar hasta que vuelva. Lo que ya está en el carrito se conserva
+                        y el sistema reintenta solo.
+                    </div>
+
+                    <div x-show="sesionVencida" x-cloak role="alert" data-sesion-vencida
+                        class="mt-3 rounded-lg bg-warning-50 px-3 py-2 text-theme-sm text-warning-700 dark:bg-orange-500/10 dark:text-orange-400">
+                        <strong>Tu sesión venció.</strong>
+                        Recarga la página (F5) e ingresa de nuevo. La venta que tenías armada quedó guardada
+                        «en espera» para retomarla.
+                    </div>
+
                     {{-- Un código escaneado que no está en el catálogo se dice.
                          Antes se agregaba el primero de la pantalla y el cajero
-                         cobraba otra cosa sin enterarse. --}}
+                         cobraba otra cosa sin enterarse. Quien puede editar el
+                         catálogo lo asigna ahí mismo a un producto que no tenía
+                         código de barras (la mayoría, al instalar), sin salir del
+                         mostrador ni perder la venta. --}}
                     <div x-show="codigoNoEncontrado" x-cloak
-                        class="mt-3 flex items-center gap-2 rounded-lg bg-error-50 px-3 py-2 text-theme-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">
-                        <span>No hay ningún producto con el código
-                            <strong x-text="codigoNoEncontrado"></strong>. Revisá que esté cargado en el catálogo.</span>
-                        <button type="button" @click="codigoNoEncontrado = ''"
-                            class="ml-auto text-theme-xs underline">Cerrar</button>
+                        class="mt-3 rounded-lg bg-error-50 px-3 py-2 text-theme-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span>No hay ningún producto con el código
+                                <strong x-text="codigoNoEncontrado"></strong>.
+                                <span x-show="!puedeAsignarCodigo">Avisa al encargado para que lo cargue en el catálogo.</span></span>
+                            <button type="button" x-show="puedeAsignarCodigo && !asignando" @click="abrirAsignar()" data-asignar-codigo
+                                class="min-h-9 rounded-lg bg-error-600 px-3 text-theme-xs font-medium text-white hover:bg-error-700">
+                                Asignar a un producto
+                            </button>
+                            <button type="button" @click="codigoNoEncontrado = ''; asignando = false"
+                                class="ml-auto text-theme-xs underline">Cerrar</button>
+                        </div>
+
+                        <div x-show="asignando" x-cloak data-asignar-panel class="mt-3 border-t border-error-200 pt-3 dark:border-error-500/30">
+                            <label class="mb-1 block text-theme-xs font-medium">
+                                ¿De qué producto es este código? Busca por nombre:
+                            </label>
+                            <input x-ref="asigBuscador" x-model="asigQ" @input.debounce.250ms="buscarParaAsignar()" type="text"
+                                placeholder="Nombre del producto"
+                                class="h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+
+                            <p x-show="asigError" x-text="asigError" class="mt-2 text-theme-xs font-medium"></p>
+
+                            <ul class="mt-2 max-h-56 space-y-1 overflow-y-auto">
+                                <template x-for="p in asigResultados" :key="p.id">
+                                    <li class="flex items-center gap-2 rounded-lg bg-white/70 px-3 py-2 text-gray-800 dark:bg-white/5 dark:text-white/90">
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-theme-sm font-medium" x-text="p.nombre"></span>
+                                            <span class="block text-theme-xs text-gray-500 dark:text-gray-400"
+                                                x-text="p.codigo_barras ? 'Ya tiene el código ' + p.codigo_barras : 'Sin código de barras'"></span>
+                                        </span>
+                                        <button type="button" @click="asignarCodigo(p)" :disabled="!!p.codigo_barras || asigGuardando"
+                                            data-asignar-a
+                                            class="min-h-9 rounded-lg bg-brand-500 px-3 text-theme-xs font-medium text-white hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-40">
+                                            Es este
+                                        </button>
+                                    </li>
+                                </template>
+                            </ul>
+                            <p x-show="asigQ.trim().length >= 2 && !asigBuscando && !asigResultados.length" class="mt-2 text-theme-xs">
+                                No hay productos con ese nombre.
+                            </p>
+                        </div>
                     </div>
 
                     {{-- Los atajos dibujados como teclas: se leen de un vistazo,
@@ -204,13 +263,59 @@
                                 <span x-show="carrito.length"
                                     class="rounded-full bg-brand-50 px-3 py-1 text-theme-xs font-semibold text-brand-700 dark:bg-brand-500/15 dark:text-brand-400"
                                     x-text="cantidadTexto(articulos) + (articulos == 1 ? ' artículo' : ' artículos')"></span>
-                                <button type="button" x-show="carrito.length" @click="carrito = []"
+                                {{-- Un toque borraba doce líneas, sin preguntar y sin vuelta
+                                     atrás. Un carrito de tres líneas o más pide confirmar, y
+                                     de todos modos queda «Deshacer» unos segundos. --}}
+                                <button type="button" x-show="carrito.length && !vaciando" @click="pedirVaciar()" data-vaciar
                                     class="-my-2 flex min-h-11 items-center rounded-lg px-2 text-theme-xs font-medium text-error-600 transition hover:bg-error-50 dark:text-error-400 dark:hover:bg-error-500/10">Vaciar</button>
+                                <span x-show="vaciando" x-cloak data-vaciar-confirmar class="-my-2 flex items-center gap-1 text-theme-xs">
+                                    <span class="font-medium text-error-600 dark:text-error-400">¿Vaciar <span x-text="carrito.length"></span> líneas?</span>
+                                    <button type="button" @click="vaciar()" data-vaciar-si
+                                        class="min-h-11 rounded-lg bg-error-600 px-3 font-medium text-white hover:bg-error-700">Sí, vaciar</button>
+                                    <button type="button" @click="vaciando = false"
+                                        class="min-h-11 rounded-lg px-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10">No</button>
+                                </span>
                             </div>
                         </div>
                         <p class="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
                             {{ $sesion->caja?->nombre }} · turno abierto por {{ $sesion->usuarioApertura?->usuario ?? auth()->user()->usuario }}
                         </p>
+
+                        <div x-show="carritoVaciado" x-cloak data-deshacer-vaciar role="status"
+                            class="mt-3 flex items-center justify-between gap-2 rounded-lg bg-gray-100 px-3 py-2 text-theme-xs text-gray-700 dark:bg-white/[0.06] dark:text-gray-300">
+                            <span>Carrito vaciado.</span>
+                            <button type="button" @click="deshacerVaciar()" data-deshacer
+                                class="min-h-9 rounded-lg px-3 font-semibold text-brand-600 hover:bg-white dark:text-brand-400 dark:hover:bg-white/10">Deshacer</button>
+                        </div>
+
+                        {{-- Ventas en espera: el cliente que olvidó algo ya no obliga a
+                             vaciar el carrito ni a hacer esperar la cola. Viven en este
+                             navegador (no reservan stock) y se descartan a las 12 horas. --}}
+                        <div x-show="carrito.length || esperas.length" x-cloak class="mt-3 flex flex-wrap items-center gap-2" data-esperas>
+                            <button type="button" x-show="carrito.length" @click="ponerEnEspera()" :disabled="!puedeEsperar" data-poner-en-espera
+                                :title="puedeEsperar ? 'Guarda esta venta y empieza otra' : 'Hay un cobro por QR en curso'"
+                                class="min-h-9 rounded-lg border border-gray-300 px-3 text-theme-xs font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">
+                                Poner en espera
+                            </button>
+
+                            <template x-for="e in esperas" :key="e.id">
+                                <span class="inline-flex items-center overflow-hidden rounded-full border border-brand-200 bg-brand-50 text-theme-xs text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-300">
+                                    <button type="button" @click="retomar(e.id)" data-retomar
+                                        class="min-h-9 px-3 font-medium hover:bg-brand-100 dark:hover:bg-brand-500/20"
+                                        :title="'Retomar la venta de las ' + horaDe(e)">
+                                        <span x-text="'En espera ' + horaDe(e)"></span> ·
+                                        <span x-text="cantidadTexto(articulosDe(e.carrito)) + ' art.'"></span> ·
+                                        {{ $moneda }} <span x-text="subtotalDe(e.carrito).toFixed(2)"></span>
+                                    </button>
+                                    <button type="button" @click="descartarEspera(e.id)" data-descartar-espera
+                                        :aria-label="esperaPorDescartar === e.id ? 'Confirmar descartar' : 'Descartar venta en espera'"
+                                        :class="esperaPorDescartar === e.id ? 'bg-error-600 text-white' : 'hover:bg-brand-100 dark:hover:bg-brand-500/20'"
+                                        class="min-h-9 px-3 font-semibold" x-text="esperaPorDescartar === e.id ? '¿Descartar?' : '✕'"></button>
+                                </span>
+                            </template>
+                        </div>
+                        <p x-show="esperaAviso" x-cloak x-text="esperaAviso" data-espera-aviso role="status"
+                            class="mt-2 text-theme-xs text-warning-700 dark:text-orange-400"></p>
                     </div>
 
                     {{--
@@ -939,6 +1044,36 @@
                         q: '',
                         buscandoCodigo: false,
                         codigoNoEncontrado: '',
+
+                        // Conexión con el servidor: sin ella no se busca ni se cobra.
+                        sinConexion: false,
+                        sesionVencida: false,
+                        reintentoConexion: null,
+
+                        // Vaciar el carrito: confirmación para carritos largos y «Deshacer».
+                        vaciando: false,
+                        carritoVaciado: null,
+                        temporizadorVaciar: null,
+                        temporizadorDeshacer: null,
+
+                        // Ventas en espera (viven en este navegador, por usuario y turno).
+                        esperas: [],
+                        maxEsperas: 5,
+                        claveEsperas: 'pos-esperas-{{ auth()->id() }}-{{ $sesion->id }}',
+                        esperaAviso: '',
+                        esperaPorDescartar: null,
+                        temporizadorDescartar: null,
+
+                        // Asignar un código de barras desconocido a un producto sin código.
+                        puedeAsignarCodigo: {{ auth()->user()->tienePermiso('productos.gestionar') ? 'true' : 'false' }},
+                        rutaAsignarCodigo: '{{ route('pos.asignar-codigo') }}',
+                        asignando: false,
+                        asigQ: '',
+                        asigResultados: [],
+                        asigBuscando: false,
+                        asigGuardando: false,
+                        asigError: '',
+
                         categoria: '',
                         productos: [],
                         carrito: [],
@@ -1121,13 +1256,337 @@
                             return Number.isInteger(s) ? String(s) : s.toFixed(2);
                         },
 
+                        /* Devuelve true si la lista se actualizó. Los tres fallos que
+                           importan se distinguen: sin red o servidor caído (se avisa y se
+                           reintenta solo), sesión vencida (se guarda la venta en espera) y
+                           cualquier otro rechazo —un 429 por escribir muy rápido— que NO
+                           es la red y no debe asustar al cajero. */
                         async cargar() {
                             const url = new URL('{{ route('pos.productos') }}', window.location.origin);
                             url.searchParams.set('q', this.q);
                             if (this.categoria) url.searchParams.set('categoria', this.categoria);
 
-                            const respuesta = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                            this.productos = await respuesta.json();
+                            try {
+                                const respuesta = await fetch(url, { headers: { 'Accept': 'application/json' } });
+
+                                if (respuesta.status === 401 || respuesta.status === 419) {
+                                    this.sesionPerdida();
+
+                                    return false;
+                                }
+
+                                if (respuesta.status >= 500) {
+                                    this.conexionPerdida();
+
+                                    return false;
+                                }
+
+                                if (! respuesta.ok) {
+                                    return false;
+                                }
+
+                                this.productos = await respuesta.json();
+                                this.conexionRecuperada();
+
+                                return true;
+                            } catch (e) {
+                                this.conexionPerdida();
+
+                                return false;
+                            }
+                        },
+
+                        /* ------------------------------------------- conexión */
+
+                        conexionPerdida() {
+                            this.sinConexion = true;
+
+                            if (! this.reintentoConexion) {
+                                this.reintentoConexion = setInterval(() => this.reintentarConexion(), 5000);
+                            }
+                        },
+
+                        conexionRecuperada() {
+                            this.sinConexion = false;
+                            this.sesionVencida = false;
+
+                            if (this.reintentoConexion) {
+                                clearInterval(this.reintentoConexion);
+                                this.reintentoConexion = null;
+                            }
+                        },
+
+                        async reintentarConexion() {
+                            if (this.buscandoCodigo || this.enviando) return;
+
+                            await this.cargar();
+                        },
+
+                        /* La sesión venció: al ingresar de nuevo la página nace vacía.
+                           Lo armado se guarda como venta en espera para no perderlo. */
+                        sesionPerdida() {
+                            this.sesionVencida = true;
+
+                            if (this.carrito.length && this.puedeEsperar && this.esperas.length < this.maxEsperas) {
+                                this.esperas.push(this.fotoDeLaVenta());
+                                this.guardarEsperas();
+                                this.reiniciarVenta();
+                            }
+                        },
+
+                        /* ------------------------------------------- vaciar el carrito */
+
+                        pedirVaciar() {
+                            if (this.carrito.length >= 3 && ! this.vaciando) {
+                                this.vaciando = true;
+                                clearTimeout(this.temporizadorVaciar);
+                                this.temporizadorVaciar = setTimeout(() => { this.vaciando = false; }, 5000);
+
+                                return;
+                            }
+
+                            this.vaciar();
+                        },
+
+                        vaciar() {
+                            this.vaciando = false;
+                            clearTimeout(this.temporizadorVaciar);
+
+                            if (! this.carrito.length) return;
+
+                            this.carritoVaciado = JSON.parse(JSON.stringify(this.carrito));
+                            this.carrito = [];
+
+                            clearTimeout(this.temporizadorDeshacer);
+                            this.temporizadorDeshacer = setTimeout(() => { this.carritoVaciado = null; }, 10000);
+                        },
+
+                        deshacerVaciar() {
+                            if (! this.carritoVaciado) return;
+
+                            // Si ya se empezó otra venta, lo recuperado se suma sin pisarla.
+                            this.carritoVaciado.forEach((l) => {
+                                if (! this.carrito.some((x) => x.producto_id === l.producto_id)) this.carrito.push(l);
+                            });
+
+                            this.carritoVaciado = null;
+                            clearTimeout(this.temporizadorDeshacer);
+                        },
+
+                        /* ------------------------------------------- ventas en espera */
+
+                        get puedeEsperar() {
+                            // Un cobro por QR ya generado está atado a este total y a esta venta.
+                            return this.carrito.length > 0 && ! this.pagos.some((p) => p.qr);
+                        },
+
+                        cargarEsperas() {
+                            try {
+                                const guardadas = JSON.parse(localStorage.getItem(this.claveEsperas) || '[]');
+                                const limite = Date.now() - 12 * 3600 * 1000;
+
+                                this.esperas = (Array.isArray(guardadas) ? guardadas : [])
+                                    .filter((e) => e && e.creada > limite && Array.isArray(e.carrito) && e.carrito.length);
+                            } catch (err) {
+                                this.esperas = [];
+                            }
+                        },
+
+                        guardarEsperas() {
+                            try {
+                                localStorage.setItem(this.claveEsperas, JSON.stringify(this.esperas));
+                            } catch (err) {}
+                        },
+
+                        fotoDeLaVenta() {
+                            return {
+                                id: Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+                                creada: Date.now(),
+                                carrito: JSON.parse(JSON.stringify(this.carrito)),
+                                clienteId: this.clienteId,
+                                descuento: this.descuento,
+                                descuentoModo: this.descuentoModo,
+                            };
+                        },
+
+                        /* Deja el mostrador como recién abierto, sin tocar las ventas en espera. */
+                        reiniciarVenta() {
+                            this.carrito = [];
+                            this.clienteId = null;
+                            this.descuento = 0;
+                            this.descuentoModo = 'monto';
+                            this.pagos = [this.pagoNuevo()];
+                            this.cobrando = false;
+                            this.vaciando = false;
+                            this.carritoVaciado = null;
+                        },
+
+                        pagoNuevo() {
+                            return {
+                                metodoId: this.metodos[0]?.id ?? null,
+                                monto: '',
+                                recibido: null,
+                                referencia: '',
+                                qr: null,
+                                qrCargando: false,
+                                qrError: '',
+                            };
+                        },
+
+                        ponerEnEspera() {
+                            if (! this.puedeEsperar) return;
+
+                            if (this.esperas.length >= this.maxEsperas) {
+                                this.esperaAviso = 'Ya hay ' + this.maxEsperas + ' ventas en espera: retoma o descarta alguna.';
+
+                                return;
+                            }
+
+                            this.esperas.push(this.fotoDeLaVenta());
+                            this.guardarEsperas();
+                            this.reiniciarVenta();
+                            this.esperaAviso = '';
+                            this.$nextTick(() => this.$refs.buscador?.focus());
+                        },
+
+                        async retomar(id) {
+                            const i = this.esperas.findIndex((e) => e.id === id);
+                            if (i < 0) return;
+
+                            if (this.pagos.some((p) => p.qr)) {
+                                this.esperaAviso = 'Termina o anula el cobro por QR antes de cambiar de venta.';
+
+                                return;
+                            }
+
+                            const elegida = this.esperas[i];
+
+                            // La venta en curso ocupa el lugar de la que se retoma.
+                            if (this.carrito.length) {
+                                this.esperas.splice(i, 1, this.fotoDeLaVenta());
+                            } else {
+                                this.esperas.splice(i, 1);
+                            }
+
+                            this.guardarEsperas();
+                            this.reiniciarVenta();
+                            this.carrito = elegida.carrito;
+                            this.clienteId = elegida.clienteId;
+                            this.descuento = elegida.descuento;
+                            this.descuentoModo = elegida.descuentoModo;
+                            this.esperaAviso = '';
+
+                            // Pasó tiempo: los precios y el stock pueden haber cambiado.
+                            try {
+                                if (await this.refrescarPrecios()) {
+                                    this.esperaAviso = 'Cambiaron precios o stock mientras estaba en espera: revisa el total.';
+                                }
+                            } catch (e) {
+                                this.conexionPerdida();
+                            }
+                        },
+
+                        descartarEspera(id) {
+                            // Dos toques: el primero pide confirmar, el segundo descarta.
+                            if (this.esperaPorDescartar !== id) {
+                                this.esperaPorDescartar = id;
+                                clearTimeout(this.temporizadorDescartar);
+                                this.temporizadorDescartar = setTimeout(() => { this.esperaPorDescartar = null; }, 4000);
+
+                                return;
+                            }
+
+                            this.esperas = this.esperas.filter((e) => e.id !== id);
+                            this.esperaPorDescartar = null;
+                            this.guardarEsperas();
+                        },
+
+                        articulosDe(carrito) {
+                            return carrito.reduce((s, l) => s + Number(l.cantidad), 0);
+                        },
+
+                        subtotalDe(carrito) {
+                            return montos.sumar(carrito.map((l) => montos.importeLinea(l.precio, l.cantidad)));
+                        },
+
+                        horaDe(espera) {
+                            return new Date(espera.creada).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
+                        },
+
+                        /* ------------------------------------------- código sin producto */
+
+                        abrirAsignar() {
+                            this.asignando = true;
+                            this.asigQ = '';
+                            this.asigResultados = [];
+                            this.asigError = '';
+                            this.$nextTick(() => this.$refs.asigBuscador?.focus());
+                        },
+
+                        async buscarParaAsignar() {
+                            const texto = this.asigQ.trim();
+
+                            if (texto.length < 2) {
+                                this.asigResultados = [];
+
+                                return;
+                            }
+
+                            this.asigBuscando = true;
+
+                            try {
+                                const url = new URL('{{ route('pos.productos') }}', window.location.origin);
+                                url.searchParams.set('q', texto);
+                                const respuesta = await fetch(url, { headers: { 'Accept': 'application/json' } });
+
+                                // Si se siguió tecleando, esta respuesta ya es vieja.
+                                if (texto === this.asigQ.trim()) {
+                                    this.asigResultados = respuesta.ok ? await respuesta.json() : [];
+                                }
+                            } catch (e) {
+                                this.asigError = 'Sin conexión con el servidor.';
+                            } finally {
+                                this.asigBuscando = false;
+                            }
+                        },
+
+                        async asignarCodigo(producto) {
+                            if (this.asigGuardando || producto.codigo_barras) return;
+
+                            this.asigGuardando = true;
+                            this.asigError = '';
+
+                            try {
+                                const respuesta = await fetch(this.rutaAsignarCodigo, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Accept': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                    },
+                                    body: JSON.stringify({ producto_id: producto.id, codigo_barras: this.codigoNoEncontrado }),
+                                });
+
+                                const cuerpo = await respuesta.json().catch(() => ({}));
+
+                                if (! respuesta.ok) {
+                                    const primero = cuerpo.errors ? Object.values(cuerpo.errors)[0]?.[0] : null;
+                                    this.asigError = primero ?? cuerpo.message ?? 'No se pudo asignar el código.';
+
+                                    return;
+                                }
+
+                                // Listo: se vuelve a «escanear», ahora sí encuentra el producto.
+                                const codigo = this.codigoNoEncontrado;
+                                this.asignando = false;
+                                this.codigoNoEncontrado = '';
+                                this.q = codigo;
+                                await this.porCodigo();
+                            } catch (e) {
+                                this.asigError = 'No se pudo conectar con el servidor. Intenta de nuevo.';
+                            } finally {
+                                this.asigGuardando = false;
+                            }
                         },
 
                         async buscarCliente() {
@@ -1249,7 +1708,12 @@
                             this.buscandoCodigo = true;
 
                             try {
-                                await this.cargar();
+                                /* Sin respuesta del servidor NO se decide nada: con la lista
+                                   vieja, un código bueno parecería «no cargado». El texto
+                                   queda en el buscador para repetir el escaneo con Enter. */
+                                if (! await this.cargar()) {
+                                    return;
+                                }
 
                                 /* Si mientras se consultaba llegó otro escaneo, esta
                                    respuesta ya no corresponde: la manda la siguiente. */
@@ -1756,6 +2220,7 @@
                         },
 
                         get puedeCobrar() {
+                            if (this.sinConexion || this.sesionVencida) return false;
                             if (!this.carrito.length || this.total <= 0 || this.sinStock) return false;
                             if (this.excedeDescuento && !this.puedeDescontar) return false;
                             if (!this.pagoCubierto) return false;
@@ -1768,6 +2233,8 @@
                         },
 
                         get motivoBloqueo() {
+                            if (this.sesionVencida) return 'Tu sesión venció: recarga la página e ingresa de nuevo.';
+                            if (this.sinConexion) return 'Sin conexión con el servidor: no se puede cobrar hasta que vuelva.';
                             if (this.sinStock) return 'Hay líneas por encima del stock disponible.';
                             if (this.excedeDescuento && !this.puedeDescontar) return 'El descuento necesita autorización.';
                             if (this.lineasSinMonto > 1) return 'Solo una forma de pago puede quedar sin importe.';
@@ -1818,6 +2285,12 @@
                                     this.precioActualizado = true;
                                     return;
                                 }
+                            } catch (err) {
+                                // Sin poder verificar los precios no se cobra: se dice y
+                                // el carrito queda como está. Antes fallaba en silencio.
+                                this.conexionPerdida();
+
+                                return;
                             } finally {
                                 this.verificando = false;
                             }
@@ -1836,6 +2309,14 @@
                             url.searchParams.set('ids', ids.join(','));
 
                             const respuesta = await fetch(url, { headers: { 'Accept': 'application/json' } });
+
+                            if (respuesta.status === 401 || respuesta.status === 419) {
+                                this.sesionPerdida();
+                                throw new Error('sesion');
+                            }
+
+                            if (! respuesta.ok) throw new Error('http ' + respuesta.status);
+
                             const porId = Object.fromEntries((await respuesta.json()).map(p => [p.id, p]));
 
                             let cambio = false;

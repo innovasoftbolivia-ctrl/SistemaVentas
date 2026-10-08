@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Caja;
+use App\Models\MovimientoCaja;
 use App\Models\SesionCaja;
 use App\Models\Usuario;
 use App\Services\Cajas;
@@ -66,6 +67,7 @@ class CajaController extends Controller
             'usuarioApertura:id,usuario',
             'usuarioCierre:id,usuario',
             'movimientos.usuario:id,usuario',
+            'movimientos.anulacion:id,anula_a_id',
         ]);
 
         return view('caja.show', [
@@ -109,6 +111,7 @@ class CajaController extends Controller
             'usuarioApertura.empleado:id,nombre_completo',
             'usuarioCierre:id,usuario',
             'movimientos.usuario:id,usuario',
+            'movimientos.anulacion:id,anula_a_id',
         ]);
 
         return view('caja.imprimir', [
@@ -184,6 +187,31 @@ class CajaController extends Controller
         }
 
         return back()->with('exito', 'Movimiento registrado.');
+    }
+
+    /**
+     * Anula un movimiento de este turno con un contra-asiento enlazado.
+     * Las reglas viven en {@see Cajas::anularMovimiento()}.
+     */
+    public function anularMovimiento(Request $request, SesionCaja $sesion, MovimientoCaja $movimiento): RedirectResponse
+    {
+        // El movimiento tiene que ser de ESTE turno: la URL no puede mezclarlos.
+        abort_unless($movimiento->sesion_caja_id === $sesion->id, 404);
+
+        $datos = $request->validate([
+            'motivo' => ['required', 'string', 'min:5', 'max:80'],
+        ], [
+            'motivo.required' => 'Explica por qué se anula el movimiento.',
+            'motivo.min' => 'Explica el motivo con al menos 5 letras.',
+        ]);
+
+        try {
+            Cajas::anularMovimiento($movimiento, Auth::user(), $datos['motivo']);
+        } catch (RuntimeException $e) {
+            return back()->with('error', Mensaje::de($e));
+        }
+
+        return back()->with('exito', 'Movimiento anulado. Quedó escrito el contra-asiento con el motivo.');
     }
 
     public function cerrar(Request $request, SesionCaja $sesion): RedirectResponse

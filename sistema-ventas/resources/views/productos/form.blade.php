@@ -456,6 +456,20 @@
                     </div>
                 </div>
 
+                {{-- Por debajo del costo: casi siempre es un dedazo. Se puede, pero a propósito. --}}
+                <div x-show="Number(margen) < 0" x-cloak data-perdida role="alert"
+                    class="rounded-xl border border-error-200 bg-error-50 p-4 dark:border-error-500/30 dark:bg-error-500/10">
+                    <p class="text-theme-sm text-error-700 dark:text-error-400">
+                        <b>Este precio está por debajo del costo:</b> cada unidad vendida pierde
+                        {{ $moneda }} <b x-text="Math.abs(margen).toFixed(2)"></b>.
+                        Revisa el precio de venta y el costo (¿está por caja o por unidad?).
+                    </p>
+                    <div class="mt-3">
+                        <x-form.check name="confirma_perdida" :checked="false"
+                            label="Es una promoción: vender a pérdida a propósito" />
+                    </div>
+                </div>
+
                 {{-- Lo que cuesta la caja entera: es la cifra que aparece en la
                      factura del proveedor, y sirve para comprobar de un vistazo
                      que el costo por unidad se escribió bien. --}}

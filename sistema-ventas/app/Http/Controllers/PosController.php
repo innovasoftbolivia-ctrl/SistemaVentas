@@ -7,6 +7,7 @@ use App\Models\Cliente;
 use App\Models\MetodoPago;
 use App\Models\Producto;
 use App\Models\Venta;
+use App\Services\Auditor;
 use App\Services\Cajas;
 use App\Services\CobrosQr;
 use App\Services\Ventas;
@@ -17,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use RuntimeException;
 use Throwable;
@@ -159,6 +161,64 @@ class PosController extends Controller
         );
     }
 
+    /**
+     * Le pone su código de barras a un producto que no lo tenía, desde el propio
+     * mostrador.
+     *
+     * Al instalar, la mayoría del catálogo no trae código de barras (en la demo,
+     * 140 de 166): el cajero escanea, el sistema dice «no está» y ahí terminaba
+     * la venta. Quien puede editar el catálogo ahora lo asigna en el momento, sin
+     * salir de la pantalla ni perder el carrito.
+     *
+     * Solo a productos SIN código: cambiar el de uno que ya lo tiene es editar el
+     * producto, y hacerlo desde el mostrador permitiría, con un toque equivocado,
+     * que un código empiece a cobrar otra mercadería.
+     */
+    public function asignarCodigo(Request $request): JsonResponse
+    {
+        $datos = $request->validate([
+            'producto_id' => ['required', Rule::exists('productos', 'id')->where('activo', 1)],
+            'codigo_barras' => ['required', 'string', 'max:50', 'regex:/^[0-9]+$/'],
+        ], [
+            'codigo_barras.regex' => 'El código de barras solo admite dígitos.',
+            'producto_id.exists' => 'Ese producto ya no está disponible.',
+        ], [
+            'producto_id' => 'producto',
+            'codigo_barras' => 'código de barras',
+        ]);
+
+        $dueno = Producto::where('codigo_barras', $datos['codigo_barras'])->first();
+
+        if ($dueno) {
+            throw ValidationException::withMessages([
+                'codigo_barras' => "Ese código ya es de «{$dueno->nombre}»".($dueno->activo ? '.' : ' (que está desactivado).'),
+            ]);
+        }
+
+        $producto = Producto::findOrFail($datos['producto_id']);
+
+        if (filled($producto->codigo_barras)) {
+            throw ValidationException::withMessages([
+                'producto_id' => "«{$producto->nombre}» ya tiene el código {$producto->codigo_barras}. Para cambiarlo, edita el producto.",
+            ]);
+        }
+
+        $producto->forceFill(['codigo_barras' => $datos['codigo_barras']])->save();
+
+        Auditor::registrar('CODIGO_BARRAS_ASIGNADO', 'productos', $producto->id, [
+            'codigo' => $producto->codigo,
+            'nombre' => $producto->nombre,
+            'codigo_barras' => $datos['codigo_barras'],
+            'desde' => 'mostrador',
+        ]);
+
+        return response()->json([
+            'id' => $producto->id,
+            'nombre' => $producto->nombre,
+            'codigo_barras' => $producto->codigo_barras,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $sesion = Cajas::sesionDe(Auth::user());
@@ -225,8 +285,11 @@ class PosController extends Controller
             return back()->with('error', $this->mensajeDeBase($e))->withInput();
         }
 
+        // `venta_recien` hace que la ficha muestre, arriba y grande, lo que el cajero
+        // necesita en ese momento: el vuelto y el botón para empezar la siguiente.
         return redirect()->route('ventas.show', $venta)
-            ->with('exito', 'Venta registrada. Comprobante '.$venta->comprobante?->numero_completo.'.');
+            ->with('exito', 'Venta registrada. Comprobante '.$venta->comprobante?->numero_completo.'.')
+            ->with('venta_recien', true);
     }
 
     /**

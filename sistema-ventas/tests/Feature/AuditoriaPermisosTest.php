@@ -71,6 +71,10 @@ class AuditoriaPermisosTest extends TestCase
 
         $cobro = CobrosQr::generar($sesion->fresh(), $cajero, 10.0);
 
+        // Y un movimiento de caja: de él cuelga la ruta que lo anula, y sin uno
+        // real contestaría 404 antes de que el portero llegara a opinar.
+        $movimiento = Cajas::movimiento($sesion->fresh(), $cajero, 'EGRESO', 'Prueba de permisos', 1);
+
         // Y una tanda, por lo mismo: de ella cuelga la baja por vencimiento.
         $lote = Lote::create([
             'producto_id' => $producto->id,
@@ -107,6 +111,7 @@ class AuditoriaPermisosTest extends TestCase
             'toma' => $toma->id,
             'linea' => $toma->lineas()->value('id'),
             'sesion' => $sesion->id,
+            'movimiento' => $movimiento->id,
             'comprobante' => $venta->comprobante->id,
             'devolucion' => $devolucion->id,
             'cobro' => $cobro->id,

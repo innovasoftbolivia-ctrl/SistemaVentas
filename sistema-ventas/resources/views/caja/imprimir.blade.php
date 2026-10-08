@@ -249,9 +249,11 @@
             </thead>
             <tbody>
                 @forelse ($sesion->movimientos->sortBy('fecha') as $movimiento)
-                    <tr>
+                    {{-- Un movimiento anulado se lee de un golpe: tachado y con el número
+                         de su contra-asiento, que dice «ANULA #…» en su concepto. --}}
+                    <tr @if ($movimiento->anulacion) style="text-decoration: line-through; opacity: .6" @endif>
                         <td class="tenue">{{ $movimiento->fecha?->format('H:i') }}</td>
-                        <td>{{ $movimiento->concepto }}</td>
+                        <td>{{ $movimiento->concepto }}@if ($movimiento->anulacion) (anulado) @endif</td>
                         <td class="tenue">{{ $movimiento->usuario?->usuario }}</td>
                         <td class="derecha">
                             {{ $movimiento->tipo === 'INGRESO' ? '+' : '−' }}{{ Config::importe($movimiento->monto) }}

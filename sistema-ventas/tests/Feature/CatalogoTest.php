@@ -185,7 +185,7 @@ class CatalogoTest extends TestCase
             'codigo_barras' => $producto->codigo_barras,
             'nombre' => $producto->nombre,
             'unidad_medida_id' => $producto->unidad_medida_id,
-            'precio_venta' => '4.50',
+            'precio_venta' => '9.50',
         ]))->assertRedirect();
 
         $this->assertDatabaseHas('auditoria', [

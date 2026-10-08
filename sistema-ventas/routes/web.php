@@ -101,6 +101,11 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
         Route::get('pos/precios', [PosController::class, 'precios'])
             ->middleware('throttle:60,1')
             ->name('pos.precios');
+        // Asignar el código de barras escaneado a un producto que no lo tenía: es
+        // editar el catálogo, así que además de vender hace falta poder gestionarlo.
+        Route::post('pos/asignar-codigo', [PosController::class, 'asignarCodigo'])
+            ->middleware(['permiso:productos.gestionar', 'throttle:30,1'])
+            ->name('pos.asignar-codigo');
         // Con `un.envio` como el resto de lo que mueve plata: con internet que se
         // corta, el cajero da F5 y acepta «reenviar formulario»; sin este freno esa
         // venta se registraba dos veces, con el stock descontado dos veces.
@@ -202,6 +207,8 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
 
     Route::post('caja/{sesion}/movimiento', [CajaController::class, 'movimiento'])
         ->middleware('permiso:caja.abrir')->middleware('un.envio')->name('caja.movimiento');
+    Route::post('caja/{sesion}/movimiento/{movimiento}/anular', [CajaController::class, 'anularMovimiento'])
+        ->middleware('permiso:caja.abrir')->middleware('un.envio')->name('caja.movimiento.anular');
 
     Route::post('caja/{sesion}/cerrar', [CajaController::class, 'cerrar'])
         ->middleware('permiso:caja.cerrar')->name('caja.cerrar');

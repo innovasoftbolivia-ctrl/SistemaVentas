@@ -142,6 +142,87 @@ class Cajas
     }
 
     /**
+     * Anula un movimiento de caja con un contra-asiento ENLAZADO.
+     *
+     * Un egreso de Bs 500 tecleado en vez de Bs 50 solo se corregía con otro
+     * movimiento escrito a mano, sin relación con el original, y el arqueo
+     * firmado quedaba ilegible. Aquí el original no se toca ni se borra —lo que
+     * entró o salió del cajón quedó escrito— y la anulación apunta a él, con el
+     * motivo: en el cierre se lee como un par.
+     *
+     * Reglas, todas dentro de la transacción y con el turno bloqueado:
+     *  - solo en un turno ABIERTO (uno cerrado ya se arqueó y se firmó);
+     *  - un movimiento se anula una sola vez, y una anulación no se anula;
+     *  - lo hace quien lo registró o quien puede cerrar la caja;
+     *  - anular un INGRESO saca ese dinero del cajón: no puede dejar el efectivo
+     *    esperado por debajo de cero (sería esconder un faltante).
+     */
+    public static function anularMovimiento(MovimientoCaja $movimiento, Usuario $usuario, string $motivo): MovimientoCaja
+    {
+        $motivo = trim($motivo);
+
+        if (mb_strlen($motivo) < 5) {
+            throw new RuntimeException('Explica el motivo de la anulación (al menos 5 letras).');
+        }
+
+        return DB::transaction(function () use ($movimiento, $usuario, $motivo) {
+            // Primero el turno y luego el movimiento: el mismo orden de bloqueo
+            // que usa Cajas::movimiento(), para que dos operaciones no se crucen.
+            $sesion = SesionCaja::whereKey($movimiento->sesion_caja_id)->lockForUpdate()->firstOrFail();
+
+            if (! $sesion->estaAbierta()) {
+                throw new RuntimeException('El turno de este movimiento ya cerró: no se puede anular.');
+            }
+
+            $original = MovimientoCaja::whereKey($movimiento->id)->lockForUpdate()->firstOrFail();
+
+            if ($original->esAnulacion()) {
+                throw new RuntimeException('Eso ya es una anulación y no se anula otra vez. Si te equivocaste al anular, registra de nuevo el movimiento.');
+            }
+
+            if ($original->anulacion()->exists()) {
+                throw new RuntimeException('Este movimiento ya está anulado.');
+            }
+
+            if ((int) $original->usuario_id !== (int) $usuario->id && ! $usuario->tienePermiso('caja.cerrar')) {
+                throw new RuntimeException('Solo quien registró el movimiento, o un administrador, puede anularlo.');
+            }
+
+            $contrario = $original->tipo === 'EGRESO' ? 'INGRESO' : 'EGRESO';
+
+            if ($contrario === 'EGRESO' && round($sesion->efectivoEsperado(), 2) < round((float) $original->monto, 2)) {
+                throw new RuntimeException(sprintf(
+                    'No se puede anular este ingreso: sacaría %s del cajón y solo debería haber %s.',
+                    Config::importe($original->monto),
+                    Config::importe(max(0, $sesion->efectivoEsperado())),
+                ));
+            }
+
+            $concepto = mb_substr('ANULA #'.$original->id.' ('.$original->concepto.'): '.$motivo, 0, 120);
+
+            $anulacion = MovimientoCaja::create([
+                'sesion_caja_id' => $sesion->id,
+                'usuario_id' => $usuario->id,
+                'tipo' => $contrario,
+                'concepto' => $concepto,
+                'monto' => $original->monto,
+                'anula_a_id' => $original->id,
+                'fecha' => now(),
+            ]);
+
+            Auditor::registrar('CAJA_MOVIMIENTO_ANULADO', 'movimientos_caja', $original->id, [
+                'anulacion_id' => $anulacion->id,
+                'tipo_original' => $original->tipo,
+                'concepto_original' => $original->concepto,
+                'monto' => (float) $original->monto,
+                'motivo' => $motivo,
+            ], $usuario->id);
+
+            return $anulacion;
+        }, self::REINTENTOS);
+    }
+
+    /**
      * Un egreso no puede sacar más de lo que debería haber en el cajón, y el
      * cajero tiene un tope sin autorización.
      *

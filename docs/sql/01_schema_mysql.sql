@@ -349,11 +349,17 @@ CREATE TABLE movimientos_caja (
     tipo            ENUM('INGRESO','EGRESO') NOT NULL,
     concepto        VARCHAR(120)  NOT NULL,
     monto           DECIMAL(12,2) NOT NULL,
+    -- Si este movimiento es la ANULACIÓN de otro, a cuál. El original no se toca
+    -- ni se borra: la corrección es un contra-asiento enlazado, y un movimiento
+    -- se anula una sola vez (índice único). Ver Cajas::anularMovimiento().
+    anula_a_id      INT UNSIGNED  NULL,
     fecha           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY ix_movcaja_sesion (sesion_caja_id),
+    UNIQUE KEY uq_movcaja_anula (anula_a_id),
     CONSTRAINT fk_movcaja_sesion  FOREIGN KEY (sesion_caja_id) REFERENCES sesiones_caja (id),
     CONSTRAINT fk_movcaja_usuario FOREIGN KEY (usuario_id)     REFERENCES usuarios (id),
+    CONSTRAINT fk_movcaja_anula   FOREIGN KEY (anula_a_id)     REFERENCES movimientos_caja (id),
     CONSTRAINT ck_movcaja_monto   CHECK (monto > 0)
 ) ENGINE=InnoDB;
 
@@ -1866,4 +1872,5 @@ INSERT INTO parches_aplicados (archivo) VALUES
     ('2026_09_15_plazo_devolucion_y_referencia_de_pago.sql'),
     ('2026_09_15_precios_con_impuesto_incluido.sql'),
     ('2026_09_16_permisos_por_rol.sql'),
-    ('2026_09_16_reglas_en_la_base.sql');
+    ('2026_09_16_reglas_en_la_base.sql'),
+    ('2026_10_08_anular_movimiento_de_caja.sql');

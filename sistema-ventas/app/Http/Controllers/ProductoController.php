@@ -11,6 +11,7 @@ use App\Models\UnidadMedida;
 use App\Services\Auditor;
 use App\Services\Inventario;
 use App\Services\Lotes;
+use App\Support\Config;
 use App\Support\Palabras;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -671,7 +672,42 @@ class ProductoController extends Controller
 
         unset($datos['precio_compra_por']);
 
+        $this->exigirConfirmarPerdida($request, $producto, $datos);
+
         return $datos;
+    }
+
+    /**
+     * Vender por debajo del costo casi siempre es un dedazo —un cero de menos en
+     * el precio, o el costo de la caja escrito como costo de la unidad— y el
+     * negocio vende a pérdida toda la jornada sin enterarse. Se permite (hay
+     * promociones), pero a propósito: hay que marcar la casilla del formulario.
+     *
+     * Solo se exige al crear o cuando cambian los precios: editar otra cosa de un
+     * producto que ya se vendía así no se bloquea por eso.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function exigirConfirmarPerdida(Request $request, ?Producto $producto, array $datos): void
+    {
+        // El margen se mide sobre el precio SIN impuesto, como en el resto del sistema.
+        $margen = (new Producto($datos))->margen;
+
+        if ($margen >= 0 || $request->boolean('confirma_perdida')) {
+            return;
+        }
+
+        if ($producto
+            && round((float) $producto->precio_venta, 2) === round((float) $datos['precio_venta'], 2)
+            && round((float) $producto->precio_compra, 2) === round((float) $datos['precio_compra'], 2)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'precio_venta' => 'Este precio está por debajo del costo: cada unidad vendida pierde '
+                .Config::importe(abs($margen)).'. Si es una promoción a propósito, marca «Vender a pérdida a propósito»; '
+                .'si no, revisa el precio de venta y el costo (¿está por caja o por unidad?).',
+        ]);
     }
 
     /**

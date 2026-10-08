@@ -313,6 +313,7 @@ class EmpaqueDelProductoTest extends TestCase
                 'viene_en_empaque' => '0',
                 'precio_compra' => '96.00',
                 'precio_compra_por' => 'EMPAQUE',
+                'precio_venta' => '120.00',
             ]))
             ->assertRedirect();
 
