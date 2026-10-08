@@ -936,8 +936,46 @@ sus propios datos de negocio.
    Usuarios**: el personal y sus cuentas. Cada cuenta nueva, y cada contraseña que restablece un
    administrador, se cambia al primer ingreso.
 
-7. **Backup programado.** Sin esto, un disco dañado se lleva el negocio entero — ver
-   [Copias de seguridad](#copias-de-seguridad) más abajo. No lo dejes para después.
+   **Catálogo inicial.** Un minimarket tiene entre 1.000 y 3.000 artículos: tecleados uno por uno
+   son días de trabajo y de errores. Se cargan desde una hoja de cálculo, con una fila por producto.
+   El cliente llena la plantilla (se abre en Excel):
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec -T app php artisan catalogo:importar --plantilla > catalogo.csv
+   ```
+
+   Columnas obligatorias: `nombre`, `categoria`, `unidad` (el código: `UND`, `KG`…), `precio_compra` y
+   `precio_venta`. Opcionales: `codigo_barras`, `stock`, `stock_minimo`, `proveedor`,
+   `afecto_impuesto`, `controla_vencimiento`, `fecha_vencimiento`, `codigo`, `nombre_empaque` y
+   `contenido_empaque`. Acepta `.csv` (con `;` o `,`, de Excel en español o en inglés) y `.xlsx`. Con el
+   archivo ya dentro del contenedor (`docker cp catalogo.csv ventas_app_prod:/tmp/catalogo.csv`):
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec app php artisan catalogo:importar /tmp/catalogo.csv            # solo REVISA
+   docker compose -f docker-compose.prod.yml exec app php artisan catalogo:importar /tmp/catalogo.csv --aplicar  # carga
+   ```
+
+   - **Primero revisa, después carga.** Sin `--aplicar` no se toca nada: se lee todo el archivo y se
+     listan los errores por fila (numerada como en la hoja). Es todo o nada: con una sola fila mala no
+     entra ninguna, para que el catálogo no quede a medias.
+   - **Las mismas reglas que el formulario**: código de barras solo con dígitos y sin repetir (ni
+     dentro del archivo ni contra lo que ya hay), empaque completo, stock sin decimales en unidades
+     enteras, perecederos con su fecha de vencimiento. Un precio de venta menor que el de compra se
+     rechaza: casi siempre es un dedazo.
+   - **El stock inicial entra por el kardex**, igual que en el alta manual, con su lote si el producto
+     vence. Cada producto con stock queda con un movimiento «Carga inicial de inventario».
+   - **No inventa nada en silencio.** Una categoría o proveedor que no existe es un error (así «Bebidas»
+     y «Bebidas » no terminan como dos categorías). Reconoce mayúsculas y espacios de más. Para crear las
+     que falten, `--crear-categorias`.
+   - **Excel estropea los códigos de barras largos** (los vuelve `7,77123E+12`). Se avisa en la fila: la
+     columna hay que guardarla como texto antes de llenarla.
+   - Con 3.000 productos tarda unos 30 segundos. Cada carga queda en la bitácora.
+
+7. **Backup programado y ensayo de restauración.** Sin respaldo, un disco dañado se lleva el negocio
+   entero — ver [Copias de seguridad](#copias-de-seguridad) más abajo. No lo dejes para después. Y un
+   respaldo que nunca se restauró es una promesa: agenda también el ensayo mensual
+   (`scripts/probar-restauracion.sh`) y la revisión de salud cada cinco minutos
+   ([Monitoreo](#monitoreo)). Los dos quedan anotados en el [acta de instalación](../docs/acta-de-instalacion.md).
 
 8. **Adminer no existe en producción.** `docker-compose.prod.yml` directamente no lo declara: un
    cliente de base de datos sin autenticación propia no tiene por qué estar instalado en el
@@ -1019,6 +1057,51 @@ sus propios datos de negocio.
     Después de cambiar `.env.docker` o `.env`: `docker compose -f docker-compose.prod.yml up -d`
     (recrea los contenedores con los valores nuevos; `restart` no los vuelve a leer).
 
+    **Si las cajas entran por la red del local, sin HTTPS** (`http://IP-del-servidor:8100`): las
+    contraseñas y la cookie de sesión viajan **sin cifrar** por esa red. En un WiFi compartido con los
+    clientes, cualquiera con un programa de captura las lee. Hay que decidirlo antes de instalar y
+    dejarlo escrito en el [acta](../docs/acta-de-instalacion.md); las salidas, de mejor a peor:
+    1. **Cajas por cable o por una red propia** (un WiFi aparte, con contraseña, que no usen los
+       clientes). Es lo más simple y suficiente para un local.
+    2. **Un certificado en el servidor** (Caddy o nginx con una autoridad local) y `APP_PUERTO=127.0.0.1:8100`.
+       Cifra, pero hay que instalar el certificado en cada caja.
+    3. **Aceptar el riesgo** por escrito, solo si la red es de confianza.
+
+---
+
+## Actualizar el sistema
+
+```bash
+./scripts/actualizar.sh --simular     # revisa y cuenta qué haría, sin cambiar nada
+./scripts/actualizar.sh               # actualiza (pide confirmación escrita)
+```
+
+Una actualización a mano tiene seis pasos y olvidar uno rompe el negocio sin avisar: un `git pull`
+sin recompilar los estilos deja **todas** las pantallas en error 500; los parches se aplicaban sin un
+respaldo previo; y nadie comprobaba al final que el sistema siguiera vendiendo. El guion los hace en
+el orden que protege los datos:
+
+1. **Revisa que se pueda**: docker, el `.env`, MySQL corriendo y sin cambios hechos a mano en el código.
+2. **Respaldo** de la base y las fotos. **Si falla, no se toca nada más.**
+3. **Código nuevo** con `git pull --ff-only` (nunca mezcla ni pisa).
+4. **Compila los estilos** y comprueba que existen. Si falla, los contenedores siguen corriendo con la
+   versión anterior, intactos.
+5. **Reconstruye y reinicia** los contenedores y espera a que la aplicación esté sana.
+6. **Aplica los parches** de base de datos que falten.
+7. **Comprueba que el sistema vende**: `/up` responde, la pantalla de ingreso se ve y su hoja de
+   estilos carga (justo lo que falla cuando faltan los estilos), y corre `revisar-salud.sh`.
+
+Si algo falla después de traer el código, dice en qué paso se detuvo, cuál era la versión anterior y
+dónde está el respaldo, con las órdenes exactas para volver atrás. Queda constancia en
+`backups/ultima-actualizacion.txt`.
+
+- **Hazlo fuera del horario de venta**: al reiniciar, los cajeros con una venta a medias pierden el
+  carrito y vuelven a iniciar sesión.
+- Un servidor sin git: copia el código nuevo encima y usa `--sin-git`. Sin node: `--sin-assets`
+  (los estilos ya tienen que venir compilados en `sistema-ventas/public/build`).
+- `--si` salta la pregunta (para automatizarlo); `COMPOSE_FILE` y `URL_BASE` cambian el compose y la
+  dirección de la comprobación final.
+
 ---
 
 ## Copias de seguridad
@@ -1093,18 +1176,41 @@ disco USB montado o a una carpeta de red, cada respaldo se duplica ahí:
 0 1 * * *  cd /ruta/al/proyecto && DESTINO_EXTERNO=/mnt/respaldos ./scripts/backup-db.sh >> backups/backup.log 2>&1
 ```
 
-Y de cuando en cuando, prueba que una copia efectivamente restaura —una copia que nunca se
-probó a restaurar no es una copia de seguridad, es una promesa. Esta ya se probó: se tiró la
-base entera y las fotos, y se recuperó todo desde una copia con un solo comando. De ahí salió,
-justamente, el arreglo de que `restore-db.sh` ahora cree la base si no existe: hasta entonces
-la restauración moría con «Unknown database» en el único escenario que importa, el del
-servidor perdido.
+### Ensayar la restauración
+
+Una copia que nunca se probó a restaurar no es una copia de seguridad, es una promesa. Se descubre
+que estaba rota el día que el disco muere. Y los respaldos nocturnos los escribe el propio sistema (no
+`mysqldump`), de modo que probar con otro generador no prueba lo que de verdad se usará.
+
+```bash
+./scripts/probar-restauracion.sh                 # el respaldo más reciente (el nocturno o el de backups/)
+./scripts/probar-restauracion.sh backups/ventas_db_20261001_010000.sql.gz
+```
+
+Carga el respaldo en una base **temporal** (`ventas_db_ensayo`, que borra siempre al terminar) sin tocar
+la real, y comprueba que volvió completo: mismas tablas, vistas, procedimientos y triggers que la base
+viva; que productos y usuarios no están vacíos; que no tiene más ventas que la viva (sería de otra
+instalación); y que el stock de cada producto coincide con su kardex. Detecta los cuatro daños que
+pasan en la vida real: archivo **cortado**, gzip **corrupto**, volcado **sin triggers ni procedimientos**
+(se ve completo pero esa lógica no vuelve) y respaldo de una base **vacía**. Cada respaldo nocturno
+termina con la marca `-- Fin del respaldo: completo.`, que un archivo cortado no tiene.
+
+Agéndalo una vez al mes (el día 1 a las 3:00):
+
+```
+0 3 1 * *  cd /ruta/al/proyecto && ./scripts/probar-restauracion.sh >> backups/ensayo.log 2>&1
+```
+
+Deja su resultado en `backups/ultimo-ensayo-restauracion.txt`, que `scripts/revisar-salud.sh` vigila:
+avisa si pasaron más de 35 días sin ensayo o si el último **falló**. Con el desastre real (el servidor
+perdido), la restauración se hace con `restore-db.sh`, que crea la base si no existe: antes moría con
+«Unknown database» justo en ese escenario.
 
 ---
 
 ## Monitoreo
 
-`scripts/revisar-salud.sh` revisa las cinco cosas que dejan al negocio sin vender —o sin red
+`scripts/revisar-salud.sh` revisa las seis cosas que dejan al negocio sin vender —o sin red
 de seguridad— y que no avisan solas:
 
 1. **Los contenedores están corriendo.**
@@ -1119,6 +1225,10 @@ de seguridad— y que no avisan solas:
 5. **La copia externa está en OTRO disco y al día.** Con la copia activada, comprueba que la
    carpeta existe, que no está en el mismo disco que el sistema y que tiene un respaldo de las
    últimas horas (un USB desconectado deja la carpeta vacía y en el disco equivocado).
+6. **Se ensayó restaurar un respaldo hace poco y salió bien.** Ver
+   [Ensayar la restauración](#ensayar-la-restauración): avisa si pasaron más de 35 días
+   (`ENSAYO_MAX_DIAS`) o si el último ensayo falló. En una instalación recién hecha da una semana de
+   margen.
 
 ```bash
 ./scripts/revisar-salud.sh

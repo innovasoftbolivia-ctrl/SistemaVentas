@@ -179,6 +179,29 @@ else
     fi
 fi
 
+# --- 6. Se ensayó restaurar un respaldo, hace poco y con éxito -------------------
+# Un respaldo que nunca se restauró es una promesa, no una red de seguridad:
+# se descubre que estaba roto el día que el disco muere. El ensayo lo hace
+# scripts/probar-restauracion.sh (una vez al mes, con cron) y deja su resultado
+# en backups/ultimo-ensayo-restauracion.txt.
+ENSAYO_MAX_DIAS="${ENSAYO_MAX_DIAS:-35}"
+NOTA_ENSAYO="backups/ultimo-ensayo-restauracion.txt"
+
+if [ ! -f "$NOTA_ENSAYO" ]; then
+    # Una instalación recién hecha todavía no tuvo tiempo: se avisa a la semana.
+    if [ -f .env ] && [ -n "$(find .env -mtime +7 2>/dev/null)" ]; then
+        fallar "nunca se ensayó restaurar un respaldo. Corre ./scripts/probar-restauracion.sh y agéndalo cada mes"
+    else
+        pasar "aún sin ensayo de restauración (instalación reciente: hazlo esta semana con ./scripts/probar-restauracion.sh)"
+    fi
+elif ! head -1 "$NOTA_ENSAYO" | grep -q "RESULTADO: OK"; then
+    fallar "el último ensayo de restauración FALLÓ (ver $NOTA_ENSAYO): el respaldo podría no servir"
+elif [ -n "$(find "$NOTA_ENSAYO" -mtime +"$ENSAYO_MAX_DIAS" 2>/dev/null)" ]; then
+    fallar "hace más de ${ENSAYO_MAX_DIAS} días que no se ensaya restaurar un respaldo. Corre ./scripts/probar-restauracion.sh"
+else
+    pasar "restauración ensayada con éxito hace menos de ${ENSAYO_MAX_DIAS} días"
+fi
+
 # --- Resumen --------------------------------------------------------------------
 echo
 if [ ${#PROBLEMAS[@]} -eq 0 ]; then

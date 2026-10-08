@@ -336,7 +336,9 @@ class Respaldos
                     .self::sinDefiner($fila['SQL Original Statement']).";;\nDELIMITER ;\n\n");
             }
 
-            $escribir("SET FOREIGN_KEY_CHECKS = 1;\nSET UNIQUE_CHECKS = 1;\n");
+            // La marca final que busca scripts/probar-restauracion.sh (como la «Dump completed»
+            // de mysqldump): un archivo cortado no la tiene.
+            $escribir("SET FOREIGN_KEY_CHECKS = 1;\nSET UNIQUE_CHECKS = 1;\n\n-- Fin del respaldo: completo.\n");
         } finally {
             if ($fotoPropia) {
                 $pdo->exec('COMMIT');
