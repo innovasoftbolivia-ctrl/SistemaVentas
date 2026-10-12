@@ -17,6 +17,30 @@
 @section('content')
     <div class="space-y-6">
 
+        {{-- La revisión de todas las noches encontró algo que no cuadra. Si todo cuadra, no
+             se dice nada: la tranquilidad no necesita un cartel. --}}
+        @if ($descuadres && (int) ($descuadres->detalle['cantidad'] ?? 0) > 0)
+            <div data-descuadres role="alert"
+                class="rounded-2xl border border-error-200 bg-error-50 p-5 dark:border-error-500/30 dark:bg-error-500/10 lg:p-6">
+                <h2 class="text-base font-semibold text-error-700 dark:text-error-400">
+                    {{ $descuadres->detalle['cantidad'] }}
+                    {{ (int) $descuadres->detalle['cantidad'] === 1 ? 'cosa no cuadra' : 'cosas no cuadran' }}
+                </h2>
+                <p class="mt-1 text-theme-sm text-error-700 dark:text-error-400">
+                    La revisión del {{ $descuadres->fecha?->format('d/m/Y \a \l\a\s H:i') }} encontró:
+                </p>
+                <ul class="mt-2 list-inside list-disc text-theme-sm text-error-700 dark:text-error-400">
+                    @foreach ($descuadres->detalle['por_regla'] ?? [] as $regla => $cuantas)
+                        <li>{{ $cuantas }} × {{ \App\Services\Descuadres::REGLAS[$regla] ?? $regla }}</li>
+                    @endforeach
+                </ul>
+                <p class="mt-3 text-theme-xs text-error-700/80 dark:text-error-400/80">
+                    El detalle: <code>docker compose exec app php artisan descuadres:revisar</code>.
+                    El kardex no se edita: un error se corrige con un movimiento nuevo.
+                </p>
+            </div>
+        @endif
+
         {{-- Saludo --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

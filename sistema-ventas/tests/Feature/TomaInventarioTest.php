@@ -14,7 +14,6 @@ use App\Services\Inventario;
 use App\Services\TomasInventario;
 use App\Services\Ventas;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Tests\TestCase;
 
@@ -346,12 +345,14 @@ class TomaInventarioTest extends TestCase
         $antes = $this->stock('P-0004');
         $toma = $this->abrir();
         $toma->forceFill(['fecha_apertura' => now()->subHours(2)])->save();
-        // La base de pruebas se siembra en el momento: se fecha su carga inicial
-        // antes, como tendría cualquier tienda con historia.
-        DB::table('movimientos_inventario')
-            ->where('producto_id', $this->producto('P-0004')->id)
-            ->update(['fecha' => now()->subHours(3)]);
-        $horaDelConteo = now()->subHour();
+
+        // La carga inicial de la base de pruebas puede ser de hace un instante, y el kardex
+        // ya no se edita para «antedatarla». Se respeta el orden real de los hechos: primero
+        // la carga, luego el conteo del estante, luego la venta. Un segundo entre cada uno
+        // basta, porque las fechas se guardan al segundo.
+        sleep(1);
+        $horaDelConteo = now();
+        sleep(1);
 
         $this->vender('P-0004', 3);                         // después de contar el estante
 

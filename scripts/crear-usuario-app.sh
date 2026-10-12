@@ -41,12 +41,34 @@ case "$DB_APP_PASSWORD" in
     *\'*|*\\*) echo "DB_APP_PASSWORD no puede llevar comillas simples ni barras invertidas." >&2; exit 1 ;;
 esac
 CLAVE="$DB_APP_PASSWORD"
+BASE="${BASE:-ventas_db}"
+
+# Una cuenta creada antes de 2026-10-09 tiene DELETE sobre toda la base: se lo
+# quitamos. Si no lo tenía, REVOKE protesta; se ignora a propósito.
+docker exec -i "$CONTENEDOR" mysql -uroot -p"$DB_PASSWORD" \
+    -e "REVOKE DELETE ON ${BASE}.* FROM 'ventas_app'@'%'" >/dev/null 2>&1 || true
 
 docker exec -i "$CONTENEDOR" mysql -uroot -p"$DB_PASSWORD" <<SQL
 CREATE USER IF NOT EXISTS 'ventas_app'@'%' IDENTIFIED BY '${CLAVE}';
 ALTER USER 'ventas_app'@'%' IDENTIFIED BY '${CLAVE}';
-GRANT SELECT, INSERT, UPDATE, DELETE, EXECUTE, SHOW VIEW, TRIGGER, LOCK TABLES
-    ON ventas_db.* TO 'ventas_app'@'%';
+-- SIN DELETE a nivel de toda la base: la aplicación solo borra en las tablas de
+-- catálogo y seguridad que de verdad borra (cajas, cargos, categorías, clientes,
+-- productos, proveedores, roles y sus permisos, unidades y usuarios). Las ventas, el
+-- kardex, la bitácora, los comprobantes y los movimientos de caja no se borran
+-- jamás: un error de código o un ataque ya no puede vaciarlos. (El privilegio
+-- TRIGGER sigue siendo necesario para que el respaldo lea los triggers.)
+GRANT SELECT, INSERT, UPDATE, EXECUTE, SHOW VIEW, TRIGGER, LOCK TABLES
+    ON ${BASE}.* TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.cajas TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.cargos TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.categorias TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.clientes TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.productos TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.proveedores TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.rol_permiso TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.roles TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.unidades_medida TO 'ventas_app'@'%';
+GRANT DELETE ON ${BASE}.usuarios TO 'ventas_app'@'%';
 -- Leer el cuerpo de los procedimientos, para que el respaldo desde la
 -- aplicación los incluya.
 GRANT SHOW_ROUTINE ON *.* TO 'ventas_app'@'%';

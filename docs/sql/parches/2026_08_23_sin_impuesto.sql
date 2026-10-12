@@ -65,10 +65,30 @@ UPDATE configuracion
  WHERE clave = 'precio_incluye_impuesto';
 
 -- El costo anotado en la carga inicial debe coincidir con el del producto.
+--
+-- Desde 2026-10-09 el kardex no se edita (trg_movimientos_inventario_before_update).
+-- Esta corrección ÚNICA de un dato de carga —no de stock ni de cantidades— se hace con
+-- esa guarda quitada un instante y vuelta a poner enseguida (igual a la de
+-- 2026_10_09_restricciones_y_bitacora.sql). Solo toca las filas que de verdad difieren.
+DROP TRIGGER IF EXISTS trg_movimientos_inventario_before_update;
+
 UPDATE movimientos_inventario m
   JOIN productos p ON p.id = m.producto_id
    SET m.costo_unitario = p.precio_compra
- WHERE m.origen = 'INICIAL';
+ WHERE m.origen = 'INICIAL'
+   AND NOT (m.costo_unitario <=> p.precio_compra);
+
+DELIMITER $$
+
+CREATE TRIGGER trg_movimientos_inventario_before_update
+BEFORE UPDATE ON movimientos_inventario
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El kardex no se edita: un error se corrige con un movimiento nuevo.';
+END$$
+
+DELIMITER ;
 
 -- Verificacion: `precio_venta` y el precio de estante tienen que ser iguales.
 -- SELECT codigo, nombre, precio_compra, precio_venta,

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ReglasEnPhp;
 use App\Support\Menu;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -12,6 +13,28 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class MovimientoInventario extends Model
 {
+    protected static function booted(): void
+    {
+        // Réplicas de trg_movimientos_inventario_before_insert/update/delete.
+        static::creating(function (self $movimiento) {
+            if (ReglasEnPhp::activa()) {
+                ReglasEnPhp::antesDeInsertarMovimientoInventario($movimiento->usuario_id, (string) $movimiento->origen);
+            }
+        });
+
+        static::updating(function () {
+            if (ReglasEnPhp::activa()) {
+                ReglasEnPhp::bitacoraInmutable('kardex', 'editar');
+            }
+        });
+
+        static::deleting(function () {
+            if (ReglasEnPhp::activa()) {
+                ReglasEnPhp::bitacoraInmutable('kardex', 'borrar');
+            }
+        });
+    }
+
     /** Los orígenes que salen del mostrador: quién vendió es de cada cajero. */
     public const DEL_MOSTRADOR = ['VENTA', 'DEVOLUCION', 'ANULACION'];
 

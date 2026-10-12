@@ -128,7 +128,10 @@ class CobrosQr
             return self::marcarPagado($cobro, 'PASARELA', null, $pasarela->referenciaDelPago());
         }
 
-        $cobro->update(['estado' => $estado]);
+        // La imagen del QR (unos 33 KB) solo hace falta mientras el cobro está
+        // PENDIENTE: al pagarse, vencer o anularse se vacía. Antes quedaba para siempre
+        // —unos 360 MB al año con 30 cobros diarios— y cada respaldo la cargaba.
+        $cobro->update(['estado' => $estado, 'payload' => null]);
 
         return $cobro->fresh();
     }
@@ -204,7 +207,7 @@ class CobrosQr
             }
 
             self::pasarela()->anular($bloqueado);
-            $bloqueado->update(['estado' => CobroQr::EXPIRADO]);
+            $bloqueado->update(['estado' => CobroQr::EXPIRADO, 'payload' => null]);
 
             return $bloqueado;
         });
@@ -242,7 +245,7 @@ class CobrosQr
             }
         }
 
-        $cobro->update(['estado' => CobroQr::ANULADO]);
+        $cobro->update(['estado' => CobroQr::ANULADO, 'payload' => null]);
 
         Auditor::registrar('QR_ANULADO', 'cobros_qr', $cobro->id, [], $usuario->id);
 
@@ -322,6 +325,7 @@ class CobrosQr
     ): CobroQr {
         $cobro->update([
             'estado' => CobroQr::PAGADO,
+            'payload' => null,
             'pagado_en' => now(),
             'confirmado_por' => $quien,
             'confirmado_por_id' => $usuario?->id,

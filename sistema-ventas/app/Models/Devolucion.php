@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ReglasEnPhp;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -19,6 +20,16 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Devolucion extends Model
 {
+    protected static function booted(): void
+    {
+        // Réplica de trg_devoluciones_before_insert.
+        static::creating(function (self $devolucion) {
+            if (ReglasEnPhp::activa()) {
+                ReglasEnPhp::antesDeInsertarDevolucion($devolucion->sesion_caja_id);
+            }
+        });
+    }
+
     protected $table = 'devoluciones';
 
     public $timestamps = false;

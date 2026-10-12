@@ -66,7 +66,6 @@ CREATE TABLE empleados (
     PRIMARY KEY (id),
     UNIQUE KEY uq_empleados_documento (tipo_documento, documento),
     KEY ix_empleados_cargo  (cargo_id),
-    KEY ix_empleados_estado (estado),
     KEY ix_empleados_nombre (nombre_completo),
     CONSTRAINT fk_empleados_cargo FOREIGN KEY (cargo_id) REFERENCES cargos (id),
     -- cesado exige fecha de cese, y una fecha de cese exige estado cesado
@@ -205,7 +204,7 @@ CREATE TABLE productos (
     KEY ix_productos_categoria (categoria_id),
     KEY ix_productos_proveedor (proveedor_id),
     KEY ix_productos_nombre    (nombre),
-    KEY ix_productos_activo    (activo),
+    KEY ix_productos_activo_nombre (activo, nombre),
     CONSTRAINT fk_productos_categoria FOREIGN KEY (categoria_id)     REFERENCES categorias (id),
     CONSTRAINT fk_productos_unidad    FOREIGN KEY (unidad_medida_id) REFERENCES unidades_medida (id),
     CONSTRAINT fk_productos_proveedor FOREIGN KEY (proveedor_id)     REFERENCES proveedores (id) ON DELETE SET NULL,
@@ -258,7 +257,6 @@ CREATE TABLE clientes (
     PRIMARY KEY (id),
     UNIQUE KEY uq_clientes_documento (tipo_documento, documento),
     KEY ix_clientes_nombre  (nombre),
-    KEY ix_clientes_persona (tipo_persona),
     -- Una persona natural puede tener NIT (unipersonal, profesional
     -- independiente): con él recibe factura a su nombre.
     CONSTRAINT ck_clientes_natural CHECK (
@@ -319,7 +317,9 @@ CREATE TABLE sesiones_caja (
     CONSTRAINT fk_sesion_caja      FOREIGN KEY (caja_id)             REFERENCES cajas (id),
     CONSTRAINT fk_sesion_usr_ap    FOREIGN KEY (usuario_apertura_id) REFERENCES usuarios (id),
     CONSTRAINT fk_sesion_usr_ci    FOREIGN KEY (usuario_cierre_id)   REFERENCES usuarios (id),
-    CONSTRAINT ck_sesion_inicial   CHECK (monto_inicial >= 0)
+    CONSTRAINT ck_sesion_inicial   CHECK (monto_inicial >= 0),
+    -- un turno cerrado dice cuándo y quién lo cerró; uno abierto, ninguna de las dos
+    CONSTRAINT ck_sesion_cierre    CHECK ((estado = 'CERRADA' AND fecha_cierre IS NOT NULL AND usuario_cierre_id IS NOT NULL) OR (estado = 'ABIERTA' AND fecha_cierre IS NULL))
 ) ENGINE=InnoDB;
 
 -- Solo una sesión ABIERTA por caja: se garantiza con esta columna generada + índice único.
@@ -356,6 +356,7 @@ CREATE TABLE movimientos_caja (
     fecha           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY ix_movcaja_sesion (sesion_caja_id),
+    KEY ix_movcaja_fecha  (fecha),
     UNIQUE KEY uq_movcaja_anula (anula_a_id),
     CONSTRAINT fk_movcaja_sesion  FOREIGN KEY (sesion_caja_id) REFERENCES sesiones_caja (id),
     CONSTRAINT fk_movcaja_usuario FOREIGN KEY (usuario_id)     REFERENCES usuarios (id),
@@ -441,7 +442,8 @@ CREATE TABLE ventas (
     motivo_anulacion    VARCHAR(255) NULL,
     creado_en           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    KEY ix_ventas_fecha    (fecha),
+    -- Cubre las sumas por día y por mes sin leer cada fila de la venta.
+    KEY ix_ventas_fecha_cubre (fecha, estado, total, impuesto),
     KEY ix_ventas_cliente  (cliente_id),
     KEY ix_ventas_usuario  (usuario_id),
     KEY ix_ventas_sesion   (sesion_caja_id),
@@ -451,7 +453,9 @@ CREATE TABLE ventas (
     CONSTRAINT fk_ventas_sesion  FOREIGN KEY (sesion_caja_id) REFERENCES sesiones_caja (id),
     CONSTRAINT fk_ventas_anulada FOREIGN KEY (anulada_por)    REFERENCES usuarios (id),
     CONSTRAINT ck_ventas_montos  CHECK (subtotal >= 0 AND descuento >= 0 AND impuesto >= 0
-                                        AND descuento <= subtotal)
+                                        AND descuento <= subtotal),
+    -- una venta anulada dice cuándo, quién y por qué; una que no lo está, no
+    CONSTRAINT ck_ventas_anulacion CHECK ((estado = 'ANULADA' AND anulada_en IS NOT NULL AND anulada_por IS NOT NULL AND motivo_anulacion IS NOT NULL) OR (estado <> 'ANULADA' AND anulada_en IS NULL))
 ) ENGINE=InnoDB;
 
 CREATE TABLE venta_detalle (
@@ -489,7 +493,6 @@ CREATE TABLE venta_detalle (
     -- regla vivía solo en la validación HTTP: con dos líneas del mismo producto,
     -- `sp_anular_venta` reponía el stock de una sola de ellas.
     UNIQUE KEY uq_detalle_venta_producto (venta_id, producto_id),
-    KEY ix_detalle_venta    (venta_id),
     KEY ix_detalle_producto (producto_id),
     CONSTRAINT fk_detalle_venta    FOREIGN KEY (venta_id)    REFERENCES ventas (id) ON DELETE CASCADE,
     CONSTRAINT fk_detalle_producto FOREIGN KEY (producto_id) REFERENCES productos (id),
@@ -653,7 +656,8 @@ CREATE TABLE comprobantes (
     CONSTRAINT fk_comprobante_sustit  FOREIGN KEY (sustituye_a)         REFERENCES comprobantes (id),
     CONSTRAINT fk_comprobante_usuario FOREIGN KEY (emitido_por)         REFERENCES usuarios (id),
     CONSTRAINT ck_comprobante_montos  CHECK (subtotal >= 0 AND descuento >= 0 AND impuesto >= 0
-                                             AND descuento <= subtotal)
+                                             AND descuento <= subtotal),
+    CONSTRAINT ck_comprobante_anulado CHECK (estado <> 'ANULADO' OR anulado_en IS NOT NULL)
 ) ENGINE=InnoDB;
 
 -- =============================================================================
@@ -683,7 +687,8 @@ CREATE TABLE devoluciones (
     CONSTRAINT fk_devol_usuario FOREIGN KEY (usuario_id)     REFERENCES usuarios (id),
     CONSTRAINT fk_devol_autoriz FOREIGN KEY (autorizado_por) REFERENCES usuarios (id),
     CONSTRAINT fk_devol_sesion  FOREIGN KEY (sesion_caja_id) REFERENCES sesiones_caja (id),
-    CONSTRAINT ck_devol_efectivo CHECK (efectivo IS NULL OR (efectivo >= 0 AND efectivo <= total))
+    CONSTRAINT ck_devol_efectivo CHECK (efectivo IS NULL OR (efectivo >= 0 AND efectivo <= total)),
+    CONSTRAINT ck_devol_total    CHECK (total >= 0)
 ) ENGINE=InnoDB;
 
 -- Se devuelve lo que el cliente pagó, impuesto incluido. Por eso la línea
@@ -946,7 +951,9 @@ CREATE TABLE movimientos_inventario (
              AND devolucion_compra_id IS NULL AND documento_externo IS NULL)
     ),
     -- un ajuste sin explicación es un descuadre sin responsable
-    CONSTRAINT ck_movinv_motivo CHECK (origen <> 'AJUSTE' OR motivo IS NOT NULL)
+    CONSTRAINT ck_movinv_motivo CHECK (origen <> 'AJUSTE' OR motivo IS NOT NULL),
+    -- la cadena del kardex: cada movimiento parte del stock anterior y suma o resta su cantidad
+    CONSTRAINT ck_movinv_cadena CHECK (stock_anterior >= 0 AND stock_resultante >= 0 AND ((tipo = 'ENTRADA' AND stock_resultante = stock_anterior + cantidad) OR (tipo = 'SALIDA' AND stock_resultante = stock_anterior - cantidad) OR (tipo = 'AJUSTE' AND ABS(stock_resultante - stock_anterior) = cantidad)))
 ) ENGINE=InnoDB;
 
 -- Toma de inventario: contar toda la tienda (o una categoría) de una vez.
@@ -1229,6 +1236,66 @@ BEGIN
         SIGNAL SQLSTATE '45000'
             SET MESSAGE_TEXT = 'El movimiento de inventario necesita un responsable';
     END IF;
+END$$
+
+-- 10.3.quater Una devolución y un movimiento de caja, como una venta, solo entran en un
+--      turno ABIERTO: ningún movimiento de dinero queda fuera de un arqueo ni se agrega a
+--      uno que ya se firmó.
+CREATE TRIGGER trg_devoluciones_before_insert
+BEFORE INSERT ON devoluciones
+FOR EACH ROW
+BEGIN
+    IF NEW.sesion_caja_id IS NULL OR NOT EXISTS (SELECT 1 FROM sesiones_caja
+                                                  WHERE id = NEW.sesion_caja_id AND estado = 'ABIERTA') THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'La devolución debe registrarse en un turno de caja abierto';
+    END IF;
+END$$
+
+CREATE TRIGGER trg_movimientos_caja_before_insert
+BEFORE INSERT ON movimientos_caja
+FOR EACH ROW
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM sesiones_caja
+                    WHERE id = NEW.sesion_caja_id AND estado = 'ABIERTA') THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El movimiento de caja debe registrarse en un turno de caja abierto';
+    END IF;
+END$$
+
+-- 10.3.quinquies La bitácora y el kardex no se editan ni se borran, ni con la cuenta de
+--      administración: son la prueba de lo que pasó. Un error del kardex se corrige
+--      con un movimiento nuevo.
+CREATE TRIGGER trg_auditoria_before_update
+BEFORE UPDATE ON auditoria
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La bitácora no se edita: lo que pasó, pasó.';
+END$$
+
+CREATE TRIGGER trg_auditoria_before_delete
+BEFORE DELETE ON auditoria
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La bitácora no se borra: lo que pasó, pasó.';
+END$$
+
+CREATE TRIGGER trg_movimientos_inventario_before_update
+BEFORE UPDATE ON movimientos_inventario
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El kardex no se edita: un error se corrige con un movimiento nuevo.';
+END$$
+
+CREATE TRIGGER trg_movimientos_inventario_before_delete
+BEFORE DELETE ON movimientos_inventario
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El kardex no se borra: un error se corrige con un movimiento nuevo.';
 END$$
 
 -- 10.4 El comprobante debe corresponder al tipo de persona del cliente:
@@ -1819,6 +1886,57 @@ SELECT DATE(v.fecha) AS dia, mp.nombre AS metodo_pago,
   JOIN metodos_pago mp ON mp.id = vp.metodo_pago_id
  GROUP BY DATE(v.fecha), mp.nombre;
 
+-- Descuadres: una consulta que reúne los invariantes del sistema. Si devuelve
+-- filas, algo no cuadra. La corre `php artisan descuadres:revisar` cada noche.
+CREATE OR REPLACE VIEW v_descuadres AS
+-- 1. El stock de un producto no es el resultado de su último movimiento del kardex.
+SELECT 'STOCK_DISTINTO_DEL_KARDEX' AS regla, 'productos' AS entidad, p.id AS entidad_id,
+       CONCAT(p.codigo, ' · ', p.nombre) AS detalle,
+       m.stock_resultante AS esperado, p.stock_actual AS actual
+  FROM productos p
+  JOIN movimientos_inventario m
+    ON m.id = (SELECT MAX(x.id) FROM movimientos_inventario x WHERE x.producto_id = p.id)
+ WHERE m.stock_resultante <> p.stock_actual
+UNION ALL
+-- 2. Hay stock pero ningún movimiento que lo respalde.
+SELECT 'STOCK_SIN_KARDEX', 'productos', p.id, CONCAT(p.codigo, ' · ', p.nombre), 0, p.stock_actual
+  FROM productos p
+ WHERE p.stock_actual > 0
+   AND NOT EXISTS (SELECT 1 FROM movimientos_inventario x WHERE x.producto_id = p.id)
+UNION ALL
+-- 3. La cadena del kardex tiene un salto: el movimiento no parte de donde terminó el anterior
+--    (alguien tocó el stock por fuera, o se perdió un movimiento).
+SELECT 'KARDEX_CON_SALTO', 'movimientos_inventario', c.id, CONCAT('Movimiento #', c.id, ' del producto #', c.producto_id),
+       c.previo, c.stock_anterior
+  FROM (SELECT m.id, m.producto_id, m.stock_anterior,
+               LAG(m.stock_resultante) OVER (PARTITION BY m.producto_id ORDER BY m.id) AS previo
+          FROM movimientos_inventario m) c
+ WHERE c.previo IS NOT NULL AND c.previo <> c.stock_anterior
+UNION ALL
+-- 4. Un producto que se controla por vencimiento: su stock tiene que ser la suma de sus lotes.
+SELECT 'STOCK_DISTINTO_DE_LOS_LOTES', 'productos', p.id, CONCAT(p.codigo, ' · ', p.nombre),
+       COALESCE(SUM(l.cantidad_actual), 0), p.stock_actual
+  FROM productos p
+  LEFT JOIN lotes l ON l.producto_id = p.id
+ WHERE p.controla_vencimiento = 1
+ GROUP BY p.id, p.codigo, p.nombre, p.stock_actual
+HAVING COALESCE(SUM(l.cantidad_actual), 0) <> p.stock_actual
+UNION ALL
+-- 5. Lo cobrado no coincide con el total de la venta.
+SELECT 'VENTA_NO_CUADRA_CON_SUS_PAGOS', 'ventas', v.id, CONCAT('Venta #', v.id, ' del ', DATE(v.fecha)),
+       v.total, COALESCE(SUM(vp.monto), 0)
+  FROM ventas v
+  LEFT JOIN venta_pagos vp ON vp.venta_id = v.id
+ WHERE v.estado <> 'ANULADA'
+ GROUP BY v.id, v.fecha, v.total
+HAVING ROUND(COALESCE(SUM(vp.monto), 0), 2) <> v.total
+UNION ALL
+-- 6. Un QR que el cliente pagó hace más de un día y que nunca terminó en una venta:
+--    el dinero entró al banco y no hay venta que lo respalde.
+SELECT 'QR_PAGADO_SIN_VENTA', 'cobros_qr', c.id, CONCAT('QR #', c.id, ' pagado el ', DATE(c.pagado_en)), c.monto, 0
+  FROM cobros_qr c
+ WHERE c.estado = 'PAGADO' AND c.venta_id IS NULL AND c.pagado_en < NOW() - INTERVAL 1 DAY;
+
 -- =============================================================================
 --  13. REGISTRO DE PARCHES
 --
@@ -1873,4 +1991,7 @@ INSERT INTO parches_aplicados (archivo) VALUES
     ('2026_09_15_precios_con_impuesto_incluido.sql'),
     ('2026_09_16_permisos_por_rol.sql'),
     ('2026_09_16_reglas_en_la_base.sql'),
-    ('2026_10_08_anular_movimiento_de_caja.sql');
+    ('2026_10_08_anular_movimiento_de_caja.sql'),
+    ('2026_10_09_descuadres_y_peso_del_qr.sql'),
+    ('2026_10_09_indices_de_la_base.sql'),
+    ('2026_10_09_restricciones_y_bitacora.sql');

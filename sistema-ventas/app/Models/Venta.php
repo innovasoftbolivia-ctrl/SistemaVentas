@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ReglasEnPhp;
 use App\Support\Config;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,22 @@ use Illuminate\Support\Facades\DB;
  */
 class Venta extends Model
 {
+    protected static function booted(): void
+    {
+        // Réplicas de trg_ventas_before_insert y trg_ventas_before_delete.
+        static::creating(function (self $venta) {
+            if (ReglasEnPhp::activa()) {
+                ReglasEnPhp::antesDeInsertarVenta($venta->sesion_caja_id);
+            }
+        });
+
+        static::deleting(function () {
+            if (ReglasEnPhp::activa()) {
+                ReglasEnPhp::antesDeBorrarVenta();
+            }
+        });
+    }
+
     protected $table = 'ventas';
 
     const CREATED_AT = 'creado_en';

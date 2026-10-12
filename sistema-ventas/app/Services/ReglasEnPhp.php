@@ -9,7 +9,7 @@ use RuntimeException;
 /**
  * Las reglas que normalmente ejecuta la BASE, hechas en PHP.
  *
- * Réplica de los 6 procedimientos almacenados y los 9 triggers de
+ * Réplica de los 6 procedimientos almacenados y los 15 triggers de
  * `docs/sql/01_schema_mysql.sql`, para poder correr el sistema en un hosting
  * que no permite crearlos (ver config/ventas.php).
  *
@@ -250,6 +250,76 @@ class ReglasEnPhp
         if ($estadoAnterior === 'ACTIVO' && in_array($estadoNuevo, ['CESADO', 'SUSPENDIDO'], true)) {
             DB::table('usuarios')->where('empleado_id', $empleadoId)->update(['activo' => 0]);
         }
+    }
+
+    /**
+     * trg_ventas_before_insert, trg_devoluciones_before_insert y
+     * trg_movimientos_caja_before_insert
+     *
+     * Ningún movimiento de dinero entra fuera de un turno ABIERTO: ni queda fuera
+     * de un arqueo ni se agrega a uno que ya se firmó. La devolución, además,
+     * exige el turno (la columna admite NULL por las devoluciones anteriores).
+     */
+    public static function exigirTurnoAbierto(?int $sesionId, string $mensaje): void
+    {
+        $abierto = $sesionId !== null
+            && DB::table('sesiones_caja')->where('id', $sesionId)->where('estado', 'ABIERTA')->exists();
+
+        if (! $abierto) {
+            throw new RuntimeException($mensaje);
+        }
+    }
+
+    public static function antesDeInsertarVenta(?int $sesionId): void
+    {
+        self::exigirTurnoAbierto($sesionId, 'La venta debe registrarse en un turno de caja abierto');
+    }
+
+    public static function antesDeInsertarDevolucion(?int $sesionId): void
+    {
+        self::exigirTurnoAbierto($sesionId, 'La devolución debe registrarse en un turno de caja abierto');
+    }
+
+    public static function antesDeInsertarMovimientoCaja(?int $sesionId): void
+    {
+        self::exigirTurnoAbierto($sesionId, 'El movimiento de caja debe registrarse en un turno de caja abierto');
+    }
+
+    /** trg_ventas_before_delete */
+    public static function antesDeBorrarVenta(): never
+    {
+        throw new RuntimeException('Las ventas no se eliminan. Use la anulación (RNF6).');
+    }
+
+    /**
+     * trg_movimientos_inventario_before_insert
+     *
+     * Todo movimiento del kardex tiene responsable; la única excepción es la carga
+     * INICIAL, que corre antes de que exista nadie a quien atribuírsela.
+     */
+    public static function antesDeInsertarMovimientoInventario(?int $usuarioId, string $origen): void
+    {
+        if ($usuarioId === null && $origen !== 'INICIAL') {
+            throw new RuntimeException('El movimiento de inventario necesita un responsable');
+        }
+    }
+
+    /**
+     * trg_auditoria_before_update/delete y trg_movimientos_inventario_before_update/delete
+     *
+     * La bitácora y el kardex no se editan ni se borran: son la prueba de lo que
+     * pasó. Un error del kardex se corrige con un movimiento nuevo.
+     *
+     * @param  'auditoria'|'kardex'  $cual
+     * @param  'editar'|'borrar'  $accion
+     */
+    public static function bitacoraInmutable(string $cual, string $accion): never
+    {
+        $verbo = $accion === 'editar' ? 'edita' : 'borra';
+
+        throw new RuntimeException($cual === 'auditoria'
+            ? "La bitácora no se {$verbo}: lo que pasó, pasó."
+            : "El kardex no se {$verbo}: un error se corrige con un movimiento nuevo.");
     }
 
     // =====================================================================

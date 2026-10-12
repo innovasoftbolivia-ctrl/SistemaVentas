@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ReglasEnPhp;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -12,6 +13,16 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  */
 class MovimientoCaja extends Model
 {
+    protected static function booted(): void
+    {
+        // Réplica de trg_movimientos_caja_before_insert.
+        static::creating(function (self $movimiento) {
+            if (ReglasEnPhp::activa()) {
+                ReglasEnPhp::antesDeInsertarMovimientoCaja($movimiento->sesion_caja_id);
+            }
+        });
+    }
+
     protected $table = 'movimientos_caja';
 
     public $timestamps = false;

@@ -6,6 +6,7 @@ use App\Models\Producto;
 use App\Models\Usuario;
 use App\Models\Venta;
 use App\Services\Cajas;
+use App\Services\Descuadres;
 use App\Support\Menu;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -51,6 +52,8 @@ class DashboardController extends Controller
             'ultimas' => $gestion ? $this->ultimasVentas() : null,
             'gestion' => $gestion,
             'veArqueo' => CajaController::arquea($usuario),
+            // La última revisión nocturna de descuadres; solo la ve quien gestiona.
+            'descuadres' => $gestion ? Descuadres::ultima() : null,
         ]);
     }
 
@@ -59,7 +62,7 @@ class DashboardController extends Controller
      *
      * `whereBetween` con las dos puntas del día, y no `whereDate()`: esta
      * pantalla se carga en cada login, y `whereDate('fecha', ...)` compila a
-     * `WHERE DATE(fecha) = ...`, que no puede usar `ix_ventas_fecha` como
+     * `WHERE DATE(fecha) = ...`, que no puede usar `ix_ventas_fecha_cubre` como
      * rango —envuelve la columna en una función— y obliga a MySQL a recorrer
      * toda la tabla `ventas` (confirmado con EXPLAIN). Con el rango explícito
      * sí es un `Index range scan`.

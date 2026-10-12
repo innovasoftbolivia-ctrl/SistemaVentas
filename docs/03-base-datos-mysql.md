@@ -723,9 +723,12 @@ sin cliente → recibo (`configuracion.serie_recibo`). La base de datos no adivi
 ## 3.8 Estrategia de índices
 
 - **Búsqueda en el POS (HU-06):** `uq_productos_codigo`, `uq_productos_barras`,
-  `ix_productos_nombre`, `ix_productos_activo`. Para catálogos grandes se recomienda
-  agregar un índice `FULLTEXT (nombre, descripcion)`.
-- **Reportes por período (HU-32):** `ix_ventas_fecha` e `ix_ventas_estado (estado, fecha)`.
+  `ix_productos_nombre`, `ix_productos_activo_nombre (activo, nombre)`. Para catálogos
+  grandes se recomienda agregar un índice `FULLTEXT (nombre, descripcion)`.
+- **Reportes por período (HU-32):** `ix_ventas_fecha_cubre (fecha, estado, total, impuesto)`
+  —cubridor: las sumas por día y por mes se resuelven dentro del índice— e
+  `ix_ventas_estado (estado, fecha)`. El reporte de efectivo a caja filtra los movimientos
+  por rango de fechas con `ix_movcaja_fecha`.
 - **Trazabilidad inversa del kardex:** `ix_movinv_venta`, `ix_movinv_devolucion` e
   `ix_movinv_proveedor` — desde un documento, todos los movimientos de stock que originó.
 - **Kardex (HU-21):** `ix_movinv_producto (producto_id, fecha)` — índice compuesto que
@@ -735,10 +738,42 @@ sin cliente → recibo (`configuracion.serie_recibo`). La base de datos no adivi
   factura por su número, `ix_comprobante_documento` para buscarla por el RUC/DNI del cliente
   e `ix_comprobante_serie (serie_id, fecha_emision)` para el reporte de facturación del
   período por tipo de documento (la serie lo determina).
-- **Clientes:** `ix_clientes_persona` para listar naturales y jurídicos por separado, e
-  `ix_clientes_nombre` sobre la columna generada para la búsqueda en el POS.
-- **Detalle de venta:** `ix_detalle_venta` y `ix_detalle_producto` para el reporte de
-  productos más vendidos.
+- **Clientes:** `ix_clientes_nombre` sobre la columna generada para la búsqueda en el POS.
+- **Detalle de venta:** `uq_detalle_venta_producto (venta_id, producto_id)` —que también
+  sirve a la llave foránea— e `ix_detalle_producto` para el reporte de productos más vendidos.
+- **Los que se quitaron (2026-10-09):** `ix_detalle_venta` (era el prefijo del único),
+  `ix_clientes_persona` e `ix_empleados_estado` (dos o tres valores distintos en tablas de decenas
+  de filas: el optimizador nunca los elige), `ix_ventas_fecha` e `ix_productos_activo` (los
+  reemplazan los compuestos de arriba). Cada índice cuesta una escritura extra en cada
+  INSERT y UPDATE; los que no ayudan a ninguna consulta sobran.
+
+## 3.8.1 La base se defiende sola (2026-10-09)
+
+Un descuadre se vuelve **imposible de escribir**, en vez de descubrirse meses después:
+
+| Regla | Dónde vive |
+|---|---|
+| El kardex cumple su cuenta: entrada suma, salida resta, ajuste suma o resta la cantidad, nunca queda stock negativo | `ck_movinv_cadena` |
+| Una devolución no tiene total negativo | `ck_devol_total` |
+| Una venta anulada dice cuándo, quién y por qué; una que no lo está, no | `ck_ventas_anulacion` |
+| Un turno cerrado dice cuándo y quién lo cerró; uno abierto, ninguno de los dos | `ck_sesion_cierre` |
+| Un comprobante anulado lleva su fecha | `ck_comprobante_anulado` |
+| Una devolución y un movimiento de caja, como una venta, solo entran en un turno **abierto** | `trg_devoluciones_before_insert`, `trg_movimientos_caja_before_insert` |
+| La bitácora (`auditoria`) y el kardex (`movimientos_inventario`) **no se editan ni se borran**, ni con la cuenta de administración: un error del kardex se corrige con un movimiento nuevo | cuatro triggers `BEFORE UPDATE/DELETE` |
+
+La cuenta de la aplicación (`ventas_app`) ya no tiene `DELETE` sobre toda la base: solo sobre las
+diez tablas de catálogo y seguridad que de verdad borra (cajas, cargos, categorías, clientes,
+productos, proveedores, roles y sus permisos, unidades, usuarios). Una salvedad honesta: conserva el
+privilegio `TRIGGER` porque el respaldo nocturno lee los triggers, y con él, en teoría, podría
+quitar las guardas; el recorte de `DELETE` protege de un error de código, no de una cuenta
+secuestrada.
+
+**`v_descuadres`** reúne los invariantes que la base no puede imponer fila por fila: stock contra
+el último movimiento del kardex, stock sin kardex, saltos en la cadena del kardex (un movimiento que no
+parte de donde terminó el anterior), stock contra la suma de lotes, ventas cuyos pagos no suman su
+total y QR pagados hace más de un día sin venta. `php artisan descuadres:revisar` la consulta todas
+las noches (01:30, después del respaldo), deja constancia en la bitácora —también cuando todo
+cuadra— y, si encuentra algo, la portada lo avisa a quien gestiona.
 
 ## 3.9 Cómo ejecutar los scripts
 
@@ -764,7 +799,7 @@ mysql -u root -p < docs/sql/02_datos_iniciales.sql
 > está `scripts/recrear-base-desarrollo.sh`, que pide confirmación y se niega a tocar producción.
 
 **Estado de verificación:** el esquema fue ejecutado y probado contra **MySQL 8.0.46** en el
-entorno Docker del proyecto. Se verificaron la creación de los 26+9+6+6 objetos, una venta
+entorno Docker del proyecto. Se verificaron la creación de los 26+15+6+10 objetos, una venta
 completa con su comprobante y su kardex, la venta al paso, la sustitución de recibo por
 factura, la devolución parcial, la anulación, el cese de empleado y el arqueo de caja, más
 doce reglas negativas que el motor rechaza. El detalle está en

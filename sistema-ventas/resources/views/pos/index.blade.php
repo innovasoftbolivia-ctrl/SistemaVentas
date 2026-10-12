@@ -2057,6 +2057,20 @@
                             if (lienzo && window.dibujarQr) window.dibujarQr(lienzo, pago.qr.payload);
                         },
 
+                        /* El servidor vacía la imagen del QR (unos 33 KB) cuando el cobro
+                           deja de estar pendiente: ya no hace falta guardarla. Esta pantalla
+                           conserva la que ya tenía, para que el QR no parpadee ni se
+                           reemplace por un lienzo vacío al pagarse o vencer. */
+                        actualizarQr(pago, datos) {
+                            const vieja = pago.qr;
+
+                            if (datos.payload == null && vieja && vieja.payload != null) {
+                                datos = { ...datos, payload: vieja.payload, imagen: vieja.imagen };
+                            }
+
+                            pago.qr = datos;
+                        },
+
                         /* Le pregunta al banco cada pocos segundos si ya pagaron.
                            Se detiene solo cuando el cobro deja de estar pendiente,
                            para no quedar consultando de por vida. */
@@ -2074,7 +2088,7 @@
                                     const r = await fetch(this.rutaQr + '/' + id, {
                                         headers: { 'Accept': 'application/json' },
                                     });
-                                    if (r.ok) pago.qr = await r.json();
+                                    if (r.ok) this.actualizarQr(pago, await r.json());
                                 } catch (e) {
                                     /* Sin conexión con el banco: se reintenta en la
                                        vuelta siguiente, no se rompe la pantalla. */
@@ -2096,7 +2110,7 @@
                             });
                             const datos = await r.json();
 
-                            if (r.ok) pago.qr = datos;
+                            if (r.ok) this.actualizarQr(pago, datos);
                             else pago.qrError = datos.error ?? 'No se pudo confirmar el pago.';
                         },
 
@@ -2115,7 +2129,7 @@
 
                                 if (!r.ok) {
                                     const consulta = await fetch(this.rutaQr + '/' + pago.qr.id, { headers: { 'Accept': 'application/json' } });
-                                    if (consulta.ok) pago.qr = await consulta.json();
+                                    if (consulta.ok) this.actualizarQr(pago, await consulta.json());
                                     pago.qrError = datos.error ?? 'No se pudo cancelar el QR.';
                                     return false;
                                 }

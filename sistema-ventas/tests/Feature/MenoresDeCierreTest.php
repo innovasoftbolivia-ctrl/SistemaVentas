@@ -311,7 +311,7 @@ class MenoresDeCierreTest extends TestCase
         }
 
         $cerrado = SesionCaja::where('estado', 'CERRADA')->first()
-            ?? tap($this->turno(), fn ($s) => DB::table('sesiones_caja')->where('id', $s->id)->update(['estado' => 'CERRADA', 'fecha_cierre' => now()]));
+            ?? tap($this->turno(), fn ($s) => DB::table('sesiones_caja')->where('id', $s->id)->update(['estado' => 'CERRADA', 'fecha_cierre' => now(), 'usuario_cierre_id' => $this->admin()->id]));
 
         $this->assertThrows(fn () => DB::table('ventas')->insert([
             'usuario_id' => $this->admin()->id, 'sesion_caja_id' => $cerrado->id, 'fecha' => now(),
@@ -323,7 +323,7 @@ class MenoresDeCierreTest extends TestCase
     {
         $venta = $this->vender();
         DB::table('venta_pagos')->where('venta_id', $venta->id)->update(['monto' => DB::raw('monto - 1')]);
-        DB::table('comprobantes')->where('venta_id', $venta->id)->update(['estado' => 'ANULADO']);
+        DB::table('comprobantes')->where('venta_id', $venta->id)->update(['estado' => 'ANULADO', 'anulado_en' => now()]);
 
         $serie = Ventas::seriePara(null);
 

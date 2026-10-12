@@ -810,6 +810,37 @@ librería si la página trae algún `[data-apexchart]`. La plantilla pone ahí l
 formateadores de moneda y el tema. Un `MutationObserver` redibuja los gráficos cuando se cambia
 entre claro y oscuro.
 
+### Que un descuadre sea imposible, y que se note si ocurre
+
+Dos capas, en la base de datos (`docs/03-base-datos-mysql.md`, § 3.8.1):
+
+1. **Imposible de escribir.** Restricciones que rechazan un movimiento del kardex con la cuenta mal
+   hecha, una venta anulada sin motivo o un turno cerrado sin responsable; triggers que impiden
+   registrar una devolución o un movimiento de caja fuera de un turno abierto; y **bitácora y kardex
+   que no se editan ni se borran**, ni con la cuenta de administración. Un error del kardex se corrige
+   con un movimiento nuevo (Inventario → Ajustar), nunca editando el viejo. La cuenta de MySQL de la
+   aplicación ya no puede borrar ventas, pagos, comprobantes, movimientos ni bitácora.
+2. **Si aun así se cuela, se nota esa noche.** `php artisan descuadres:revisar` (agendado a las 01:30,
+   después del respaldo) consulta la vista `v_descuadres`: stock contra kardex, saltos en la cadena del
+   kardex, stock contra lotes, ventas contra sus pagos, QR pagados sin venta. Deja constancia en la
+   bitácora y, si algo no cuadra, **la portada muestra un aviso rojo** a quien gestiona. A mano:
+
+   ```bash
+   docker compose -f docker-compose.prod.yml exec app php artisan descuadres:revisar
+   ```
+
+   Sale con error si algo no cuadra, para que un cron o un monitor lo noten.
+
+Con la lógica en PHP (`LOGICA_EN_PHP=true`, hosting sin triggers), las mismas reglas las hacen los
+modelos (`ReglasEnPhp`); las restricciones y la vista viven en las tablas y valen en los dos modos.
+
+Para actualizar una base que ya está en un cliente se aplican los parches
+`2026_10_09_indices_de_la_base.sql`, `2026_10_09_restricciones_y_bitacora.sql` y
+`2026_10_09_descuadres_y_peso_del_qr.sql` (`scripts/actualizar.sh` lo hace solo). Si alguna fila vieja
+incumple una restricción, el parche **se detiene** y dice cuántas son
+(`Table '…DETENIDO: 3 fila(s) incumplen ck_movinv_cadena' doesn't exist`): se corrigen y se vuelve a
+correr. El de descuadres también vacía las imágenes de los QR ya cobrados (unos 33 KB cada una).
+
 ### Auditoría
 
 `App\Services\Auditor` escribe en la tabla `auditoria` los ingresos, los intentos fallidos y toda
@@ -909,7 +940,8 @@ sus propios datos de negocio.
    **Cuenta de base de datos de la aplicación.** Pon otra contraseña, distinta, en `DB_APP_PASSWORD`
    del `.env` de la raíz, y en `sistema-ventas/.env.docker` cambia a `DB_USERNAME=ventas_app` con
    esa misma contraseña en `DB_PASSWORD`. Al primer arranque, MySQL crea `ventas_app` con permisos
-   mínimos (leer y escribir datos, llamar a los procedimientos): la aplicación no se conecta como
+   mínimos (leer y escribir datos, llamar a los procedimientos, y borrar solo en el catálogo y la seguridad:
+   jamás ventas, pagos, comprobantes, movimientos ni bitácora): la aplicación no se conecta como
    `root`, y un fallo de seguridad en ella no tendría el servidor de base de datos entero. En una
    instalación que ya corría con `root`: `./scripts/crear-usuario-app.sh`. La contraseña de `root`
    (`DB_PASSWORD` de la raíz) la siguen usando los parches, el respaldo y la restauración por
