@@ -172,7 +172,7 @@ class ConfiguracionController extends Controller
         $tasaAnterior = (float) ($antes['tasa_impuesto'] ?? 0);
         $tasaNueva = (float) $nuevos['tasa_impuesto'];
 
-        $convertidos = DB::transaction(function () use ($cambios, $convertir, $nuevos, $tasaAnterior, $tasaNueva) {
+        [$convertidos, $ofertas] = DB::transaction(function () use ($cambios, $convertir, $nuevos, $tasaAnterior, $tasaNueva) {
             foreach ($cambios as $clave => $valor) {
                 DB::table('configuracion')->updateOrInsert(
                     ['clave' => $clave],
@@ -180,16 +180,23 @@ class ConfiguracionController extends Controller
                 );
             }
 
-            return $convertir
-                ? Precios::convertirAlModo($nuevos['precios_incluyen_impuesto'] === '1', $tasaAnterior, $tasaNueva)
-                : [];
+            if (! $convertir) {
+                return [[], []];
+            }
+
+            $incluido = $nuevos['precios_incluyen_impuesto'] === '1';
+
+            return [
+                Precios::convertirAlModo($incluido, $tasaAnterior, $tasaNueva),
+                Precios::convertirOfertasAlModo($incluido, $tasaAnterior, $tasaNueva),
+            ];
         });
 
         Config::olvidar();
 
         Auditor::registrar('CONFIGURACION_ACTUALIZADA', 'configuracion', null, $cambios);
 
-        if ($convertidos) {
+        if ($convertidos || $ofertas) {
             // Con el precio anterior de cada producto: es lo que permite
             // deshacer la conversión (Precios::deshacerUltimaConversion).
             Auditor::registrar('PRECIOS_CONVERTIDOS', 'productos', null, [
@@ -198,6 +205,7 @@ class ConfiguracionController extends Controller
                 'tasa_anterior' => $tasaAnterior,
                 'tasa_nueva' => $tasaNueva,
                 'precios' => $convertidos,
+                'ofertas' => $ofertas,
             ]);
         }
 

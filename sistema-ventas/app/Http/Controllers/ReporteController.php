@@ -2,12 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExportaInformes;
 use App\Models\Producto;
-use App\Services\Hojas;
 use App\Support\Config;
-use App\Support\TopeExcel;
-use App\Support\TopePdf;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -26,6 +23,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ReporteController extends Controller
 {
+    use ExportaInformes;
+
     public function ventas(Request $request): View
     {
         [$desde, $hasta] = $this->rango($request);
@@ -72,15 +71,6 @@ class ReporteController extends Controller
         return $this->excel($this->documentoProductos($desde, $hasta), $this->nombreFichero('productos', $desde, $hasta, 'xlsx'));
     }
 
-    private function excel(array $documento, string $nombreFichero): StreamedResponse|RedirectResponse
-    {
-        if ($aviso = TopeExcel::excedido($documento)) {
-            return back()->with('error', $aviso);
-        }
-
-        return (new Hojas($documento))->descargar($nombreFichero);
-    }
-
     public function ventasPdf(Request $request): Response|RedirectResponse
     {
         [$desde, $hasta] = $this->rango($request);
@@ -93,21 +83,6 @@ class ReporteController extends Controller
         [$desde, $hasta] = $this->rango($request);
 
         return $this->pdf($this->documentoProductos($desde, $hasta), $this->nombreFichero('productos', $desde, $hasta, 'pdf'));
-    }
-
-    /**
-     * El PDF sale de la misma estructura que el Excel, así que las dos
-     * descargas no se pueden separar con el tiempo.
-     */
-    private function pdf(array $documento, string $nombreFichero): Response|RedirectResponse
-    {
-        if ($aviso = TopePdf::excedido($documento)) {
-            return back()->with('error', $aviso);
-        }
-
-        return Pdf::loadView('reportes.pdf', ['doc' => $documento])
-            ->setPaper('a4', $documento['orientacion'] ?? 'portrait')
-            ->download($nombreFichero);
     }
 
     // ------------------------------------------------- contenido de cada reporte
@@ -270,51 +245,10 @@ class ReporteController extends Controller
      */
     private function documento(string $titulo, Carbon $desde, Carbon $hasta, array $indicadores, array $tablas): array
     {
-        return [
-            'titulo' => $titulo,
-            'negocio' => [
-                'nombre' => Config::negocio(),
-                'documento' => Config::get('negocio_documento'),
-                'direccion' => Config::get('negocio_direccion'),
-                'telefono' => Config::get('negocio_telefono'),
-            ],
-            'moneda' => Config::moneda(),
-            'periodo' => 'Período del '.$desde->format('d/m/Y').' al '.$hasta->format('d/m/Y'),
-            'generado' => now()->format('d/m/Y H:i'),
-            'orientacion' => 'portrait',
-            'indicadores' => $indicadores,
-            'tablas' => $tablas,
-        ];
-    }
-
-    /** Nombre con el rango dentro, para que dos descargas no se pisen. */
-    private function nombreFichero(string $reporte, Carbon $desde, Carbon $hasta, string $extension): string
-    {
-        return sprintf(
-            'reporte-%s_%s_%s.%s',
-            $reporte,
-            $desde->format('Y-m-d'),
-            $hasta->format('Y-m-d'),
-            $extension
-        );
+        return $this->envoltorio($titulo, $this->periodoDe($desde, $hasta), $indicadores, $tablas);
     }
 
     // ------------------------------------------------------------------ rango
-
-    /**
-     * Por defecto, los últimos 30 días. El rango se toma completo: `hasta`
-     * incluye todo ese día.
-     *
-     * @return array{0: Carbon, 1: Carbon}
-     */
-    private function rango(Request $request): array
-    {
-        $hasta = $request->date('hasta')?->endOfDay() ?? now()->endOfDay();
-        $desde = $request->date('desde')?->startOfDay() ?? $hasta->copy()->subDays(29)->startOfDay();
-
-        // Un rango al revés no dice nada: se endereza en vez de devolver vacío.
-        return $desde->gt($hasta) ? [$hasta->copy()->startOfDay(), $desde->copy()->endOfDay()] : [$desde, $hasta];
-    }
 
     // ----------------------------------------------------------------- ventas
 

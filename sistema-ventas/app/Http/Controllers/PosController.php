@@ -111,8 +111,12 @@ class PosController extends Controller
                 'codigo' => $p->codigo,
                 'codigo_barras' => $p->codigo_barras,
                 'nombre' => $p->nombre,
-                'precio' => (float) $p->precio_venta,
-                'precio_estante' => $p->precio_estante,
+                // Lo que se cobra HOY: el de la oferta mientras rige.
+                'precio' => (float) $p->precio_vigente,
+                'precio_estante' => $p->precio_estante_vigente,
+                // El de siempre, para tacharlo al lado cuando hay oferta.
+                'precio_lista' => $p->en_oferta ? $p->precio_estante : null,
+                'oferta_hasta' => $p->en_oferta ? $p->oferta_hasta->format('d/m') : null,
                 'afecto' => (bool) $p->afecto_impuesto,
                 'stock' => (float) $p->stock_actual,
                 // Cuántas cajas quedan. El mostrador vende y descuenta en
@@ -151,8 +155,9 @@ class PosController extends Controller
         return response()->json(
             $productos->map(fn (Producto $p) => [
                 'id' => $p->id,
-                'precio' => (float) $p->precio_venta,
-                'precio_estante' => $p->precio_estante,
+                'precio' => (float) $p->precio_vigente,
+                'precio_estante' => $p->precio_estante_vigente,
+                'precio_lista' => $p->en_oferta ? $p->precio_estante : null,
                 'stock' => (float) $p->stock_actual,
                 // El régimen de impuesto también puede cambiar mientras el
                 // carrito está armado, y en modo incluido no mueve el precio.
@@ -308,8 +313,11 @@ class PosController extends Controller
             return null;
         }
 
+        // El precio vigente y no el de lista: con una oferta andando, el cliente
+        // paga ese, y un descuento se mide contra lo que de verdad se cobraría.
         $precios = Producto::whereIn('id', array_column($lineas, 'producto_id'))
-            ->pluck('precio_venta', 'id');
+            ->get()
+            ->mapWithKeys(fn (Producto $p) => [$p->id => $p->precio_vigente]);
 
         // En centavos enteros y con cada línea redondeada, igual que el subtotal
         // del mostrador. En coma flotante, 10,89 sobre 108,90 da

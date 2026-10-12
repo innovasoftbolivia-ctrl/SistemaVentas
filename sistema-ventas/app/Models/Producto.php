@@ -45,6 +45,7 @@ class Producto extends Model
         'contenido_empaque', 'nombre_empaque', 'controla_vencimiento',
         'codigo', 'codigo_barras', 'nombre', 'descripcion',
         'precio_compra', 'precio_venta', 'afecto_impuesto',
+        'precio_oferta', 'oferta_desde', 'oferta_hasta',
         'stock_minimo', 'imagen', 'activo',
     ];
 
@@ -53,6 +54,9 @@ class Producto extends Model
         return [
             'precio_compra' => 'decimal:2',
             'precio_venta' => 'decimal:2',
+            'precio_oferta' => 'decimal:2',
+            'oferta_desde' => 'date:Y-m-d',
+            'oferta_hasta' => 'date:Y-m-d',
             'stock_actual' => 'decimal:3',
             'stock_minimo' => 'decimal:3',
             // Float y no `decimal:3`: este número se muestra por todos lados
@@ -269,8 +273,12 @@ class Producto extends Model
     /** Precio que ve el cliente: con el impuesto, si el producto está afecto. */
     public function getPrecioEstanteAttribute(): float
     {
-        $precio = (float) $this->precio_venta;
+        return $this->estanteDe((float) $this->precio_venta);
+    }
 
+    /** Lo que paga el cliente por un precio de este producto (con impuesto si está afecto). */
+    private function estanteDe(float $precio): float
+    {
         if (Config::preciosIncluyenImpuesto() || ! $this->afecto_impuesto) {
             return round($precio, 2);
         }
@@ -278,14 +286,69 @@ class Producto extends Model
         return round($precio * (1 + Config::tasaImpuesto()), 2);
     }
 
+    /**
+     * ¿Rige hoy la oferta de este producto?
+     *
+     * Los dos días cuentan: una oferta «del 10 al 12» vale todo el 12. Se mira
+     * el día de hoy y no la hora, así que se apaga sola a medianoche.
+     */
+    public function getEnOfertaAttribute(): bool
+    {
+        if ($this->precio_oferta === null || ! $this->oferta_desde || ! $this->oferta_hasta) {
+            return false;
+        }
+
+        $hoy = now()->startOfDay();
+
+        return $hoy->betweenIncluded($this->oferta_desde->copy()->startOfDay(), $this->oferta_hasta->copy()->startOfDay());
+    }
+
+    /** ¿Tiene una oferta cargada que todavía no empezó? */
+    public function getOfertaProgramadaAttribute(): bool
+    {
+        return $this->precio_oferta !== null
+            && $this->oferta_desde
+            && $this->oferta_desde->copy()->startOfDay()->greaterThan(now()->startOfDay());
+    }
+
+    /**
+     * El precio con el que se vende HOY, en la misma base que `precio_venta`:
+     * el de la oferta mientras rige y el de lista el resto del tiempo. Es el
+     * único que el mostrador y el registro de la venta deben leer.
+     */
+    public function getPrecioVigenteAttribute(): string
+    {
+        return $this->en_oferta ? (string) $this->precio_oferta : (string) $this->precio_venta;
+    }
+
+    /** Lo que paga el cliente hoy, con el impuesto si el producto está afecto. */
+    public function getPrecioEstanteVigenteAttribute(): float
+    {
+        return $this->en_oferta
+            ? $this->estanteDe((float) $this->precio_oferta)
+            : $this->precio_estante;
+    }
+
     /** Precio de venta sin impuesto: sobre él se calcula el margen. */
     public function getPrecioBaseAttribute(): float
     {
-        $precio = (float) $this->precio_venta;
+        return $this->baseDe((float) $this->precio_venta);
+    }
 
+    /** Un precio de este producto sin el impuesto que lleva adentro. */
+    private function baseDe(float $precio): float
+    {
         return Config::preciosIncluyenImpuesto() && $this->afecto_impuesto
             ? round($precio - Config::impuestoDentroDe($precio), 2)
             : round($precio, 2);
+    }
+
+    /** Ganancia por unidad mientras rija la oferta; null si no tiene una cargada. */
+    public function getMargenOfertaAttribute(): ?float
+    {
+        return $this->precio_oferta === null
+            ? null
+            : round($this->baseDe((float) $this->precio_oferta) - (float) $this->precio_compra, 2);
     }
 
     /** Ganancia por unidad sobre la base imponible. */

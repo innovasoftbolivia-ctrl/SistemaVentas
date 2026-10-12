@@ -153,7 +153,7 @@
                         <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-800" data-deshacer-conversion>
                             <p class="text-theme-xs text-gray-500 dark:text-gray-400">
                                 El {{ $conversion->fecha->format('d/m/Y H:i') }} se ajustó el precio de
-                                {{ count($conversion->detalle['precios']) }} producto(s) al cambiar de modo.
+                                {{ count($conversion->detalle['precios'] ?? []) }} producto(s) al cambiar de modo.
                             </p>
                             <button type="submit" form="deshacer-conversion"
                                 onclick="return confirm('¿Volver los precios y el modo a como estaban antes de ese ajuste?')"

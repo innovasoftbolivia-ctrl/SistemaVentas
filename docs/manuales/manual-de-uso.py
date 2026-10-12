@@ -619,7 +619,10 @@ tabla(['Módulo', 'Para qué sirve'],
 doc.add_heading('4.3 Reportes', level=2)
 tabla(['Módulo', 'Para qué sirve'],
       [['Reporte de ventas', 'Por rango de fechas: montos, ganancia aproximada, ticket promedio, desglose por método de pago, ranking de cajeros y detalle diario. Exporta a Excel y PDF.'],
-       ['Productos e inventario', 'Qué se vende más, valor del inventario al precio de compra y qué productos hay que reponer. También exporta.']],
+       ['Productos e inventario', 'Qué se vende más, valor del inventario al precio de compra y qué productos hay que reponer. También exporta.'],
+       ['Mermas', 'Cuánto se perdió y por qué: por vencimiento, por conteo de inventario o por ajuste manual. Se valora al costo de hoy y se separa lo que sobró. Muestra las mayores pérdidas. Exporta a Excel y PDF.'],
+       ['Productos sin movimiento', 'Lo que tienes parado: productos con stock que no se vendieron ni se compraron en 30, 60, 90, 180 o 365 días, con la plata que tienen detenida. Exporta a Excel y PDF.'],
+       ['Horas de más venta', 'Ventas y monto por día de la semana y por hora, con un mapa de calor. Sirve para decidir cuántos cajeros poner y cuándo. Exporta a Excel y PDF.']],
       anchos=[3.6, 11.9])
 
 doc.add_heading('4.4 Almacén', level=2)
@@ -633,7 +636,8 @@ tabla(['Módulo', 'Para qué sirve'],
 
 doc.add_heading('4.5 Catálogo', level=2)
 tabla(['Módulo', 'Para qué sirve'],
-      [['Productos', 'El catálogo: código, código de barras, nombre, foto, categoría, unidad de venta, empaque en el que se compra, proveedor, precio de compra, precio de venta y stock mínimo. Cada producto tiene su kardex.'],
+      [['Productos', 'El catálogo: código, código de barras, nombre, foto, categoría, unidad de venta, empaque en el que se compra, proveedor, precio de compra, precio de venta y stock mínimo. Cada producto tiene su kardex. Opcionalmente, una oferta: un precio rebajado entre dos fechas (los dos días incluidos) que se apaga solo; el precio de lista no se toca.'],
+       ['Etiquetas de estante', 'Imprime una hoja A4 de etiquetas con nombre, precio y código de barras. Se eligen por texto, por categoría, por «precio cambiado» o por «en oferta hoy», con las copias que haga falta. El precio es el que se cobra hoy; si hay oferta, sale con el de siempre tachado.'],
        ['Categorías', 'Cómo se agrupan los productos. Ordena el catálogo y el mostrador.'],
        ['Unidades de medida', 'Unidad, paquete, kilo, litro. Define si el producto admite decimales.'],
        ['Proveedores', 'A quién se le compra. Se usa al registrar ingresos de mercadería.']],

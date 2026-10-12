@@ -76,7 +76,8 @@
                 <div class="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-5">
                     <x-ui.button type="submit" size="sm">Filtrar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" :href="route('productos.index')">Limpiar</x-ui.button>
-                    <x-ui.button size="sm" class="ml-auto" :href="route('productos.create')">Nuevo producto</x-ui.button>
+                    <x-ui.button variant="outline" size="sm" class="ml-auto" :href="route('etiquetas.index')">Etiquetas</x-ui.button>
+                    <x-ui.button size="sm" :href="route('productos.create')">Nuevo producto</x-ui.button>
                 </div>
 
             </form>
@@ -121,6 +122,9 @@
                                                     · {{ $producto->codigo_barras }}
                                                 @endif
                                             </span>
+                                            @if ($producto->en_oferta)
+                                                <x-ui.estado estado="ACTIVO" :texto="'Oferta hasta '.$producto->oferta_hasta->format('d/m')" class="ml-1" data-en-oferta />
+                                            @endif
                                             @unless ($producto->activo)
                                                 <x-ui.estado estado="CESADO" texto="Descatalogado" class="ml-1" />
                                             @endunless

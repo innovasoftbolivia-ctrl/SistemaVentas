@@ -201,6 +201,7 @@ class ProductoController extends Controller
         $datos = $this->resolverImagen($request, $producto, $datos);
 
         $precioAnterior = (float) $producto->precio_venta;
+        $ofertaAnterior = $this->ofertaDe($producto);
         $controlabaVencimiento = $producto->controla_vencimiento;
 
         // Con el producto bloqueado: una venta en curso termina antes (o
@@ -228,6 +229,14 @@ class ProductoController extends Controller
                 'codigo' => $producto->codigo,
                 'anterior' => $precioAnterior,
                 'nuevo' => (float) $producto->precio_venta,
+            ]);
+        }
+
+        if ($ofertaAnterior !== ($ofertaNueva = $this->ofertaDe($producto->fresh()))) {
+            Auditor::registrar('OFERTA_ACTUALIZADA', 'productos', $producto->id, [
+                'codigo' => $producto->codigo,
+                'anterior' => $ofertaAnterior,
+                'nueva' => $ofertaNueva,
             ]);
         }
 
@@ -601,6 +610,11 @@ class ProductoController extends Controller
             // costo está por caja. Se acepta como viene y el sistema divide.
             'precio_compra_por' => ['nullable', 'in:UNIDAD,EMPAQUE'],
             'precio_venta' => ['required', 'numeric', 'min:0', 'max:9999999999'],
+            // La oferta es un precio rebajado entre dos fechas (inclusive): o va
+            // completa o no va. Se apaga sola al pasar el último día.
+            'precio_oferta' => ['nullable', 'numeric', 'min:0', 'max:9999999999', 'lt:precio_venta', 'required_with:oferta_desde,oferta_hasta'],
+            'oferta_desde' => ['nullable', 'date_format:Y-m-d', 'required_with:precio_oferta,oferta_hasta'],
+            'oferta_hasta' => ['nullable', 'date_format:Y-m-d', 'required_with:precio_oferta,oferta_desde', 'after_or_equal:oferta_desde'],
             'afecto_impuesto' => ['boolean'],
             // Encender el control es lo que hace que el stock de este producto
             // se lleve por lotes con fecha. Se decide producto por producto:
@@ -624,6 +638,11 @@ class ProductoController extends Controller
             'codigo_barras.regex' => 'El código de barras solo admite dígitos.',
             'nombre_empaque.required' => 'Ponle nombre al empaque: caja, paquete, plancha…',
             'contenido_empaque.required' => 'Falta decir cuántas unidades trae el empaque.',
+            'precio_oferta.lt' => 'El precio de oferta tiene que ser menor que el precio de venta; si no, no es una oferta.',
+            'precio_oferta.required_with' => 'Falta el precio de la oferta (o borra las fechas si no hay oferta).',
+            'oferta_desde.required_with' => 'Falta decir desde qué día rige la oferta.',
+            'oferta_hasta.required_with' => 'Falta decir hasta qué día rige la oferta.',
+            'oferta_hasta.after_or_equal' => 'La oferta no puede terminar antes de empezar.',
             'contenido_empaque.gt' => 'Un empaque de una sola unidad no ahorra ninguna cuenta. Si el producto no viene en caja, desmarca la casilla.',
             'imagen.image' => 'La foto debe ser una imagen.',
             'imagen.mimes' => 'La foto tiene que ser JPG, PNG o WEBP.',
@@ -638,6 +657,9 @@ class ProductoController extends Controller
             'codigo_barras' => 'código de barras',
             'precio_compra' => 'precio de compra',
             'precio_venta' => 'precio de venta',
+            'precio_oferta' => 'precio de oferta',
+            'oferta_desde' => 'inicio de la oferta',
+            'oferta_hasta' => 'fin de la oferta',
             'stock_minimo' => 'stock mínimo',
             'afecto_impuesto' => 'afecto a impuesto',
             'imagen' => 'foto',
@@ -691,23 +713,51 @@ class ProductoController extends Controller
     private function exigirConfirmarPerdida(Request $request, ?Producto $producto, array $datos): void
     {
         // El margen se mide sobre el precio SIN impuesto, como en el resto del sistema.
-        $margen = (new Producto($datos))->margen;
+        $nuevo = new Producto($datos);
+        $margen = $nuevo->margen;
+        $margenOferta = $nuevo->margen_oferta;
 
-        if ($margen >= 0 || $request->boolean('confirma_perdida')) {
+        if (($margen >= 0 && ($margenOferta === null || $margenOferta >= 0)) || $request->boolean('confirma_perdida')) {
             return;
         }
+
+        // Un producto que ya se vendía así no se bloquea por editar otra cosa.
+        $oferta = fn ($valor) => $valor === null ? null : round((float) $valor, 2);
 
         if ($producto
             && round((float) $producto->precio_venta, 2) === round((float) $datos['precio_venta'], 2)
-            && round((float) $producto->precio_compra, 2) === round((float) $datos['precio_compra'], 2)) {
+            && round((float) $producto->precio_compra, 2) === round((float) $datos['precio_compra'], 2)
+            && $oferta($producto->precio_oferta) === $oferta($datos['precio_oferta'] ?? $producto->precio_oferta)) {
             return;
         }
 
+        if ($margen < 0) {
+            throw ValidationException::withMessages([
+                'precio_venta' => 'Este precio está por debajo del costo: cada unidad vendida pierde '
+                    .Config::importe(abs($margen)).'. Si es una promoción a propósito, marca «Vender a pérdida a propósito»; '
+                    .'si no, revisa el precio de venta y el costo (¿está por caja o por unidad?).',
+            ]);
+        }
+
         throw ValidationException::withMessages([
-            'precio_venta' => 'Este precio está por debajo del costo: cada unidad vendida pierde '
-                .Config::importe(abs($margen)).'. Si es una promoción a propósito, marca «Vender a pérdida a propósito»; '
-                .'si no, revisa el precio de venta y el costo (¿está por caja o por unidad?).',
+            'precio_oferta' => 'Con este precio de oferta cada unidad vendida pierde '
+                .Config::importe(abs($margenOferta)).'. Si es una promoción a propósito, marca «Vender a pérdida a propósito»; '
+                .'si no, revisa el precio de oferta.',
         ]);
+    }
+
+    /**
+     * La oferta de un producto como un texto comparable («8.50 · 2026-10-10 → 2026-10-12»),
+     * o null si no tiene: sirve para saber si cambió y qué dejar en la bitácora.
+     */
+    private function ofertaDe(Producto $producto): ?string
+    {
+        if ($producto->precio_oferta === null) {
+            return null;
+        }
+
+        return number_format((float) $producto->precio_oferta, 2, '.', '')
+            .' · '.$producto->oferta_desde?->format('Y-m-d').' → '.$producto->oferta_hasta?->format('Y-m-d');
     }
 
     /**

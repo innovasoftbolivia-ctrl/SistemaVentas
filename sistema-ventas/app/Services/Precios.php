@@ -35,6 +35,25 @@ class Precios
      */
     public static function convertirAlModo(bool $incluido, float $tasaAnterior, float $tasaNueva): array
     {
+        return self::convertirColumna('precio_venta', $incluido, $tasaAnterior, $tasaNueva);
+    }
+
+    /**
+     * Lo mismo para las ofertas cargadas: su precio está en la misma base que el
+     * de lista, así que cambia de modo con él. Si no, una oferta de 10,00 con
+     * el impuesto encima pasaría a cobrarse 10,00 con el impuesto incluido, y la
+     * «rebaja» de un producto de 11,30 sería una subida.
+     *
+     * @return array<int, array{0: string, 1: string}> id del producto => [precio anterior, precio nuevo]
+     */
+    public static function convertirOfertasAlModo(bool $incluido, float $tasaAnterior, float $tasaNueva): array
+    {
+        return self::convertirColumna('precio_oferta', $incluido, $tasaAnterior, $tasaNueva);
+    }
+
+    /** @return array<int, array{0: string, 1: string}> */
+    private static function convertirColumna(string $columna, bool $incluido, float $tasaAnterior, float $tasaNueva): array
+    {
         if ($incluido) {
             // El cliente pagaba base × (1 + tasa): ese pasa a ser el precio.
             // ROUND de MySQL, igual que el precio de estante que ya veía.
@@ -42,7 +61,7 @@ class Precios
                 return [];
             }
 
-            $sql = 'ROUND(precio_venta * (1 + ?), 2)';
+            $sql = "ROUND({$columna} * (1 + ?), 2)";
             $tasa = $tasaAnterior;
         } else {
             // El cliente pagaba el precio: la base es el precio sin la tasa.
@@ -50,7 +69,7 @@ class Precios
                 return [];
             }
 
-            $sql = 'ROUND(precio_venta / (1 + ?), 2)';
+            $sql = "ROUND({$columna} / (1 + ?), 2)";
             $tasa = $tasaNueva;
         }
 
@@ -60,15 +79,16 @@ class Precios
         // convertirlos, y lo que queda en la bitácora es exactamente lo que había.
         $cambios = DB::table('productos')
             ->where('afecto_impuesto', 1)
+            ->whereNotNull($columna)
             ->lockForUpdate()
-            ->selectRaw("id, precio_venta AS antes, {$sql} AS despues", [$tasa])
+            ->selectRaw("id, {$columna} AS antes, {$sql} AS despues", [$tasa])
             ->get()
             ->filter(fn ($p) => $p->antes !== $p->despues)
             ->mapWithKeys(fn ($p) => [$p->id => [$p->antes, $p->despues]])
             ->all();
 
         if ($cambios) {
-            DB::update("UPDATE productos SET precio_venta = {$sql} WHERE afecto_impuesto = 1", [$tasa]);
+            DB::update("UPDATE productos SET {$columna} = {$sql} WHERE afecto_impuesto = 1 AND {$columna} IS NOT NULL", [$tasa]);
         }
 
         return $cambios;
@@ -81,7 +101,8 @@ class Precios
             ->orderByDesc('id')
             ->first();
 
-        if (! $ultima || $ultima->accion !== 'PRECIOS_CONVERTIDOS' || empty($ultima->detalle['precios'])) {
+        if (! $ultima || $ultima->accion !== 'PRECIOS_CONVERTIDOS'
+            || (empty($ultima->detalle['precios']) && empty($ultima->detalle['ofertas']))) {
             return null;
         }
 
@@ -116,13 +137,23 @@ class Precios
             $restaurados = 0;
             $omitidos = 0;
 
-            foreach ($conversion->detalle['precios'] as $id => [$antes, $despues]) {
+            foreach ($conversion->detalle['precios'] ?? [] as $id => [$antes, $despues]) {
                 $cambio = DB::table('productos')
                     ->where('id', $id)
                     ->where('precio_venta', $despues)
                     ->update(['precio_venta' => $antes]);
 
                 $cambio ? $restaurados++ : $omitidos++;
+            }
+
+            // Las ofertas vuelven igual, con la misma regla: la que alguien
+            // corrigió después se queda como está. No cuentan en el resultado
+            // (son parte del mismo producto).
+            foreach ($conversion->detalle['ofertas'] ?? [] as $id => [$antes, $despues]) {
+                DB::table('productos')
+                    ->where('id', $id)
+                    ->where('precio_oferta', $despues)
+                    ->update(['precio_oferta' => $antes]);
             }
 
             $modoAnterior = $conversion->detalle['precios_incluyen_impuesto'] === '1' ? '0' : '1';

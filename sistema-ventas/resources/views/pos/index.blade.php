@@ -210,7 +210,12 @@
 
                                 <span class="flex items-baseline justify-between gap-2">
                                     <span class="whitespace-nowrap text-base font-bold text-brand-600 dark:text-brand-400"
-                                        x-text="'{{ $moneda }} ' + p.precio_estante.toFixed(2)"></span>
+                                        :class="p.precio_lista ? 'text-success-700 dark:text-success-500' : ''">
+                                        <span x-text="'{{ $moneda }} ' + p.precio_estante.toFixed(2)"></span>
+                                        <s x-show="p.precio_lista" x-cloak data-precio-lista
+                                            class="ml-1 text-theme-xs font-normal text-gray-400"
+                                            x-text="p.precio_lista ? p.precio_lista.toFixed(2) : ''"></s>
+                                    </span>
                                     <span class="text-theme-xs whitespace-nowrap"
                                         :class="p.stock > 0 && p.stock <= 5 ? 'text-warning-700 dark:text-orange-400' : 'text-gray-500 dark:text-gray-400'"
                                         x-text="p.stock <= 0 ? '' : (cantidadTexto(p.stock) + ' ' + p.unidad)"></span>
@@ -341,7 +346,7 @@
                                         <p class="truncate text-theme-sm font-medium text-gray-800 dark:text-white/90"
                                             x-text="l.nombre"></p>
                                         <p class="text-theme-xs text-gray-500 dark:text-gray-400"
-                                            x-text="'{{ $moneda }} ' + l.precio_estante.toFixed(2) + ' × ' + cantidadTexto(l.cantidad) + ' ' + l.unidad"></p>
+                                            x-text="'{{ $moneda }} ' + l.precio_estante.toFixed(2) + ' × ' + cantidadTexto(l.cantidad) + ' ' + l.unidad + (l.precio_lista ? ' · oferta' : '')"></p>
                                     </div>
                                     <button type="button" @click="quitar(i)" :aria-label="`Quitar ${l.nombre} del carrito`"
                                         class="-mr-2 -mt-2 flex h-11 w-11 flex-none items-center justify-center rounded-lg text-gray-400 transition hover:bg-error-50 hover:text-error-500 dark:hover:bg-error-500/10">
@@ -1769,6 +1774,7 @@
                                 nombre: p.nombre,
                                 precio: p.precio,
                                 precio_estante: p.precio_estante,
+                                precio_lista: p.precio_lista ?? null,
                                 afecto: p.afecto,
                                 cantidad: 1,
                                 stock: p.stock,
@@ -2342,6 +2348,7 @@
                                 if (p.precio !== l.precio || p.precio_estante !== l.precio_estante) {
                                     l.precio = p.precio;
                                     l.precio_estante = p.precio_estante;
+                                    l.precio_lista = p.precio_lista ?? null;
                                     cambio = true;
                                 }
 

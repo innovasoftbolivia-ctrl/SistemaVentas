@@ -87,6 +87,9 @@ class Menu
                 'items' => [
                     ['icon' => 'reportes', 'name' => 'Ventas', 'path' => '/reportes/ventas'],
                     ['icon' => 'inventario', 'name' => 'Productos e inventario', 'path' => '/reportes/productos'],
+                    ['icon' => 'inventario', 'name' => 'Mermas', 'path' => '/reportes/mermas'],
+                    ['icon' => 'inventario', 'name' => 'Productos sin movimiento', 'path' => '/reportes/sin-movimiento'],
+                    ['icon' => 'reportes', 'name' => 'Horas de más venta', 'path' => '/reportes/horas'],
                     ...(Config::facturacionVisible()
                         ? [['icon' => 'comprobantes', 'name' => 'Libro de Ventas IVA', 'path' => '/reportes/libro-ventas']]
                         : []),
@@ -120,6 +123,11 @@ class Menu
                         'icon' => 'productos',
                         'name' => 'Productos',
                         'path' => '/productos',
+                    ],
+                    [
+                        'icon' => 'productos',
+                        'name' => 'Etiquetas de estante',
+                        'path' => '/productos/etiquetas',
                     ],
                     [
                         'icon' => 'categorias',

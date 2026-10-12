@@ -221,7 +221,8 @@ class Ventas
                 // recibe pedidos por HTTP, nunca lo manda —lo quitó de sus
                 // reglas de validación a propósito— así que el navegador jamás
                 // decide el precio de una venta real.
-                'precio_unitario' => $linea['precio_unitario'] ?? $producto->precio_venta,
+                // El de la oferta, si hoy rige una (ver Producto::precio_vigente).
+                'precio_unitario' => $linea['precio_unitario'] ?? $producto->precio_vigente,
                 'descuento' => $linea['descuento'] ?? 0,
                 // El costo de hoy queda con la venta: la ganancia de este mes no
                 // cambia cuando el proveedor suba el precio el mes que viene.

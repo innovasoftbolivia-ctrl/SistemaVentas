@@ -191,6 +191,9 @@ CREATE TABLE productos (
     descripcion         VARCHAR(255) NULL,
     precio_compra       DECIMAL(12,2) NOT NULL DEFAULT 0.00,  -- costo, sin impuesto
     precio_venta        DECIMAL(12,2) NOT NULL,                -- precio SIN impuesto (base imponible)
+    precio_oferta       DECIMAL(12,2) NULL,                    -- precio rebajado, misma base que precio_venta
+    oferta_desde        DATE         NULL,                     -- primer día de la oferta
+    oferta_hasta        DATE         NULL,                     -- último día de la oferta (inclusive)
     afecto_impuesto     TINYINT(1)   NOT NULL DEFAULT 1,       -- 1 = se le agrega el impuesto al vender
     stock_actual        DECIMAL(12,3) NOT NULL DEFAULT 0.000,
     stock_minimo        DECIMAL(12,3) NOT NULL DEFAULT 0.000,
@@ -210,6 +213,13 @@ CREATE TABLE productos (
     CONSTRAINT fk_productos_proveedor FOREIGN KEY (proveedor_id)     REFERENCES proveedores (id) ON DELETE SET NULL,
     CONSTRAINT ck_productos_precios   CHECK (precio_venta >= 0 AND precio_compra >= 0),
     CONSTRAINT ck_productos_stock     CHECK (stock_actual >= 0 AND stock_minimo >= 0),
+    -- O no hay oferta (las tres columnas en NULL) o están las tres, con el
+    -- precio no negativo y el último día no antes del primero.
+    CONSTRAINT ck_productos_oferta    CHECK (
+        (precio_oferta IS NULL AND oferta_desde IS NULL AND oferta_hasta IS NULL)
+        OR (precio_oferta IS NOT NULL AND precio_oferta >= 0 AND oferta_desde IS NOT NULL
+            AND oferta_hasta IS NOT NULL AND oferta_hasta >= oferta_desde)
+    ),
     -- O el producto no viene en empaque (las dos columnas en NULL), o viene en
     -- uno con nombre y con más de una unidad dentro. Un empaque de 1 no ahorra
     -- ninguna cuenta: solo ensucia la pantalla de ingreso.
@@ -1994,4 +2004,5 @@ INSERT INTO parches_aplicados (archivo) VALUES
     ('2026_10_08_anular_movimiento_de_caja.sql'),
     ('2026_10_09_descuadres_y_peso_del_qr.sql'),
     ('2026_10_09_indices_de_la_base.sql'),
-    ('2026_10_09_restricciones_y_bitacora.sql');
+    ('2026_10_09_restricciones_y_bitacora.sql'),
+    ('2026_10_12_ofertas_con_fechas.sql');

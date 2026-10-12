@@ -48,6 +48,7 @@
             incluido: @js($incluido),
             compra: Number(@js(old('precio_compra', $producto->precio_compra ?? 0))),
             venta: Number(@js(old('precio_venta', $producto->precio_venta ?? 0))),
+            oferta: Number(@js(old('precio_oferta', $producto->precio_oferta ?? 0))),
             afecto: @js((bool) old('afecto_impuesto', $producto->afecto_impuesto ?? true)),
 
             unidades: @js($unidadesInfo),
@@ -165,10 +166,20 @@
                 return base.toFixed(2);
             },
             /* El IVA que lleva adentro el precio, igual que la base de datos. */
-            get ivaDentro() {
+            ivaDe(precio) {
                 if (!this.incluido || !this.afecto) return 0;
-                const c = Math.round(this.venta * 100), t = Math.round(this.tasa * 10000), d = 10000 + t;
+                const c = Math.round(precio * 100), t = Math.round(this.tasa * 10000), d = 10000 + t;
                 return Math.floor((2 * c * t + d) / (2 * d)) / 100;
+            },
+            get ivaDentro() {
+                return this.ivaDe(this.venta);
+            },
+            /* La ganancia de la oferta, mientras rija: null si no hay oferta escrita. */
+            get margenOferta() {
+                return this.oferta > 0 ? Number(((this.oferta - this.ivaDe(this.oferta)) - this.compraUnidad).toFixed(2)) : null;
+            },
+            get ofertaPierde() {
+                return this.margenOferta !== null && this.margenOferta < 0;
             },
             /* La ganancia se mide sin impuesto: el IVA no es del negocio. */
             get ventaSinIva() {
@@ -457,12 +468,16 @@
                 </div>
 
                 {{-- Por debajo del costo: casi siempre es un dedazo. Se puede, pero a propósito. --}}
-                <div x-show="Number(margen) < 0" x-cloak data-perdida role="alert"
+                <div x-show="Number(margen) < 0 || ofertaPierde" x-cloak data-perdida role="alert"
                     class="rounded-xl border border-error-200 bg-error-50 p-4 dark:border-error-500/30 dark:bg-error-500/10">
-                    <p class="text-theme-sm text-error-700 dark:text-error-400">
+                    <p class="text-theme-sm text-error-700 dark:text-error-400" x-show="Number(margen) < 0">
                         <b>Este precio está por debajo del costo:</b> cada unidad vendida pierde
                         {{ $moneda }} <b x-text="Math.abs(margen).toFixed(2)"></b>.
                         Revisa el precio de venta y el costo (¿está por caja o por unidad?).
+                    </p>
+                    <p class="text-theme-sm text-error-700 dark:text-error-400" x-show="ofertaPierde" data-perdida-oferta>
+                        <b>El precio de oferta está por debajo del costo:</b> mientras rija, cada unidad vendida pierde
+                        {{ $moneda }} <b x-text="margenOferta === null ? '' : Math.abs(margenOferta).toFixed(2)"></b>.
                     </p>
                     <div class="mt-3">
                         <x-form.check name="confirma_perdida" :checked="false"
@@ -488,6 +503,32 @@
                     <x-ui.alert variant="warning" title="El precio de venta está por debajo del costo"
                         message="Tal como está, cada unidad vendida deja pérdida." />
                 </template>
+            </x-common.component-card>
+
+            {{-- Una oferta es un precio rebajado entre dos fechas, los dos días
+                 incluidos. Se apaga sola: el precio de lista no se toca. --}}
+            <x-common.component-card title="Oferta"
+                desc="Opcional. Un precio rebajado que rige entre dos fechas y se apaga solo; el precio de venta de arriba vuelve al día siguiente.">
+                <div class="grid grid-cols-1 gap-5 sm:grid-cols-3" data-oferta>
+                    <x-form.campo :label="$separa ? 'Precio de oferta (base)' : 'Precio de oferta'" for="precio_oferta" name="precio_oferta"
+                        help="Menor que el precio de venta, en la misma base.">
+                        <x-form.input id="precio_oferta" name="precio_oferta" type="number" step="0.01" min="0"
+                            :value="$producto->precio_oferta ?? ''" x-model.number="oferta" />
+                    </x-form.campo>
+                    <x-form.campo label="Desde" for="oferta_desde" name="oferta_desde" help="Primer día.">
+                        <x-form.input id="oferta_desde" name="oferta_desde" type="date"
+                            :value="$producto->oferta_desde?->format('Y-m-d') ?? ''" />
+                    </x-form.campo>
+                    <x-form.campo label="Hasta" for="oferta_hasta" name="oferta_hasta" help="Último día, incluido.">
+                        <x-form.input id="oferta_hasta" name="oferta_hasta" type="date"
+                            :value="$producto->oferta_hasta?->format('Y-m-d') ?? ''" />
+                    </x-form.campo>
+                </div>
+                @if ($esEdicion && $producto->precio_oferta !== null)
+                    <p class="text-theme-xs text-gray-500 dark:text-gray-400">
+                        Para quitar la oferta, borra el precio y las dos fechas.
+                    </p>
+                @endif
             </x-common.component-card>
         </div>
 

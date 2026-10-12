@@ -15,6 +15,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DevolucionCompraController;
 use App\Http\Controllers\DevolucionController;
 use App\Http\Controllers\EmpleadoController;
+use App\Http\Controllers\EtiquetaController;
+use App\Http\Controllers\InformeController;
 use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\LibroVentasController;
 use App\Http\Controllers\PerfilController;
@@ -189,6 +191,17 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
         Route::get('reportes/ventas/pdf', [ReporteController::class, 'ventasPdf'])->name('reportes.ventas.pdf');
         Route::get('reportes/productos/pdf', [ReporteController::class, 'productosPdf'])->name('reportes.productos.pdf');
 
+        // Informes para decidir: lo que se perdió, lo que no se mueve y cuándo se vende.
+        Route::get('reportes/mermas', [InformeController::class, 'mermas'])->name('informes.mermas');
+        Route::get('reportes/mermas/excel', [InformeController::class, 'mermasExcel'])->name('informes.mermas.excel');
+        Route::get('reportes/mermas/pdf', [InformeController::class, 'mermasPdf'])->name('informes.mermas.pdf');
+        Route::get('reportes/sin-movimiento', [InformeController::class, 'sinMovimiento'])->name('informes.sin-movimiento');
+        Route::get('reportes/sin-movimiento/excel', [InformeController::class, 'sinMovimientoExcel'])->name('informes.sin-movimiento.excel');
+        Route::get('reportes/sin-movimiento/pdf', [InformeController::class, 'sinMovimientoPdf'])->name('informes.sin-movimiento.pdf');
+        Route::get('reportes/horas', [InformeController::class, 'horas'])->name('informes.horas');
+        Route::get('reportes/horas/excel', [InformeController::class, 'horasExcel'])->name('informes.horas.excel');
+        Route::get('reportes/horas/pdf', [InformeController::class, 'horasPdf'])->name('informes.horas.pdf');
+
         // Libro de Ventas IVA: borrador para el contador (ver App\Services\LibroDeVentas).
         Route::get('reportes/libro-ventas', [LibroVentasController::class, 'index'])->name('reportes.libro-ventas');
         Route::get('reportes/libro-ventas/excel', [LibroVentasController::class, 'excel'])->name('reportes.libro-ventas.excel');
@@ -259,6 +272,9 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
     Route::middleware('permiso:productos.gestionar')->group(function () {
         Route::get('productos', [ProductoController::class, 'index'])->name('productos.index');
         Route::get('productos/nuevo', [ProductoController::class, 'create'])->name('productos.create');
+        // Las etiquetas de estante: se eligen aquí y se imprimen en una hoja aparte.
+        Route::get('productos/etiquetas', [EtiquetaController::class, 'index'])->name('etiquetas.index');
+        Route::get('productos/etiquetas/hoja', [EtiquetaController::class, 'hoja'])->name('etiquetas.hoja');
         Route::post('productos', [ProductoController::class, 'store'])->name('productos.store');
         Route::get('productos/{producto}/editar', [ProductoController::class, 'edit'])->name('productos.edit');
         Route::put('productos/{producto}', [ProductoController::class, 'update'])->name('productos.update');

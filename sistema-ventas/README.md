@@ -292,6 +292,54 @@ análisis: precios no centralizados).
 `App\Support\Config` lee esos parámetros del negocio (tasa, moneda, nombre del local) una sola
 vez por petición.
 
+#### Ofertas con fechas
+
+Un producto puede tener **una oferta**: `precio_oferta`, `oferta_desde` y `oferta_hasta`, los dos
+días incluidos. Se carga en la sección «Oferta» del formulario del producto y se apaga sola al
+pasar el último día: el `precio_venta` de lista no se toca, así que nadie tiene que acordarse de
+volver a subirlo. Para quitarla antes, se borran el precio y las dos fechas.
+
+- **Un solo precio vigente.** `Producto::precio_vigente` es el de la oferta mientras rige y el de
+  lista el resto del tiempo (se mira el día, no la hora: cambia a medianoche). El mostrador, el
+  refresco del carrito, el tope de descuento del cajero y `Ventas::registrar` leen **ese**; la
+  venta guarda el precio con el que se hizo, así que cuando la oferta termina los tickets viejos
+  no se mueven.
+- **En el mostrador** el producto sale en verde con el precio de siempre tachado al lado, y la
+  línea del carrito dice «oferta».
+- **Reglas.** La oferta va completa o no va (tres campos o ninguno); el precio es menor que el de
+  lista; el último día no es anterior al primero. La base lo exige con `ck_productos_oferta`.
+  Una oferta por debajo del costo pide marcar «Vender a pérdida a propósito», igual que un precio
+  de lista por debajo del costo.
+- **Cambiar de modo de impuesto convierte también las ofertas**, con la misma regla que el
+  catálogo: la conversión deja en la bitácora el precio anterior de cada oferta
+  (`PRECIOS_CONVERTIDOS.detalle.ofertas`) y «Deshacer ese ajuste» las devuelve. Si no, una oferta
+  de 8,00 con el impuesto encima pasaría a cobrarse 8,00 con el impuesto incluido, y un producto
+  de 11,30 tendría una «rebaja» del 29 % que nadie decidió.
+- Cada alta, cambio o baja de una oferta deja `OFERTA_ACTUALIZADA` en la bitácora, con la oferta
+  de antes y la de después.
+
+Para una base que ya está en un cliente: el parche `2026_10_12_ofertas_con_fechas.sql` agrega las
+tres columnas y la restricción (las filas viejas quedan sin oferta; no puede incumplir nada).
+
+### Etiquetas de estante
+
+**Catálogo → Etiquetas de estante** (o el botón «Etiquetas» del listado de productos) arma una
+hoja A4 de etiquetas, tres por fila, con guía de corte: nombre, precio y código de barras. Se
+eligen los productos por texto, por categoría, por «precio cambiado hoy / en 7 / en 30 días» (sale
+de las acciones `CAMBIO_PRECIO` de la bitácora, que es el motivo habitual para reimprimir) o por
+«en oferta hoy»; cada uno se puede desmarcar y se piden hasta 20 copias de cada etiqueta. El botón
+imprime desde el navegador (no hay una impresora de etiquetas configurada: se imprime en papel
+adhesivo A4 y se recorta).
+
+- **El precio es el que se cobra hoy** (con el impuesto si se suma encima), y si hay una oferta
+  andando la etiqueta lo dice y lleva el precio de siempre tachado.
+- **El código de barras lo dibuja `App\Support\CodigoDeBarras`**, sin librerías: EAN-13, EAN-8 y
+  UPC-A (que es un EAN-13 con un cero delante). **Solo si el dígito de control cuadra**: un código
+  mal escrito daría una etiqueta que el lector rechaza en plena venta; en ese caso la etiqueta sale
+  con el número a secas y el listado lo avisa («no es un EAN válido»). Un código interno o de otro
+  tipo (Code 128, por ejemplo) tampoco se dibuja. Si el lector del local lee otra simbología, es
+  lo único que habría que agregar.
+
 ### La moneda
 
 Sale de `configuracion` y no está escrita en ningún sitio del código:
@@ -782,11 +830,32 @@ inventado: no se puede dividir por cero.
 
 ### Reportes
 
-Dos pantallas, ambas con el mismo filtro de período (por defecto, los últimos 30 días):
+Cinco pantallas, cada una con su Excel y su PDF. Las dos primeras comparten el filtro de período
+(por defecto, los últimos 30 días):
 
 - **Ventas:** vendido, neto de devoluciones, ticket promedio e impuesto; evolución diaria;
   desglose por método de pago y por cajero; detalle día a día.
 - **Productos e inventario:** valor del stock, alertas de reposición y ranking de más vendidos.
+- **Mermas:** cuánto se perdió y por qué. Son los ajustes del kardex (`origen = AJUSTE`) del
+  período, y se cuentan como pérdida cuando el stock **bajó**; los que lo subieron se muestran
+  aparte como sobrantes, con el resultado neto. Se valoran al **costo de hoy** del producto (el
+  kardex guarda cantidades, no costos). Cada ajuste se clasifica por su motivo: «Baja por
+  vencimiento» (la de *Dar de baja lo vencido*), «Conteo de inventario» (una toma de inventario)
+  o «Ajuste manual». Las tablas son por motivo, por categoría, por mes y las 30 mayores pérdidas.
+- **Productos sin movimiento:** lo que tienes parado. Productos activos con stock cuya última
+  venta (sin contar las anuladas) **y** cuyo último ingreso por compra o inventario inicial son
+  anteriores al plazo elegido (30, 60, 90, 180 o 365 días; 60 si el plazo no es uno de esos).
+  Ordenados por la plata que tienen detenida, con el porcentaje de lo invertido y cuántos no se
+  vendieron nunca. Un producto recién comprado no aparece aunque no se haya vendido: lleva
+  poco en el estante.
+- **Horas de más venta:** ventas y monto por día de la semana y por hora, con un mapa de calor
+  (días en filas, horas en columnas). Sirve para decidir cuántos cajeros poner y cuándo.
+
+Los tres informes nuevos y el Excel/PDF salen de **un documento** —un arreglo con título,
+indicadores y tablas— que `reportes/informe.blade.php` dibuja en pantalla, `Hojas` vuelca a Excel
+(una hoja por tabla, más un resumen) y `reportes/pdf.blade.php` a PDF. Un informe nuevo es un
+documento nuevo; las pantallas no se tocan. La pieza común (`ExportaInformes`) también la usa
+`ReporteController`.
 
 Los agregados salen de las vistas que ya define `docs/sql` —`v_ventas_por_dia`,
 `v_ventas_por_metodo_pago`, `v_alertas_stock`—, que son la definición oficial de cada cifra.
@@ -835,8 +904,9 @@ Con la lógica en PHP (`LOGICA_EN_PHP=true`, hosting sin triggers), las mismas r
 modelos (`ReglasEnPhp`); las restricciones y la vista viven en las tablas y valen en los dos modos.
 
 Para actualizar una base que ya está en un cliente se aplican los parches
-`2026_10_09_indices_de_la_base.sql`, `2026_10_09_restricciones_y_bitacora.sql` y
-`2026_10_09_descuadres_y_peso_del_qr.sql` (`scripts/actualizar.sh` lo hace solo). Si alguna fila vieja
+`2026_10_09_indices_de_la_base.sql`, `2026_10_09_restricciones_y_bitacora.sql`,
+`2026_10_09_descuadres_y_peso_del_qr.sql` y `2026_10_12_ofertas_con_fechas.sql`
+(`scripts/actualizar.sh` lo hace solo). Si alguna fila vieja
 incumple una restricción, el parche **se detiene** y dice cuántas son
 (`Table '…DETENIDO: 3 fila(s) incumplen ck_movinv_cadena' doesn't exist`): se corrigen y se vuelve a
 correr. El de descuadres también vacía las imágenes de los QR ya cobrados (unos 33 KB cada una).
@@ -1348,6 +1418,9 @@ app/
     ComprobanteController.php    listado, impresión (ticket 80 mm / A4) y sustitución
     ClienteController.php        persona natural y persona jurídica
     ReporteController.php        reportes de ventas, productos e inventario
+    InformeController.php        mermas, productos sin movimiento y horas de más venta
+    Concerns/ExportaInformes.php el documento de un informe: pantalla, Excel y PDF
+    EtiquetaController.php       etiquetas de estante: elegir productos e imprimir la hoja
     DashboardController.php      la portada, por bloques según el rol
     DevolucionController.php     devoluciones totales y parciales
     CobroQrController.php        cobro por QR: generar, consultar, confirmar y el aviso del banco
@@ -1374,6 +1447,7 @@ app/
   Support/
     Menu.php                     barra lateral y pantalla de inicio según permisos
     Config.php                   parámetros del negocio (tasa, moneda, formatos)
+    CodigoDeBarras.php           EAN-13 / EAN-8 / UPC-A como SVG, con su dígito de control
 
 resources/views/
   layouts/                       app (con barra lateral) y auth (pantalla completa)
@@ -1382,11 +1456,28 @@ resources/views/
   auth/ empleados/ cargos/ usuarios/ roles/ perfil/
   productos/ categorias/ unidades/ proveedores/
   dashboard.blade.php            la portada
-  pos/ ventas/ caja/ cajas/ comprobantes/ clientes/ devoluciones/ reportes/
+  pos/ ventas/ caja/ cajas/ comprobantes/ clientes/ devoluciones/ reportes/ etiquetas/
   inventario/                    existencias y kardex del almacén
 ```
 
 ## Lo que sigue
+
+De la lista de mejoras del bloque 5 de la auditoría de octubre de 2026 se hicieron los informes
+(mermas, sin movimiento, horas), las ofertas con fechas y las etiquetas. **Se dejaron fuera, a
+propósito:**
+
+- **Balanza con etiqueta de peso.** Depende del aparato y del formato de su etiqueta (los prefijos
+  y dónde va el peso o el importe cambian de marca a marca); implementarlo sin saber cuál usa el
+  local sería adivinar. Con el modelo de la balanza en la mano, es leer el código en `buscar` del
+  mostrador.
+- **Archivado anual.** Con el volumen de un minimarket las tablas de ventas y de kardex no llegan a
+  ser un problema en años, y archivar mueve datos con los que se cuadran los reportes. Las vistas y los
+  índices del bloque 4 cubren hasta entonces; se retoma si un cliente lo pide o si una consulta se
+  vuelve lenta.
+- **Costo con cuatro decimales.** Hoy el costo por unidad se redondea al centavo; en un producto de
+  caja grande de poco valor (una caja de 144 a Bs 25) la unidad pierde fracciones. Cambiarlo toca
+  el kardex, las columnas generadas de la venta y todos los reportes de ganancia: es un cambio de
+  esquema con riesgo que no vale la pena sin un caso real que lo pida.
 
 Del esquema quedan sin explotar `v_kardex` (el kardex se arma hoy desde la ficha del producto),
 `v_comprobantes_sustituidos` y `v_empleados`. La facturación electrónica ante la administración

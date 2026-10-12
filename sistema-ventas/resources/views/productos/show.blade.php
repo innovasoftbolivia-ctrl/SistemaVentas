@@ -200,6 +200,12 @@
                                 .($producto->margen_porcentaje !== null ? ' ('.$producto->margen_porcentaje.'% de margen)' : ''),
                         ]);
 
+                    if ($producto->precio_oferta !== null) {
+                        $filasDePrecio['Oferta'] = Config::importe($producto->precio_oferta)
+                            .' del '.$producto->oferta_desde->format('d/m/Y').' al '.$producto->oferta_hasta->format('d/m/Y')
+                            .($producto->en_oferta ? ' — rige hoy' : ($producto->oferta_programada ? ' — todavía no empieza' : ' — ya terminó'));
+                    }
+
                     // Todos los precios del sistema son por unidad de venta. El
                     // de la caja se muestra calculado, y solo para poder
                     // contrastarlo con la factura del proveedor de un vistazo.
