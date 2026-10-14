@@ -114,12 +114,14 @@ class EmpleadoController extends Controller
         }
 
         $estadoAnterior = $empleado->estado;
+        $antes = Auditor::foto($empleado);
         $empleado->update($datos);
 
         Auditor::registrar('EMPLEADO_ACTUALIZADO', 'empleados', $empleado->id, [
             'nombre' => $empleado->nombre_completo,
             'estado_anterior' => $estadoAnterior,
             'estado_nuevo' => $empleado->estado,
+            'cambios' => Auditor::diferencias($antes, $empleado),
         ]);
 
         return redirect()->route('empleados.index')

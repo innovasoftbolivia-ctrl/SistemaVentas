@@ -84,9 +84,13 @@ class ProveedorController extends Controller
             unset($datos['activo']);
         }
 
+        $antes = Auditor::foto($proveedor);
         $proveedor->update($datos);
 
-        Auditor::registrar('PROVEEDOR_ACTUALIZADO', 'proveedores', $proveedor->id, $datos);
+        Auditor::registrar('PROVEEDOR_ACTUALIZADO', 'proveedores', $proveedor->id, [
+            'razon_social' => $proveedor->razon_social,
+            'cambios' => Auditor::diferencias($antes, $proveedor),
+        ]);
 
         return redirect()->route('proveedores.index')
             ->with('exito', "Proveedor «{$proveedor->razon_social}» actualizado.");

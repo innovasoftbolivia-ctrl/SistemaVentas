@@ -6,6 +6,7 @@ use App\Models\Producto;
 use App\Models\Usuario;
 use App\Models\Venta;
 use App\Services\Cajas;
+use App\Services\ControlDeCajeros;
 use App\Services\Descuadres;
 use App\Support\Menu;
 use Illuminate\Support\Carbon;
@@ -54,6 +55,8 @@ class DashboardController extends Controller
             'veArqueo' => CajaController::arquea($usuario),
             // La última revisión nocturna de descuadres; solo la ve quien gestiona.
             'descuadres' => $gestion ? Descuadres::ultima() : null,
+            // Quién se apartó de lo normal esta semana (anulaciones, descuentos…).
+            'controlCajeros' => $gestion ? ControlDeCajeros::resumenReciente(7) : null,
         ]);
     }
 

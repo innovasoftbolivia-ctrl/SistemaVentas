@@ -53,6 +53,7 @@ class BitacoraController extends Controller
         'unidades_medida' => 'Unidad de medida',
         'cobros_qr' => 'Cobro QR',
         'configuracion' => 'Configuración',
+        'reportes' => 'Reporte',
         'tomas_inventario' => 'Toma de inventario',
     ];
 
@@ -65,6 +66,7 @@ class BitacoraController extends Controller
         'login fallido' => 'ingreso fallido',
         'login bloqueado' => 'ingreso bloqueado',
         'login' => 'ingreso',
+        'visto' => 'consultado',
         'logout' => 'salida',
         'password cambiada' => 'contraseña cambiada',
         'anular venta' => 'venta anulada',
@@ -171,6 +173,22 @@ class BitacoraController extends Controller
 
         foreach ($detalle ?? [] as $clave => $valor) {
             $etiqueta = str_replace('_', ' ', (string) $clave);
+
+            // Lo que cambió, campo por campo: «precio compra: 4 → 5».
+            if ($clave === 'cambios' && is_array($valor)) {
+                foreach ($valor as $campo => $par) {
+                    $filas[] = ['cambió '.$campo, self::valor($par['antes'] ?? null).' → '.self::valor($par['despues'] ?? null)];
+                }
+
+                continue;
+            }
+
+            // Los filtros con que se miró un reporte: «desde 2026-10-01 · hasta …».
+            if ($clave === 'filtros' && is_array($valor)) {
+                $filas[] = ['filtros', collect($valor)->map(fn ($v, $k) => "{$k} {$v}")->implode(' · ')];
+
+                continue;
+            }
 
             if (is_array($valor) && array_key_exists('antes', $valor) && array_key_exists('despues', $valor)) {
                 $filas[] = [$etiqueta, self::valor($valor['antes']).' → '.self::valor($valor['despues'])];

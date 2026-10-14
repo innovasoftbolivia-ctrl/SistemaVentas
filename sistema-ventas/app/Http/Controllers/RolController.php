@@ -62,6 +62,9 @@ class RolController extends Controller
             return back()->with('error', Administracion::MENSAJE)->withInput();
         }
 
+        $antes = Auditor::foto($rol);
+        $permisosAntes = $rol->permisos()->pluck('codigo')->all();
+
         $rol->update([
             'nombre' => $datos['nombre'],
             'descripcion' => $datos['descripcion'] ?? null,
@@ -73,10 +76,16 @@ class RolController extends Controller
         $ocultosQueTenia = $rol->permisos()->whereIn('codigo', Config::permisosOcultos())->pluck('permisos.id')->all();
         $rol->permisos()->sync(array_unique([...array_map('intval', $datos['permisos'] ?? []), ...$ocultosQueTenia]));
 
-        Auditor::registrar('ROL_ACTUALIZADO', 'roles', $rol->id, [
+        $permisosAhora = $rol->permisos()->pluck('codigo')->all();
+
+        Auditor::registrar('ROL_ACTUALIZADO', 'roles', $rol->id, array_filter([
             'nombre' => $rol->nombre,
             'permisos' => $datos['permisos'] ?? [],
-        ]);
+            'cambios' => Auditor::diferencias($antes, $rol),
+            // Qué permisos ganó y cuáles perdió: es lo que importa de un cambio de rol.
+            'permisos_agregados' => array_values(array_diff($permisosAhora, $permisosAntes)),
+            'permisos_quitados' => array_values(array_diff($permisosAntes, $permisosAhora)),
+        ], fn ($v) => $v !== []));
 
         return redirect()->route('roles.index')->with('exito', "Rol «{$rol->nombre}» actualizado.");
     }

@@ -53,9 +53,13 @@ class CategoriaController extends Controller
             unset($datos['activo']);
         }
 
+        $antes = Auditor::foto($categoria);
         $categoria->update($datos);
 
-        Auditor::registrar('CATEGORIA_ACTUALIZADA', 'categorias', $categoria->id, $datos);
+        Auditor::registrar('CATEGORIA_ACTUALIZADA', 'categorias', $categoria->id, [
+            'nombre' => $categoria->nombre,
+            'cambios' => Auditor::diferencias($antes, $categoria),
+        ]);
 
         return redirect()->route('categorias.index')
             ->with('exito', "Categoría «{$categoria->nombre}» actualizada.");

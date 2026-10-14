@@ -17,6 +17,25 @@
 @section('content')
     <div class="space-y-6">
 
+        {{-- Alguien se apartó de lo normal esta semana. Es un motivo para mirar, no una
+             acusación; si nadie se aparta, no se dice nada. --}}
+        @if ($controlCajeros && count($controlCajeros['alertas']) > 0)
+            <div data-control-cajeros role="alert"
+                class="rounded-2xl border border-warning-200 bg-warning-50 p-5 dark:border-warning-500/30 dark:bg-warning-500/10 lg:p-6">
+                <h2 class="text-base font-semibold text-warning-700 dark:text-orange-400">
+                    {{ count($controlCajeros['alertas']) }}
+                    {{ count($controlCajeros['alertas']) === 1 ? 'cosa para mirar' : 'cosas para mirar' }} en el control de cajeros de esta semana
+                </h2>
+                <ul class="mt-2 list-inside list-disc text-theme-sm text-warning-700 dark:text-orange-400">
+                    @foreach (array_slice($controlCajeros['alertas'], 0, 4) as $alerta)
+                        <li><b>{{ $alerta['usuario'] }}:</b> {{ $alerta['texto'] }}</li>
+                    @endforeach
+                </ul>
+                <a href="{{ route('informes.cajeros', ['desde' => $controlCajeros['desde']->toDateString(), 'hasta' => $controlCajeros['hasta']->toDateString()]) }}"
+                    class="mt-3 inline-block text-theme-sm font-medium text-warning-700 underline dark:text-orange-400">Ver el detalle</a>
+            </div>
+        @endif
+
         {{-- La revisión de todas las noches encontró algo que no cuadra. Si todo cuadra, no
              se dice nada: la tranquilidad no necesita un cartel. --}}
         @if ($descuadres && (int) ($descuadres->detalle['cantidad'] ?? 0) > 0)

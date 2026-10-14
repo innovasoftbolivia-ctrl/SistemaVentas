@@ -830,7 +830,7 @@ inventado: no se puede dividir por cero.
 
 ### Reportes
 
-Cinco pantallas, cada una con su Excel y su PDF. Las dos primeras comparten el filtro de período
+Seis pantallas, cada una con su Excel y su PDF. Las dos primeras comparten el filtro de período
 (por defecto, los últimos 30 días):
 
 - **Ventas:** vendido, neto de devoluciones, ticket promedio e impuesto; evolución diaria;
@@ -850,6 +850,7 @@ Cinco pantallas, cada una con su Excel y su PDF. Las dos primeras comparten el f
   poco en el estante.
 - **Horas de más venta:** ventas y monto por día de la semana y por hora, con un mapa de calor
   (días en filas, horas en columnas). Sirve para decidir cuántos cajeros poner y cuándo.
+- **Control de cajeros:** quién se aparta de lo normal (ver *Auditoría*).
 
 Los tres informes nuevos y el Excel/PDF salen de **un documento** —un arreglo con título,
 indicadores y tablas— que `reportes/informe.blade.php` dibuja en pantalla, `Hojas` vuelca a Excel
@@ -917,6 +918,42 @@ correr. El de descuadres también vacía las imágenes de los QR ya cobrados (un
 alta, baja o modificación de empleados, cuentas, cargos y roles. Nada se borra en silencio: cuando
 un registro tiene historia asociada (un cargo con empleados, una cuenta con operaciones), el
 sistema lo **desactiva** en lugar de eliminarlo.
+
+La bitácora se lee en **Sistema → Bitácora** (permiso `bitacora.ver`), con filtros por persona,
+acción, fechas y texto libre. Desde el bloque 4 es inmutable: ni editar ni borrar, ni con la cuenta
+de administración de la base. Además de lo que ya anotaba, deja:
+
+- **Qué cambió, campo por campo.** Al editar un producto, cliente, proveedor, categoría, unidad,
+  cargo, caja, empleado, cuenta o rol, el detalle lleva `cambios`: cada campo con su valor de antes
+  y el de después (`Auditor::foto()` antes de guardar, `Auditor::diferencias()` después; la
+  pantalla lo muestra como «cambió precio venta: 8.00 → 9.50»). Solo lo que de verdad cambió: guardar
+  sin tocar nada no inventa cambios, y «8.0» y «8.00» son el mismo precio. Un id de otra tabla se
+  anota con su nombre (la categoría «Bebidas», no «3»). Las contraseñas **nunca** se guardan, ni
+  siquiera su hash: solo «cambiada». Un cambio de rol dice qué permisos ganó y cuáles perdió.
+- **Quién miró.** Abrir un reporte (`REPORTE_VISTO`), llevarse un Excel o un PDF
+  (`REPORTE_EXPORTADO`, con el formato) y abrir el kardex general (`KARDEX_VISTO`) quedan
+  anotados con los filtros que se usaron, por el middleware `consulta`. Solo si se sirvió (una
+  respuesta 200): una descarga rechazada no salió del sistema.
+- **Accesos denegados.** Cada 403 con la sesión iniciada queda como `ACCESO_DENEGADO` (ruta,
+  método, motivo). La misma persona pidiendo lo mismo se anota una vez por minuto, para que repetir
+  una dirección no llene la tabla.
+
+#### Control de cajeros
+
+La bitácora y las ventas lo guardan todo, pero nadie lee mil filas. **Reportes → Control de
+cajeros** (con Excel y PDF) lo lee por ti: por cada persona, sus anulaciones, descuentos,
+devoluciones, egresos de caja, turnos que cerraron con diferencia y accesos denegados, y marca a
+quien se aparta del resto del equipo (`App\Services\ControlDeCajeros`):
+
+- anulaciones, descuentos y devoluciones se marcan si pasan su piso (5 %, 3 % y 5 %) **y** son al
+  menos 2 veces lo que hace el resto, con 20 ventas o más (con menos, un porcentaje no dice nada);
+  quien trabaja solo no tiene con quién compararse y se usa un piso más alto (10 %, 8 % y 10 %);
+- dos o más turnos cerrados con diferencia, y cinco o más accesos denegados, también se marcan.
+
+Una marca **no es una acusación**: una devolución grande puede ser mercadería fallada. Es el motivo
+para preguntar. La portada del administrador avisa si esta semana hay alguna («3 cosas para mirar
+en el control de cajeros»), igual que avisa de los descuadres. Los pisos son constantes de
+`ControlDeCajeros`.
 
 ### Se adapta a la pantalla
 
@@ -1418,7 +1455,7 @@ app/
     ComprobanteController.php    listado, impresión (ticket 80 mm / A4) y sustitución
     ClienteController.php        persona natural y persona jurídica
     ReporteController.php        reportes de ventas, productos e inventario
-    InformeController.php        mermas, productos sin movimiento y horas de más venta
+    InformeController.php        mermas, sin movimiento, horas de más venta y control de cajeros
     Concerns/ExportaInformes.php el documento de un informe: pantalla, Excel y PDF
     EtiquetaController.php       etiquetas de estante: elegir productos e imprimir la hoja
     DashboardController.php      la portada, por bloques según el rol
@@ -1427,6 +1464,7 @@ app/
   Http/Middleware/
     VerificarPermiso.php         corta por permiso de rol
     VerificarCuentaVigente.php   corta si la cuenta dejó de tener acceso
+    RegistrarConsulta.php        anota quién abrió un reporte o se llevó un Excel/PDF
   Models/                        Cargo, Empleado, Rol, Permiso, Usuario, Auditoria,
                                  Categoria, UnidadMedida, Proveedor, Producto,
                                  MovimientoInventario, Cliente, Caja, SesionCaja,
@@ -1434,7 +1472,8 @@ app/
                                  Comprobante, SerieComprobante, TipoComprobante,
                                  MetodoPago, Devolucion, DevolucionDetalle, CobroQr
   Services/
-    Auditor.php                  bitácora
+    Auditor.php                  bitácora: qué se hizo, qué cambió y los accesos denegados
+    ControlDeCajeros.php         quién se aparta de lo normal en anulaciones, descuentos, arqueos…
     Inventario.php               único punto por el que cambia el stock
     Ventas.php                   registrar y anular, sobre los procedimientos
     Cajas.php                    abrir, mover efectivo y cerrar el turno

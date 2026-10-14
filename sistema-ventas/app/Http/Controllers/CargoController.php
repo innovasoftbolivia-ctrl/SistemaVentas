@@ -47,9 +47,13 @@ class CargoController extends Controller
     {
         $datos = $this->validar($request, $cargo);
 
+        $antes = Auditor::foto($cargo);
         $cargo->update($datos);
 
-        Auditor::registrar('CARGO_ACTUALIZADO', 'cargos', $cargo->id, $datos);
+        Auditor::registrar('CARGO_ACTUALIZADO', 'cargos', $cargo->id, [
+            'nombre' => $cargo->nombre,
+            'cambios' => Auditor::diferencias($antes, $cargo),
+        ]);
 
         return redirect()->route('cargos.index')
             ->with('exito', "Cargo «{$cargo->nombre}» actualizado.");

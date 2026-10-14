@@ -622,6 +622,7 @@ tabla(['Módulo', 'Para qué sirve'],
        ['Productos e inventario', 'Qué se vende más, valor del inventario al precio de compra y qué productos hay que reponer. También exporta.'],
        ['Mermas', 'Cuánto se perdió y por qué: por vencimiento, por conteo de inventario o por ajuste manual. Se valora al costo de hoy y se separa lo que sobró. Muestra las mayores pérdidas. Exporta a Excel y PDF.'],
        ['Productos sin movimiento', 'Lo que tienes parado: productos con stock que no se vendieron ni se compraron en 30, 60, 90, 180 o 365 días, con la plata que tienen detenida. Exporta a Excel y PDF.'],
+       ['Control de cajeros', 'Quién se aparta de lo normal: por cada cajero, anulaciones, descuentos, devoluciones, egresos de caja, turnos con diferencia y accesos denegados. Una marca no es una acusación: es el motivo para preguntar. Exporta a Excel y PDF.'],
        ['Horas de más venta', 'Ventas y monto por día de la semana y por hora, con un mapa de calor. Sirve para decidir cuántos cajeros poner y cuándo. Exporta a Excel y PDF.']],
       anchos=[3.6, 11.9])
 

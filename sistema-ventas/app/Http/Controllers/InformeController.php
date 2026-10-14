@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ExportaInformes;
+use App\Services\ControlDeCajeros;
 use App\Support\Config;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *
  *   - MERMAS: cuánta plata se perdió en bajas y ajustes, y por qué;
  *   - PRODUCTOS SIN MOVIMIENTO: el capital dormido en el estante;
- *   - HORAS DE MÁS VENTA: cuándo hay cola y cuándo no, para decidir turnos.
+ *   - HORAS DE MÁS VENTA: cuándo hay cola y cuándo no, para decidir turnos;
+ *   - CONTROL DE CAJEROS: quién se aparta de lo normal en anulaciones, descuentos,
+ *     devoluciones, arqueos y accesos denegados.
  *
  * Cada uno se arma como un documento (indicadores y tablas) del que salen la
  * pantalla, el Excel y el PDF. Ver {@see ExportaInformes}.
@@ -82,7 +85,36 @@ class InformeController extends Controller
         ]);
     }
 
+    public function cajeros(Request $request): View
+    {
+        [$desde, $hasta] = $this->rango($request);
+
+        return view('reportes.informe', [
+            'title' => 'Control de cajeros',
+            'doc' => $this->documentoCajeros($desde, $hasta),
+            'desde' => $desde,
+            'hasta' => $hasta,
+            'accion' => route('informes.cajeros'),
+            'excel' => route('informes.cajeros.excel'),
+            'pdf' => route('informes.cajeros.pdf'),
+        ]);
+    }
+
     // ================================================================ descargas
+
+    public function cajerosExcel(Request $request): StreamedResponse|RedirectResponse
+    {
+        [$desde, $hasta] = $this->rango($request);
+
+        return $this->excel($this->documentoCajeros($desde, $hasta), $this->nombreFichero('cajeros', $desde, $hasta, 'xlsx'));
+    }
+
+    public function cajerosPdf(Request $request): Response|RedirectResponse
+    {
+        [$desde, $hasta] = $this->rango($request);
+
+        return $this->pdf($this->documentoCajeros($desde, $hasta), $this->nombreFichero('cajeros', $desde, $hasta, 'pdf'));
+    }
 
     public function mermasExcel(Request $request): StreamedResponse|RedirectResponse
     {
@@ -341,6 +373,52 @@ class InformeController extends Controller
         $doc['orientacion'] = 'landscape';
 
         return $doc;
+    }
+
+    // ================================================================ control de cajeros
+
+    /** @return array<string, mixed> */
+    private function documentoCajeros(Carbon $desde, Carbon $hasta): array
+    {
+        $r = ControlDeCajeros::analizar($desde, $hasta);
+        $filas = collect($r['filas']);
+        $etiquetas = [
+            'anulaciones' => 'Anulaciones', 'descuentos' => 'Descuentos', 'devoluciones' => 'Devoluciones',
+            'arqueos' => 'Arqueo de caja', 'accesos' => 'Accesos denegados',
+        ];
+
+        $indicadores = [
+            ['etiqueta' => 'Cajeros con actividad', 'valor' => $filas->count(), 'formato' => 'entero'],
+            ['etiqueta' => 'Para mirar', 'valor' => count($r['alertas']), 'formato' => 'entero', 'destacar' => count($r['alertas']) > 0,
+                'nota' => count($r['alertas']) > 0 ? 'una marca es un motivo para revisar, no una acusación' : 'nadie se aparta de lo normal'],
+            ['etiqueta' => 'Ventas', 'valor' => $filas->sum('ventas'), 'formato' => 'entero', 'nota' => 'con las anuladas'],
+            ['etiqueta' => 'Anuladas', 'valor' => $filas->sum('anuladas'), 'formato' => 'entero'],
+        ];
+
+        return $this->envoltorio('Control de cajeros', $this->periodoDe($desde, $hasta), $indicadores, [
+            [
+                'nombre' => 'Para mirar',
+                'nota' => 'Quien se aparta del resto del equipo: al menos '.ControlDeCajeros::VECES.' veces lo normal y con '
+                    .ControlDeCajeros::MIN_VENTAS.' ventas o más. Puede tener una explicación; es el motivo para preguntar.',
+                'cabeceras' => ['Cajero', 'Qué', 'Detalle'],
+                'formatos' => [null, null, null],
+                'alineacion' => ['izq', 'izq', 'izq'],
+                'filas' => array_map(fn ($a) => [$a['usuario'], $etiquetas[$a['tipo']] ?? $a['tipo'], $a['texto']], $r['alertas']),
+                'vacia' => 'Nadie se aparta de lo normal en el período.',
+            ],
+            [
+                'nombre' => 'Cajero por cajero',
+                'nota' => 'Las anulaciones y los descuentos se miden sobre sus propias ventas; las devoluciones, sobre lo que vendió.',
+                'cabeceras' => ['Cajero', 'Ventas', 'Vendido', 'Anuladas', '% anuladas', 'Descuentos', '% descuento', 'Devuelto', '% devuelto', 'Egresos de caja', 'Turnos con diferencia', 'Diferencia neta', 'Accesos denegados'],
+                'formatos' => [null, 'entero', 'moneda', 'entero', 'porcentaje', 'moneda', 'porcentaje', 'moneda', 'porcentaje', 'moneda', 'entero', 'moneda', 'entero'],
+                'alineacion' => ['izq', 'der', 'der', 'der', 'der', 'der', 'der', 'der', 'der', 'der', 'der', 'der', 'der'],
+                'filas' => $filas->map(fn ($f) => [
+                    $f['nombre'], $f['ventas'], $f['vendido'], $f['anuladas'], $f['pct_anuladas'], $f['descuento'], $f['pct_descuento'],
+                    $f['devuelto'], $f['pct_devuelto'], $f['egresos'], $f['turnos_con_diferencia'], $f['diferencia'], $f['denegados'],
+                ])->all(),
+                'vacia' => 'No hubo actividad de cajeros en el período.',
+            ],
+        ]);
     }
 
     // ================================================================ horas

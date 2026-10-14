@@ -152,9 +152,11 @@ class UsuarioController extends Controller
             ? ' No se cambió tu propio rol ni tu acceso: eso debe hacerlo otro administrador.'
             : '';
 
+        $antes = Auditor::foto($usuario);
         $usuario->update($cambios);
 
         Auditor::registrar('USUARIO_ACTUALIZADO', 'usuarios', $usuario->id, [
+            'cambios' => Auditor::diferencias($antes, $usuario, ['intentos_fallidos', 'password_actualizado_en', 'debe_cambiar_password']),
             'usuario' => $usuario->usuario,
             'rol_id' => $usuario->rol_id,
             'password_cambiada' => isset($cambios['password_hash']),

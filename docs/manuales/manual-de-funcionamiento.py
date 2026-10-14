@@ -940,8 +940,11 @@ tabla(['Rastro', 'Qué guarda', 'Sirve para'],
         'Cada turno con su apertura, su cierre, quién lo abrió, quién lo cerró, lo esperado, lo contado y la diferencia.',
         'Saber quién manejó el efectivo y cuánto faltó o sobró.'],
        ['Bitácora de auditoría',
-        'Ingresos al sistema, anulaciones, sustituciones, ajustes de stock y cambios de cuentas, con usuario y fecha.',
-        'Responder «quién hizo esto y cuándo».']],
+        'Ingresos al sistema, anulaciones, sustituciones, ajustes de stock y cambios de cuentas, con usuario y fecha. Al editar algo guarda qué cambió, campo por campo (antes y después). También anota quién abrió un reporte o se llevó un Excel o PDF, y los intentos de entrar a pantallas que el rol no permite. No se puede editar ni borrar.',
+        'Responder «quién hizo esto, qué cambió y cuándo», y «quién miró esto».'],
+       ['Control de cajeros',
+        'Por cada cajero: anulaciones, descuentos, devoluciones, egresos de caja, turnos con diferencia y accesos denegados, y una marca a quien se aparta del resto del equipo. La portada del administrador avisa si esta semana hay alguna.',
+        'Saber a quién preguntar sin revisar mil filas. Una marca no es una acusación.']],
       anchos=[3.6, 7.4, 4.5])
 
 doc.add_heading('8.1 Lo que nunca se pierde', level=2)

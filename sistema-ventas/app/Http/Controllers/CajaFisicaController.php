@@ -56,9 +56,13 @@ class CajaFisicaController extends Controller
                 ->with('error', "La caja «{$caja->nombre}» tiene un turno abierto. Ciérralo antes de desactivarla.");
         }
 
+        $antes = Auditor::foto($caja);
         $caja->update($datos);
 
-        Auditor::registrar('CAJA_FISICA_ACTUALIZADA', 'cajas', $caja->id, $datos);
+        Auditor::registrar('CAJA_FISICA_ACTUALIZADA', 'cajas', $caja->id, [
+            'nombre' => $caja->nombre,
+            'cambios' => Auditor::diferencias($antes, $caja),
+        ]);
 
         return redirect()->route('cajas.index')
             ->with('exito', "Caja «{$caja->nombre}» actualizada.");

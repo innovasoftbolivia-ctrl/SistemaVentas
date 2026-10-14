@@ -90,6 +90,7 @@ class Menu
                     ['icon' => 'inventario', 'name' => 'Mermas', 'path' => '/reportes/mermas'],
                     ['icon' => 'inventario', 'name' => 'Productos sin movimiento', 'path' => '/reportes/sin-movimiento'],
                     ['icon' => 'reportes', 'name' => 'Horas de más venta', 'path' => '/reportes/horas'],
+                    ['icon' => 'reportes', 'name' => 'Control de cajeros', 'path' => '/reportes/cajeros'],
                     ...(Config::facturacionVisible()
                         ? [['icon' => 'comprobantes', 'name' => 'Libro de Ventas IVA', 'path' => '/reportes/libro-ventas']]
                         : []),

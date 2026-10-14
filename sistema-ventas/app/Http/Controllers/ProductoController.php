@@ -201,6 +201,7 @@ class ProductoController extends Controller
         $datos = $this->resolverImagen($request, $producto, $datos);
 
         $precioAnterior = (float) $producto->precio_venta;
+        $antes = Auditor::foto($producto);
         $ofertaAnterior = $this->ofertaDe($producto);
         $controlabaVencimiento = $producto->controla_vencimiento;
 
@@ -243,6 +244,7 @@ class ProductoController extends Controller
         Auditor::registrar('PRODUCTO_ACTUALIZADO', 'productos', $producto->id, [
             'codigo' => $producto->codigo,
             'nombre' => $producto->nombre,
+            'cambios' => Auditor::diferencias($antes, $producto),
         ]);
 
         return redirect()->route('productos.show', $producto)

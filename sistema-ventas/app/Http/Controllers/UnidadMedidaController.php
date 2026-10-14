@@ -36,9 +36,13 @@ class UnidadMedidaController extends Controller
     {
         $datos = $this->validar($request, $unidad);
 
+        $antes = Auditor::foto($unidad);
         $unidad->update($datos);
 
-        Auditor::registrar('UNIDAD_ACTUALIZADA', 'unidades_medida', $unidad->id, $datos);
+        Auditor::registrar('UNIDAD_ACTUALIZADA', 'unidades_medida', $unidad->id, [
+            'codigo' => $unidad->codigo,
+            'cambios' => Auditor::diferencias($antes, $unidad),
+        ]);
 
         return redirect()->route('unidades.index')
             ->with('exito', "Unidad «{$unidad->codigo}» actualizada.");

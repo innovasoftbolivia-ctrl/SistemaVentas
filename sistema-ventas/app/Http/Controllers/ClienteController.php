@@ -112,9 +112,13 @@ class ClienteController extends Controller
     {
         $datos = $this->validar($request, $cliente);
 
+        $antes = Auditor::foto($cliente);
         $cliente->update($datos);
 
-        Auditor::registrar('CLIENTE_ACTUALIZADO', 'clientes', $cliente->id, ['nombre' => $cliente->nombre]);
+        Auditor::registrar('CLIENTE_ACTUALIZADO', 'clientes', $cliente->id, [
+            'nombre' => $cliente->nombre,
+            'cambios' => Auditor::diferencias($antes, $cliente),
+        ]);
 
         return redirect()->route('clientes.index')
             ->with('exito', "Cliente «{$cliente->nombre}» actualizado.");

@@ -180,7 +180,7 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
     });
 
     // ---- Reportes ----
-    Route::middleware('permiso:reportes.ver')->group(function () {
+    Route::middleware(['permiso:reportes.ver', 'consulta'])->group(function () {
         Route::get('reportes/ventas', [ReporteController::class, 'ventas'])->name('reportes.ventas');
         Route::get('reportes/productos', [ReporteController::class, 'productos'])->name('reportes.productos');
 
@@ -201,6 +201,9 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
         Route::get('reportes/horas', [InformeController::class, 'horas'])->name('informes.horas');
         Route::get('reportes/horas/excel', [InformeController::class, 'horasExcel'])->name('informes.horas.excel');
         Route::get('reportes/horas/pdf', [InformeController::class, 'horasPdf'])->name('informes.horas.pdf');
+        Route::get('reportes/cajeros', [InformeController::class, 'cajeros'])->name('informes.cajeros');
+        Route::get('reportes/cajeros/excel', [InformeController::class, 'cajerosExcel'])->name('informes.cajeros.excel');
+        Route::get('reportes/cajeros/pdf', [InformeController::class, 'cajerosPdf'])->name('informes.cajeros.pdf');
 
         // Libro de Ventas IVA: borrador para el contador (ver App\Services\LibroDeVentas).
         Route::get('reportes/libro-ventas', [LibroVentasController::class, 'index'])->name('reportes.libro-ventas');
@@ -317,6 +320,7 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
     Route::middleware('permiso:inventario.ingresar,inventario.ajustar,reportes.ver')->group(function () {
         Route::get('inventario', [InventarioController::class, 'index'])->name('inventario.index');
         Route::get('inventario/movimientos', [InventarioController::class, 'movimientos'])
+            ->middleware('consulta')
             ->name('inventario.movimientos');
     });
 

@@ -1,13 +1,16 @@
 <?php
 
 use App\Http\Middleware\ExigirCambioDePassword;
+use App\Http\Middleware\RegistrarConsulta;
 use App\Http\Middleware\UnSoloEnvio;
 use App\Http\Middleware\VerificarCuentaVigente;
 use App\Http\Middleware\VerificarPermiso;
+use App\Services\Auditor;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -21,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'cuenta.vigente' => VerificarCuentaVigente::class,
             'password.propia' => ExigirCambioDePassword::class,
             'un.envio' => UnSoloEnvio::class,
+            'consulta' => RegistrarConsulta::class,
         ]);
 
         // Vacío por omisión: sin proxy delante, no hay nada que confiar. Si el
@@ -38,6 +42,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->validateCsrfTokens(except: ['qr/aviso', 'api/qrsimple/notifyPaymentQR']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Un 403 con la sesión iniciada queda en la bitácora. Devuelve null a
+        // propósito: solo anota, la respuesta la sigue armando Laravel.
+        $exceptions->render(function (HttpException $e, Request $request) {
+            Auditor::accesoDenegado($request, $e);
+
+            return null;
+        });
+
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
