@@ -211,7 +211,7 @@ class AuditoriaFinalTest extends TestCase
         Costos::aplicar($p, 3.00, 'prueba');
 
         $this->assertSame('14.000', $p->fresh()->stock_actual);
-        $this->assertSame('3.00', $p->fresh()->precio_compra);
+        $this->assertSame('3.0000', $p->fresh()->precio_compra);
     }
 
     /** Desactivar es eliminar: el almacenero edita pero no descataloga. */

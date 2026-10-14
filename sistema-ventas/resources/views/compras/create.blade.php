@@ -184,7 +184,7 @@
                                     <div class="flex items-start gap-2">
                                         <div class="w-28">
                                             <span class="mb-1 block text-theme-xs text-gray-500 dark:text-gray-400">Precio</span>
-                                            <x-form.input type="number" step="0.01" min="0" x-model.number="l.costo" />
+                                            <x-form.input type="number" step="0.0001" min="0" x-model.number="l.costo" />
                                         </div>
                                         <div class="w-32" x-show="l.contenido > 0">
                                             <span class="mb-1 block text-theme-xs text-gray-500 dark:text-gray-400">se cobra</span>
@@ -203,8 +203,8 @@
                                             class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700" />
                                         <span>
                                             Actualizar el costo del producto
-                                            (<span x-text="l.costoAnterior.toFixed(2)"></span> →
-                                            <b x-text="costoUnidad(l).toFixed(2)"></b>)
+                                            (<span x-text="costoTexto(l.costoAnterior)"></span> →
+                                            <b x-text="costoTexto(costoUnidad(l))"></b>)
                                         </span>
                                     </label>
                                 </td>
@@ -543,8 +543,13 @@
                     const costo = Number(l.costo) || 0;
 
                     return l.costoPor === 'EMPAQUE' && l.contenido > 0
-                        ? Math.round((costo / l.contenido) * 100) / 100
+                        ? Math.round((costo / l.contenido) * 10000) / 10000
                         : costo;
+                },
+
+                /* Un costo se lee con los decimales que tiene: «4.50» o «2.9167». */
+                costoTexto(n) {
+                    return Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4});
                 },
 
                 importe(l) {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\ExportaInformes;
+use App\Services\Archivador;
 use App\Services\ControlDeCajeros;
 use App\Support\Config;
 use Illuminate\Http\RedirectResponse;
@@ -49,6 +50,7 @@ class InformeController extends Controller
             'accion' => route('informes.mermas'),
             'excel' => route('informes.mermas.excel'),
             'pdf' => route('informes.mermas.pdf'),
+            'aviso' => $this->avisoDeArchivo($desde),
         ]);
     }
 
@@ -65,6 +67,20 @@ class InformeController extends Controller
             'excel' => route('informes.sin-movimiento.excel', ['dias' => $dias]),
             'pdf' => route('informes.sin-movimiento.pdf', ['dias' => $dias]),
         ]);
+    }
+
+    /**
+     * Las mermas salen del kardex, y lo de más de un año vive en su archivo (ver
+     * {@see Archivador}): si el período empieza antes del corte, la cifra está incompleta
+     * y se dice, en vez de dejar que parezca que no se perdió nada.
+     */
+    private function avisoDeArchivo(Carbon $desde): ?string
+    {
+        $corte = Archivador::archivadoHasta();
+
+        return $corte && $desde->lt($corte)
+            ? 'Lo anterior al '.$corte->format('d/m/Y').' está archivado y no entra en estas cifras. Se consulta en Almacén → Movimientos → «Ver el archivo».'
+            : null;
     }
 
     public function horas(Request $request): View

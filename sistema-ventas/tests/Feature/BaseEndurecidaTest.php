@@ -347,9 +347,9 @@ class BaseEndurecidaTest extends TestCase
             'Las ventas no se eliminan. Use la anulación (RNF6).',
             'El movimiento de inventario necesita un responsable',
             'La bitácora no se edita: lo que pasó, pasó.',
-            'La bitácora no se borra: lo que pasó, pasó.',
+            'La bitácora no se borra: lo que pasó, pasó. (Lo viejo se archiva con archivar:anual.)',
             'El kardex no se edita: un error se corrige con un movimiento nuevo.',
-            'El kardex no se borra: un error se corrige con un movimiento nuevo.',
+            'El kardex no se borra: un error se corrige con un movimiento nuevo. (Lo viejo se archiva con archivar:anual.)',
         ];
 
         $php = (string) file_get_contents(app_path('Services/ReglasEnPhp.php'));

@@ -7,6 +7,22 @@
 @section('content')
     <div class="space-y-6">
 
+        {{-- Lo viejo vive en el archivo: se avisa en vez de dejar que parezca que no pasó nada. --}}
+        @if ($filtros['archivo'])
+            <div data-viendo-archivo role="status"
+                class="rounded-2xl border border-brand-200 bg-brand-50 p-4 text-theme-sm text-brand-700 dark:border-brand-500/30 dark:bg-brand-500/10 dark:text-brand-400">
+                Estás viendo el <b>archivo</b> del kardex: lo anterior al {{ $archivadoHasta?->format('d/m/Y') ?? 'corte' }}.
+                <a class="font-medium underline" href="{{ route('inventario.movimientos', array_filter(['producto' => $filtros['producto']])) }}">Volver a lo reciente</a>
+            </div>
+        @elseif ($archivadoHasta && ($filtros['desde'] === null || $filtros['desde']->lt($archivadoHasta)))
+            <div data-hay-archivo role="status"
+                class="rounded-2xl border border-gray-200 bg-white p-4 text-theme-sm text-gray-600 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+                Lo anterior al {{ $archivadoHasta->format('d/m/Y') }} está archivado y no sale en esta lista.
+                <a class="font-medium text-brand-500 underline"
+                    href="{{ route('inventario.movimientos', array_filter(['archivo' => 1, 'producto' => $filtros['producto'], 'origen' => $filtros['origen'], 'desde' => $filtros['desde']?->toDateString(), 'hasta' => $filtros['hasta']?->toDateString()])) }}">Ver el archivo</a>
+            </div>
+        @endif
+
         {{-- Totales del recorte que se está viendo, no del inventario entero:
              la pregunta aquí es «cuánto entró y cuánto salió en esto que filtré». --}}
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -87,7 +103,7 @@
                     </thead>
                     <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                         @forelse ($movimientos as $movimiento)
-                            <tr class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                            <tr data-movimiento class="transition hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                                 <td class="px-5 py-4 whitespace-nowrap text-theme-sm text-gray-500 dark:text-gray-400">
                                     {{ $movimiento->fecha?->format('d/m/Y') }}
                                     <span class="block text-theme-xs">{{ $movimiento->fecha?->format('H:i') }}</span>

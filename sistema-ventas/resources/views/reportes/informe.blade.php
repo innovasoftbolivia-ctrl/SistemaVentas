@@ -27,6 +27,13 @@
 @section('content')
     <div class="space-y-6">
 
+        @isset($aviso)
+            <div data-aviso-archivo role="status"
+                class="rounded-2xl border border-warning-200 bg-warning-50 p-4 text-theme-sm text-warning-700 dark:border-warning-500/30 dark:bg-warning-500/10 dark:text-orange-400">
+                {{ $aviso }}
+            </div>
+        @endisset
+
         {{-- El filtro: un rango de fechas, o los días que se tolera sin vender. --}}
         @isset($desde)
             <x-common.rango-fechas :accion="$accion" :excel="$excel" :pdf="$pdf" :desde="$desde" :hasta="$hasta" />

@@ -135,7 +135,7 @@
                                     {{ $producto->categoria?->nombre }}
                                 </td>
                                 <td class="hidden px-5 py-4 text-right whitespace-nowrap text-theme-sm text-gray-500 lg:table-cell dark:text-gray-400">
-                                    {{ Config::importe($producto->precio_compra) }}
+                                    {{ Config::costo($producto->precio_compra) }}
                                 </td>
                                 <td
                                     class="@if ($tasa > 0) hidden text-gray-500 lg:table-cell dark:text-gray-400 @else font-medium text-gray-800 dark:text-white/90 @endif px-5 py-4 text-right whitespace-nowrap text-theme-sm">

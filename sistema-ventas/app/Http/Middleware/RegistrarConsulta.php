@@ -33,6 +33,7 @@ class RegistrarConsulta
         'informes.horas' => 'Horas de más venta',
         'informes.cajeros' => 'Control de cajeros',
         'inventario.movimientos' => 'Movimientos del almacén (kardex)',
+        'bitacora' => 'Bitácora de operaciones',
     ];
 
     public function handle(Request $request, Closure $next): Response

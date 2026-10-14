@@ -37,9 +37,28 @@
                     <x-form.input id="buscar" name="buscar" :value="$filtros['buscar']" placeholder="1102" />
                 </x-form.campo>
 
+                {{-- Lo de más de un año se mueve a un archivo (archivar:anual) y se lee desde acá. --}}
+                @if ($archivadoHasta || $filtros['archivo'])
+                    <div class="sm:col-span-2 lg:col-span-5" data-archivo>
+                        <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-400">
+                            <input type="checkbox" name="archivo" value="1" @checked($filtros['archivo'])
+                                class="h-4 w-4 rounded border-gray-300 text-brand-500">
+                            Ver el archivo
+                            @if ($archivadoHasta)
+                                <span class="text-theme-xs text-gray-500 dark:text-gray-400">
+                                    (lo anterior al {{ $archivadoHasta->format('d/m/Y') }} está archivado)
+                                </span>
+                            @endif
+                        </label>
+                    </div>
+                @endif
+
                 <div class="flex gap-2 sm:col-span-2 lg:col-span-5">
                     <x-ui.button type="submit" size="sm">Filtrar</x-ui.button>
                     <x-ui.button variant="outline" size="sm" :href="route('bitacora.index')">Limpiar</x-ui.button>
+                    {{-- Con los mismos filtros que se están viendo. --}}
+                    <x-ui.button variant="outline" size="sm" class="ml-auto"
+                        :href="route('bitacora.excel', array_filter($filtros, fn ($v) => $v !== null && $v !== '' && $v !== false))">Descargar Excel</x-ui.button>
                 </div>
             </form>
         </div>

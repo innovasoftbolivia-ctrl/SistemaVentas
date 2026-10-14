@@ -691,7 +691,7 @@ class ProductoController extends Controller
         // el empaque a propósito: sin `contenido_empaque` no hay entre qué
         // dividir, y una casilla desmarcada tiene que dejar el número como está.
         if ($request->input('precio_compra_por') === 'EMPAQUE' && $datos['contenido_empaque']) {
-            $datos['precio_compra'] = round((float) $datos['precio_compra'] / $datos['contenido_empaque'], 2);
+            $datos['precio_compra'] = round((float) $datos['precio_compra'] / $datos['contenido_empaque'], 4);
         }
 
         unset($datos['precio_compra_por']);
@@ -728,7 +728,7 @@ class ProductoController extends Controller
 
         if ($producto
             && round((float) $producto->precio_venta, 2) === round((float) $datos['precio_venta'], 2)
-            && round((float) $producto->precio_compra, 2) === round((float) $datos['precio_compra'], 2)
+            && round((float) $producto->precio_compra, 4) === round((float) $datos['precio_compra'], 4)
             && $oferta($producto->precio_oferta) === $oferta($datos['precio_oferta'] ?? $producto->precio_oferta)) {
             return;
         }

@@ -270,6 +270,9 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
     Route::get('bitacora', [BitacoraController::class, 'index'])
         ->middleware('permiso:bitacora.ver')
         ->name('bitacora.index');
+    Route::get('bitacora/excel', [BitacoraController::class, 'exportar'])
+        ->middleware(['permiso:bitacora.ver', 'consulta'])
+        ->name('bitacora.excel');
 
     // Respaldos: la base entera, con los hashes de las contraseñas. Permiso
     // propio y nada de nombres de archivo libres (ver Respaldos::ruta()).

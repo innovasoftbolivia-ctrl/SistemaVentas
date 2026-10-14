@@ -172,7 +172,9 @@ trait IngresaPorEmpaque
         $costo = (float) $request->input('costo_unitario');
 
         if ($request->input('costo_por') === 'EMPAQUE' && $producto->tieneEmpaque()) {
-            return round($costo / $producto->contenido_empaque, 2);
+            // Cuatro decimales: una caja de 24 a Bs 70 son 2,9167 por unidad, y con dos (2,92)
+            // la compra sumaba 70,08 contra los 70,00 de la factura.
+            return round($costo / $producto->contenido_empaque, 4);
         }
 
         return $costo;

@@ -189,7 +189,7 @@ CREATE TABLE productos (
     codigo_barras       VARCHAR(50)  NULL,
     nombre              VARCHAR(120) NOT NULL,
     descripcion         VARCHAR(255) NULL,
-    precio_compra       DECIMAL(12,2) NOT NULL DEFAULT 0.00,  -- costo, sin impuesto
+    precio_compra       DECIMAL(12,4) NOT NULL DEFAULT 0.0000,  -- costo, sin impuesto, con 4 decimales
     precio_venta        DECIMAL(12,2) NOT NULL,                -- precio SIN impuesto (base imponible)
     precio_oferta       DECIMAL(12,2) NULL,                    -- precio rebajado, misma base que precio_venta
     oferta_desde        DATE         NULL,                     -- primer día de la oferta
@@ -480,7 +480,7 @@ CREATE TABLE venta_detalle (
     -- Costo del producto el día de la venta: la ganancia de un mes pasado no
     -- cambia porque el proveedor subió el precio después. NULL solo en ventas
     -- anteriores al 15/09/2026 que no se pudieron completar.
-    costo_unitario      DECIMAL(12,2) NULL,
+    costo_unitario      DECIMAL(12,4) NULL,
     -- Base de la línea, sin impuesto. Con el impuesto incluido en el precio,
     -- es lo cobrado menos el impuesto que lleva adentro.
     importe             DECIMAL(12,2) GENERATED ALWAYS AS
@@ -769,7 +769,7 @@ CREATE TABLE compra_detalle (
     -- `venta_detalle`: un CHECK no puede consultar otra tabla, y hace falta
     -- para impedir que se devuelvan 30 unidades de una línea que trajo 24.
     cantidad_devuelta DECIMAL(12,3) NOT NULL DEFAULT 0.000,
-    costo_unitario  DECIMAL(12,2) NOT NULL,
+    costo_unitario  DECIMAL(12,4) NOT NULL,
     -- derivada de las dos anteriores: columna generada, no se puede desincronizar (3FN)
     importe         DECIMAL(12,2) GENERATED ALWAYS AS (ROUND(cantidad * costo_unitario, 2)) STORED,
     PRIMARY KEY (id),
@@ -884,7 +884,7 @@ CREATE TABLE devolucion_compra_detalle (
     -- las 10 que debe— y una restricción no puede consultar otra tabla, así que
     -- el tope vive en la propia línea.
     cantidad_repuesta     DECIMAL(12,3)   NOT NULL DEFAULT 0.000,
-    costo_unitario        DECIMAL(12,2)   NOT NULL,
+    costo_unitario        DECIMAL(12,4)   NOT NULL,
     importe               DECIMAL(12,2) GENERATED ALWAYS AS (ROUND(cantidad * costo_unitario, 2)) STORED,
     PRIMARY KEY (id),
     KEY ix_devcompradet_cabecera (devolucion_compra_id),
@@ -925,7 +925,7 @@ CREATE TABLE movimientos_inventario (
     cantidad            DECIMAL(12,3) NOT NULL, -- siempre positiva
     stock_anterior      DECIMAL(12,3) NOT NULL,
     stock_resultante    DECIMAL(12,3) NOT NULL,
-    costo_unitario      DECIMAL(12,2) NULL,
+    costo_unitario      DECIMAL(12,4) NULL,
     motivo              VARCHAR(255) NULL,
     fecha               DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
@@ -1007,7 +1007,7 @@ CREATE TABLE toma_inventario_detalle (
     contado             DECIMAL(12,3) NULL,              -- NULL = todavía no se contó
     stock_sistema       DECIMAL(12,3) NULL,              -- lo que decía el sistema al contarlo
     diferencia          DECIMAL(12,3) GENERATED ALWAYS AS (contado - stock_sistema) STORED,
-    costo_unitario      DECIMAL(12,2) NULL,              -- precio de compra al contarlo: valoriza la diferencia
+    costo_unitario      DECIMAL(12,4) NULL,              -- precio de compra al contarlo: valoriza la diferencia
     usuario_id          INT UNSIGNED NULL,               -- quién lo contó
     fecha_conteo        DATETIME     NULL,
     movimiento_id       BIGINT UNSIGNED NULL,            -- el ajuste que aplicó el cierre
@@ -1054,6 +1054,16 @@ CREATE TABLE auditoria (
     KEY ix_auditoria_accion  (accion, fecha),
     CONSTRAINT fk_auditoria_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios (id)
 ) ENGINE=InnoDB;
+
+-- El archivo de lo viejo. La bitácora y el kardex solo crecen y no se borran; el
+-- comando `archivar:anual` MUEVE lo anterior a un año a estas tablas gemelas
+-- (mismas columnas más `archivado_en`, sin llaves foráneas: son historia). Son
+-- tan inmutables como las originales: ver sus triggers más abajo.
+CREATE TABLE auditoria_archivo LIKE auditoria;
+ALTER TABLE auditoria_archivo ADD COLUMN archivado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+CREATE TABLE movimientos_inventario_archivo LIKE movimientos_inventario;
+ALTER TABLE movimientos_inventario_archivo ADD COLUMN archivado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
 
 -- =============================================================================
 --  10. TRIGGERS
@@ -1284,12 +1294,16 @@ BEGIN
         SET MESSAGE_TEXT = 'La bitácora no se edita: lo que pasó, pasó.';
 END$$
 
+-- Se borra SOLO al archivar: `archivar:anual` declara la sesión (`@archivando = 1`) y
+-- además hace falta el privilegio DELETE, que `ventas_app` no tiene.
 CREATE TRIGGER trg_auditoria_before_delete
 BEFORE DELETE ON auditoria
 FOR EACH ROW
 BEGIN
-    SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'La bitácora no se borra: lo que pasó, pasó.';
+    IF COALESCE(@archivando, 0) <> 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'La bitácora no se borra: lo que pasó, pasó. (Lo viejo se archiva con archivar:anual.)';
+    END IF;
 END$$
 
 CREATE TRIGGER trg_movimientos_inventario_before_update
@@ -1304,8 +1318,43 @@ CREATE TRIGGER trg_movimientos_inventario_before_delete
 BEFORE DELETE ON movimientos_inventario
 FOR EACH ROW
 BEGIN
+    IF COALESCE(@archivando, 0) <> 1 THEN
+        SIGNAL SQLSTATE '45000'
+            SET MESSAGE_TEXT = 'El kardex no se borra: un error se corrige con un movimiento nuevo. (Lo viejo se archiva con archivar:anual.)';
+    END IF;
+END$$
+
+-- El archivo no se edita ni se borra, sin excepción.
+CREATE TRIGGER trg_auditoria_archivo_before_update
+BEFORE UPDATE ON auditoria_archivo
+FOR EACH ROW
+BEGIN
     SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'El kardex no se borra: un error se corrige con un movimiento nuevo.';
+        SET MESSAGE_TEXT = 'El archivo de la bitácora no se edita.';
+END$$
+
+CREATE TRIGGER trg_auditoria_archivo_before_delete
+BEFORE DELETE ON auditoria_archivo
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El archivo de la bitácora no se borra.';
+END$$
+
+CREATE TRIGGER trg_movimientos_inventario_archivo_before_update
+BEFORE UPDATE ON movimientos_inventario_archivo
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El archivo del kardex no se edita.';
+END$$
+
+CREATE TRIGGER trg_movimientos_inventario_archivo_before_delete
+BEFORE DELETE ON movimientos_inventario_archivo
+FOR EACH ROW
+BEGIN
+    SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'El archivo del kardex no se borra.';
 END$$
 
 -- 10.4 El comprobante debe corresponder al tipo de persona del cliente:
@@ -2006,4 +2055,6 @@ INSERT INTO parches_aplicados (archivo) VALUES
     ('2026_10_09_indices_de_la_base.sql'),
     ('2026_10_09_restricciones_y_bitacora.sql'),
     ('2026_10_12_ofertas_con_fechas.sql'),
-    ('2026_10_14_detalles_menores.sql');
+    ('2026_10_14_detalles_menores.sql'),
+    ('2026_10_15_costo_con_cuatro_decimales.sql'),
+    ('2026_10_16_archivado_anual.sql');

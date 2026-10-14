@@ -59,6 +59,9 @@ cifrar** por la red del local. Marcar una:
   ```
 
 - [ ] `./scripts/revisar-salud.sh` termina con «Todo en orden» (y un aviso de prueba llegó al celular)
+- [ ] **Archivado anual** entendido por quien administra: una vez al año, con un respaldo reciente,
+  `php artisan archivar:anual --simular` y después sin `--simular` (la cuenta con permiso de borrado se
+  pasa solo a esa corrida; ver README, «Archivar lo viejo»). Anotar aquí la fecha de la primera: ________
 - [ ] `docker compose … exec app php artisan qr:diagnostico` sin errores (o QR simulado, anotado arriba)
 
 ## 4. Capacitación

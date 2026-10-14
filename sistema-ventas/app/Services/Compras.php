@@ -114,7 +114,7 @@ class Compras
             throw new RuntimeException("«{$producto->nombre}» se compra por unidad entera.");
         }
 
-        $costo = round((float) $linea['costo_unitario'], 2);
+        $costo = round((float) $linea['costo_unitario'], 4);
 
         if ($costo < 0) {
             throw new RuntimeException("El costo de «{$producto->nombre}» no puede ser negativo.");

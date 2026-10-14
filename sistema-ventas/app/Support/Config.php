@@ -116,6 +116,19 @@ class Config
     }
 
     /**
+     * Un costo por unidad: al centavo si es al centavo («4.50») y con hasta cuatro
+     * decimales si los tiene («2.9167»). El costo de un producto que viene en caja
+     * casi nunca es un número redondo, y mostrarlo recortado a dos decimales
+     * esconde justo lo que el sistema guarda.
+     */
+    public static function costo(int|float|string|null $valor): string
+    {
+        [$entero, $decimales] = explode('.', rtrim(number_format(round((float) $valor, 4), 4, '.', ','), '0').'0');
+
+        return self::moneda().' '.$entero.'.'.str_pad(rtrim($decimales, '0'), 2, '0');
+    }
+
+    /**
      * Cantidades de stock sin ceros de relleno: el esquema guarda tres
      * decimales, pero «120» se lee mejor que «120.000».
      */

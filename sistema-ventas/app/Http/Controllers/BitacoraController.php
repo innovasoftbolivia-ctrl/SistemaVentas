@@ -2,11 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\ExportaInformes;
 use App\Models\Auditoria;
+use App\Models\AuditoriaArchivo;
 use App\Models\Usuario;
+use App\Services\Archivador;
+use App\Support\TopeExcel;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * La bitácora de operaciones, para leerla.
@@ -19,6 +26,8 @@ use Illuminate\View\View;
  */
 class BitacoraController extends Controller
 {
+    use ExportaInformes;
+
     /** A qué pantalla lleva cada entidad registrada, cuando tiene una. */
     private const ENLACES = [
         'ventas' => 'ventas.show',
@@ -79,7 +88,12 @@ class BitacoraController extends Controller
         'qr' => 'QR',
     ];
 
-    public function index(Request $request): View
+    /**
+     * Los filtros de la pantalla, validados: los mismos para leerla y para descargarla.
+     *
+     * @return array{usuario: ?int, accion: ?string, desde: ?string, hasta: ?string, buscar: string, archivo: bool}
+     */
+    private function filtros(Request $request): array
     {
         $filtros = $request->validate([
             'usuario' => ['nullable', 'integer'],
@@ -87,18 +101,33 @@ class BitacoraController extends Controller
             'desde' => ['nullable', 'date'],
             'hasta' => ['nullable', 'date', 'after_or_equal:desde'],
             'buscar' => ['nullable', 'string', 'max:100'],
+            'archivo' => ['nullable', 'boolean'],
         ], [
             'hasta.after_or_equal' => 'La fecha «hasta» no puede ser anterior a «desde».',
         ]);
 
-        $buscar = trim((string) ($filtros['buscar'] ?? ''));
+        return [
+            'usuario' => $filtros['usuario'] ?? null,
+            'accion' => $filtros['accion'] ?? null,
+            'desde' => $filtros['desde'] ?? null,
+            'hasta' => $filtros['hasta'] ?? null,
+            'buscar' => trim((string) ($filtros['buscar'] ?? '')),
+            // Lo de más de un año vive en otra tabla (ver Archivador).
+            'archivo' => (bool) ($filtros['archivo'] ?? false),
+        ];
+    }
 
-        $registros = Auditoria::query()
+    /** @param  array{usuario: ?int, accion: ?string, desde: ?string, hasta: ?string, buscar: string, archivo: bool}  $filtros */
+    private function consulta(array $filtros): Builder
+    {
+        $buscar = $filtros['buscar'];
+
+        return ($filtros['archivo'] ? AuditoriaArchivo::query() : Auditoria::query())
             ->with('usuario:id,usuario,empleado_id', 'usuario.empleado:id,nombre_completo')
-            ->when($filtros['usuario'] ?? null, fn ($q, $id) => $q->where('usuario_id', $id))
-            ->when($filtros['accion'] ?? null, fn ($q, $accion) => $q->where('accion', $accion))
-            ->when($filtros['desde'] ?? null, fn ($q, $desde) => $q->where('fecha', '>=', $desde.' 00:00:00'))
-            ->when($filtros['hasta'] ?? null, fn ($q, $hasta) => $q->where('fecha', '<=', $hasta.' 23:59:59'))
+            ->when($filtros['usuario'], fn ($q, $id) => $q->where('usuario_id', $id))
+            ->when($filtros['accion'], fn ($q, $accion) => $q->where('accion', $accion))
+            ->when($filtros['desde'], fn ($q, $desde) => $q->where('fecha', '>=', $desde.' 00:00:00'))
+            ->when($filtros['hasta'], fn ($q, $hasta) => $q->where('fecha', '<=', $hasta.' 23:59:59'))
             ->when($buscar !== '', function ($q) use ($buscar) {
                 $q->where(function ($sub) use ($buscar) {
                     if (ctype_digit($buscar)) {
@@ -111,23 +140,71 @@ class BitacoraController extends Controller
                 });
             })
             ->orderByDesc('fecha')
-            ->orderByDesc('id')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * La bitácora filtrada, en un Excel: es la que se le entrega a quien audita o
+     * se guarda como prueba de un incidente. Con los mismos filtros que la pantalla.
+     * Descargarla queda anotado en la propia bitácora (middleware `consulta`).
+     */
+    public function exportar(Request $request): StreamedResponse|RedirectResponse
+    {
+        $filtros = $this->filtros($request);
+
+        // Un renglón de más que el tope: alcanza para que `TopeExcel` avise en vez de
+        // cargar en memoria una tabla de millones de filas.
+        $registros = $this->consulta($filtros)->limit(TopeExcel::maximo() + 1)->get();
+
+        $periodo = match (true) {
+            $filtros['desde'] && $filtros['hasta'] => 'Del '.date('d/m/Y', strtotime($filtros['desde'])).' al '.date('d/m/Y', strtotime($filtros['hasta'])),
+            (bool) $filtros['desde'] => 'Desde el '.date('d/m/Y', strtotime($filtros['desde'])),
+            (bool) $filtros['hasta'] => 'Hasta el '.date('d/m/Y', strtotime($filtros['hasta'])),
+            default => 'Toda la bitácora',
+        }.($filtros['archivo'] ? ' (archivo)' : '');
+
+        $filas = $registros->map(fn (Auditoria $r) => [
+            $r->fecha?->format('d/m/Y H:i:s'),
+            $r->usuario?->usuario ?? '—',
+            $r->usuario?->empleado?->nombre_completo ?? '',
+            $r->ip ?? '',
+            self::accion($r->accion),
+            self::entidad($r->entidad, $r->entidad_id) ?? '',
+            collect(self::detalle($r->detalle))->map(fn ($f) => "{$f[0]}: {$f[1]}")->implode('; '),
+        ])->all();
+
+        $documento = $this->envoltorio('Bitácora de operaciones', $periodo, [
+            ['etiqueta' => 'Registros', 'valor' => count($filas), 'formato' => 'entero'],
+        ], [[
+            'nombre' => 'Operaciones',
+            'nota' => 'De la más nueva a la más vieja.',
+            'cabeceras' => ['Cuándo', 'Usuario', 'Persona', 'IP', 'Qué hizo', 'Sobre qué', 'Detalle'],
+            'formatos' => [null, null, null, null, null, null, null],
+            'alineacion' => ['izq', 'izq', 'izq', 'izq', 'izq', 'izq', 'izq'],
+            'filas' => $filas,
+            'vacia' => 'No hay registros con esos criterios.',
+        ]]);
+
+        return $this->excel($documento, 'bitacora_'.now()->format('Y-m-d_His').'.xlsx');
+    }
+
+    public function index(Request $request): View
+    {
+        $filtros = $this->filtros($request);
+        $buscar = $filtros['buscar'];
+
+        $registros = $this->consulta($filtros)
             ->paginate(50)
             ->withQueryString();
 
         return view('bitacora.index', [
             'title' => 'Bitácora',
             'registros' => $registros,
-            'filtros' => [
-                'usuario' => $filtros['usuario'] ?? null,
-                'accion' => $filtros['accion'] ?? null,
-                'desde' => $filtros['desde'] ?? null,
-                'hasta' => $filtros['hasta'] ?? null,
-                'buscar' => $buscar,
-            ],
+            'filtros' => $filtros,
             // Solo lo que de verdad aparece en la bitácora: un desplegable con
             // sesenta acciones de las que la mitad nunca pasó no ayuda a buscar.
-            'acciones' => Auditoria::query()->distinct()->orderBy('accion')->pluck('accion')
+            'archivadoHasta' => Archivador::archivadoHasta(),
+            'acciones' => ($filtros['archivo'] ? AuditoriaArchivo::query() : Auditoria::query())->distinct()->orderBy('accion')->pluck('accion')
                 ->mapWithKeys(fn (string $a) => [$a => self::accion($a)])->all(),
             'usuarios' => Usuario::query()->orderBy('usuario')->pluck('usuario', 'id')->all(),
         ]);

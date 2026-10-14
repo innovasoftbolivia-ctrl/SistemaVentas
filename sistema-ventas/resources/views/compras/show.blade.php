@@ -128,7 +128,7 @@
                                     @endif
                                 </td>
                                 <td class="px-5 py-4 text-right whitespace-nowrap text-theme-sm text-gray-500 dark:text-gray-400">
-                                    {{ Config::importe($linea->costo_unitario) }}
+                                    {{ Config::costo($linea->costo_unitario) }}
                                 </td>
                                 <td class="px-5 py-4 text-right whitespace-nowrap text-theme-sm font-medium text-gray-800 dark:text-white/90">
                                     {{ Config::importe($linea->importe) }}

@@ -6,10 +6,12 @@ use App\Http\Controllers\Concerns\IngresaPorEmpaque;
 use App\Http\Controllers\Concerns\OrdenaTablas;
 use App\Models\Categoria;
 use App\Models\MovimientoInventario;
+use App\Models\MovimientoInventarioArchivo;
 use App\Models\Producto;
 use App\Models\Proveedor;
 use App\Models\TomaInventarioDetalle;
 use App\Models\Usuario;
+use App\Services\Archivador;
 use App\Services\Auditor;
 use App\Services\Inventario;
 use App\Support\Menu;
@@ -97,6 +99,8 @@ class InventarioController extends Controller
             'usuario' => $request->integer('usuario') ?: null,
             'desde' => $request->date('desde'),
             'hasta' => $request->date('hasta'),
+            // Lo de más de un año vive en otra tabla (ver Archivador).
+            'archivo' => $request->boolean('archivo'),
         ];
 
         $origenes = array_combine(
@@ -107,7 +111,7 @@ class InventarioController extends Controller
             ),
         );
 
-        $movimientos = MovimientoInventario::query()
+        $movimientos = ($filtros['archivo'] ? MovimientoInventarioArchivo::query() : MovimientoInventario::query())
             ->with([
                 'producto:id,codigo,nombre,unidad_medida_id',
                 'producto.unidadMedida:id,codigo',
@@ -147,6 +151,7 @@ class InventarioController extends Controller
                 ->orderBy('usuario')
                 ->pluck('usuario', 'id'),
             'resumen' => $this->resumenMovimientos($filtros),
+            'archivadoHasta' => Archivador::archivadoHasta(),
         ]);
     }
 
@@ -313,7 +318,7 @@ class InventarioController extends Controller
      */
     private function resumenMovimientos(array $filtros): array
     {
-        $fila = DB::table('movimientos_inventario')
+        $fila = DB::table($filtros['archivo'] ? 'movimientos_inventario_archivo' : 'movimientos_inventario')
             ->when($filtros['producto'], fn ($q, $id) => $q->where('producto_id', $id))
             ->when($filtros['origen'] !== '', fn ($q) => $q->where('origen', $filtros['origen']))
             ->when($filtros['usuario'], fn ($q, $id) => $q->where('usuario_id', $id)

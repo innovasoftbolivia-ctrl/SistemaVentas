@@ -595,6 +595,16 @@ valor del inventario y los reportes. Pero la factura del proveedor viene en caja
 pantallas donde se escribe un costo aceptan un selector **«por unidad / por caja»** y dividen entre
 `contenido_empaque` antes de guardar. Escribir 96 por una caja de 24 guarda 4.00.
 
+**Los costos se guardan con cuatro decimales** (`DECIMAL(12,4)`; parche
+`2026_10_15_costo_con_cuatro_decimales.sql`): `productos.precio_compra` y el `costo_unitario` de las
+compras, las devoluciones a proveedor, el kardex, las tomas de inventario y cada línea de venta.
+Una caja de 24 a Bs 70 son **2,9167** por unidad: con dos decimales (2,92) la compra sumaba
+24 × 2,92 = 70,08 contra los 70,00 de la factura, y la ganancia de cada venta arrastraba el mismo
+error. Lo que se paga y se declara sigue siendo al centavo: los importes de las líneas
+(`cantidad × costo`) se redondean a dos decimales. En pantalla un costo se lee con los decimales que
+tiene (`Config::costo()`: «4.50», «2.9167») y los campos de costo aceptan hasta cuatro. Los valores
+que ya existían no cambian: 4,50 pasa a 4,5000.
+
 Y el costo que se carga al recibir mercadería puede **actualizar el del producto**, con una casilla
 marcada por defecto que solo aparece cuando el número cambió. No se hace solo, a propósito: una
 compra puntual más cara —una urgencia, un flete— no siempre debe volverse el costo de referencia.
@@ -921,7 +931,9 @@ Para actualizar una base que ya está en un cliente se aplican los parches
 `2026_10_09_indices_de_la_base.sql`, `2026_10_09_restricciones_y_bitacora.sql`,
 `2026_10_09_descuadres_y_peso_del_qr.sql`, `2026_10_12_ofertas_con_fechas.sql` y
 `2026_10_14_detalles_menores.sql` (el contador de intentos a `SMALLINT` y `cobros_qr.moneda` a
-`VARCHAR(3)`; `scripts/actualizar.sh` lo hace solo). Si alguna fila vieja
+`VARCHAR(3)`), `2026_10_15_costo_con_cuatro_decimales.sql` (los costos a cuatro decimales; los
+valores de antes no cambian) y `2026_10_16_archivado_anual.sql` (las dos tablas del archivo y sus
+triggers); `scripts/actualizar.sh` lo hace solo. Si alguna fila vieja
 incumple una restricción, el parche **se detiene** y dice cuántas son
 (`Table '…DETENIDO: 3 fila(s) incumplen ck_movinv_cadena' doesn't exist`): se corrigen y se vuelve a
 correr. El de descuadres también vacía las imágenes de los QR ya cobrados (unos 33 KB cada una).
@@ -952,6 +964,10 @@ de administración de la base. Además de lo que ya anotaba, deja:
   método, motivo). La misma persona pidiendo lo mismo se anota una vez por minuto, para que repetir
   una dirección no llene la tabla.
 
+El botón **Descargar Excel** de la pantalla baja la bitácora con los mismos filtros que se están
+viendo (hasta el tope de filas de cualquier Excel). Es lo que se le entrega a quien audita o se
+guarda como prueba de un incidente, y descargarla también queda anotado (`REPORTE_EXPORTADO`).
+
 #### Control de cajeros
 
 La bitácora y las ventas lo guardan todo, pero nadie lee mil filas. **Reportes → Control de
@@ -968,6 +984,45 @@ Una marca **no es una acusación**: una devolución grande puede ser mercadería
 para preguntar. La portada del administrador avisa si esta semana hay alguna («3 cosas para mirar
 en el control de cajeros»), igual que avisa de los descuadres. Los pisos son constantes de
 `ControlDeCajeros`.
+
+#### Archivar lo viejo
+
+La bitácora (`auditoria`) y el kardex (`movimientos_inventario`) solo crecen: no se editan ni se
+borran, ni con la cuenta de administración de la base. En un minimarket pasan a ser lo más grande a
+partir del tercer año, y cada respaldo los lleva enteros. **Archivar es MOVER lo de más de un año a una
+tabla gemela** (`auditoria_archivo`, `movimientos_inventario_archivo`), no borrarlo:
+
+```bash
+php artisan archivar:anual --simular     # cuenta lo que se movería, sin tocar nada
+php artisan archivar:anual               # hasta el 1 de enero del año pasado
+php artisan archivar:anual --hasta=2025-01-01
+```
+
+- **Solo lo que tiene más de un año** (`--forzar` salta esa regla). Cada lote de 2.000 filas se
+  copia, se comprueba que llegó completo y recién entonces se saca de la tabla de uso diario, en
+  una transacción: si algo falla no se pierde ninguna fila, y correrlo dos veces no mueve nada de más.
+- **Nada se descuadra.** Del kardex nunca se mueve el último movimiento de cada producto (es contra
+  el que se revisa que el stock cuadre, `v_descuadres`) ni los que cita una toma de inventario. La
+  prueba compara los descuadres antes y después.
+- **El archivo es tan inmutable como lo original:** triggers que impiden editarlo o borrarlo, sin
+  excepción, y sin llaves foráneas (es historia, no depende de nada).
+- **El camino para borrar de la tabla viva está cerrado** salvo para este comando. Los triggers de
+  borrado de `auditoria` y `movimientos_inventario` dejan pasar solo a una sesión que se declaró
+  archivando (`@archivando = 1`), y además hace falta el privilegio DELETE, que `ventas_app` no tiene.
+  Por eso la corrida lleva su propia cuenta, **sin dejarla en el `.env`**:
+
+  ```bash
+  docker compose -f docker-compose.prod.yml exec \
+      -e DB_ARCHIVO_USERNAME=root -e DB_ARCHIVO_PASSWORD="$DB_PASSWORD" app php artisan archivar:anual
+  ```
+
+  Conviene con un respaldo reciente y fuera del horario de atención. Queda anotado (`ARCHIVADO`).
+- **Se sigue pudiendo consultar:** la bitácora (Sistema → Bitácora, con su Excel) y el kardex general
+  (Almacén → Movimientos) tienen **«Ver el archivo»**, y avisan cuando el rango que se mira es
+  anterior al corte («lo anterior al 01/01/2025 está archivado»). Los reportes de mermas y de
+  productos sin movimiento leen la tabla viva: para un período archivado, el kardex del archivo.
+- Una vez al año alcanza (por eso «anual»); el comando no está agendado, a propósito: mover datos
+  es una decisión de quien administra, no del programador de tareas.
 
 ### Se adapta a la pantalla
 
@@ -1517,22 +1572,14 @@ resources/views/
 
 ## Lo que sigue
 
-De la lista de mejoras del bloque 5 de la auditoría de octubre de 2026 se hicieron los informes
-(mermas, sin movimiento, horas), las ofertas con fechas y las etiquetas. **Se dejaron fuera, a
-propósito:**
+De la lista de mejoras de la auditoría de octubre de 2026 están hechos los informes (mermas, sin
+movimiento, horas, control de cajeros), las ofertas con fechas, las etiquetas, la bitácora más útil y
+su Excel, el archivado anual y el costo con cuatro decimales. **Queda fuera, a propósito:**
 
 - **Balanza con etiqueta de peso.** Depende del aparato y del formato de su etiqueta (los prefijos
   y dónde va el peso o el importe cambian de marca a marca); implementarlo sin saber cuál usa el
   local sería adivinar. Con el modelo de la balanza en la mano, es leer el código en `buscar` del
-  mostrador.
-- **Archivado anual.** Con el volumen de un minimarket las tablas de ventas y de kardex no llegan a
-  ser un problema en años, y archivar mueve datos con los que se cuadran los reportes. Las vistas y los
-  índices del bloque 4 cubren hasta entonces; se retoma si un cliente lo pide o si una consulta se
-  vuelve lenta.
-- **Costo con cuatro decimales.** Hoy el costo por unidad se redondea al centavo; en un producto de
-  caja grande de poco valor (una caja de 144 a Bs 25) la unidad pierde fracciones. Cambiarlo toca
-  el kardex, las columnas generadas de la venta y todos los reportes de ganancia: es un cambio de
-  esquema con riesgo que no vale la pena sin un caso real que lo pida.
+  mostrador. El local, de momento, no usa balanza.
 
 Del esquema quedan sin explotar `v_kardex` (el kardex se arma hoy desde la ficha del producto),
 `v_comprobantes_sustituidos` y `v_empleados`. La facturación electrónica ante la administración

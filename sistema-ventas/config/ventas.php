@@ -113,4 +113,21 @@ return [
 
     'desarrollado_por' => (string) env('DESARROLLADO_POR', 'InnovaDevs'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | La cuenta que archiva
+    |--------------------------------------------------------------------------
+    |
+    | `archivar:anual` mueve la bitácora y el kardex viejos a su archivo, y para
+    | sacarlos de las tablas de uso diario hace falta DELETE sobre ellas: justo lo
+    | que `ventas_app` NO tiene. Se le pasa a UNA corrida (variables de entorno del
+    | comando), no se deja en el `.env`.
+    |
+    */
+
+    'archivo' => [
+        'usuario' => env('DB_ARCHIVO_USERNAME'),
+        'clave' => env('DB_ARCHIVO_PASSWORD'),
+    ],
+
 ];

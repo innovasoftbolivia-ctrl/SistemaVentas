@@ -29,8 +29,12 @@
         get costoNuevo() {
             const c = Number(this.costo) || 0;
             return this.costoPor === 'EMPAQUE' && this.sel.contenido > 0
-                ? Math.round((c / this.sel.contenido) * 100) / 100
+                ? Math.round((c / this.sel.contenido) * 10000) / 10000
                 : c;
+        },
+        /* Un costo se lee con los decimales que tiene: «4.50» o «2.9167». */
+        costoTexto(n) {
+            return Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4});
         },
         abrir(modal, producto) {
             this.sel = producto;
@@ -346,7 +350,7 @@
                                 <div class="flex gap-2">
                                     <div class="min-w-0 flex-1">
                                         <x-form.input id="ing_costo" name="costo_unitario" type="number"
-                                            step="0.01" min="0" x-model="costo" />
+                                            step="0.0001" min="0" x-model="costo" />
                                     </div>
 
                                     {{-- La factura del proveedor está en cajas. Se acepta
@@ -366,8 +370,8 @@
                                 <div x-show="costoEscrito && costoNuevo !== sel.compra" x-cloak class="mt-3">
                                     <x-form.check name="actualizar_costo" :checked="true" model="actualizarCosto">
                                         Actualizar el costo de este producto
-                                        (<span x-text="sel.compra.toFixed(2)"></span> →
-                                        <b x-text="costoNuevo.toFixed(2)"></b>)
+                                        (<span x-text="costoTexto(sel.compra)"></span> →
+                                        <b x-text="costoTexto(costoNuevo)"></b>)
                                     </x-form.check>
                                 </div>
                             </x-form.campo>

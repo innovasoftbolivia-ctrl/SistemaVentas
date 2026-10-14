@@ -316,10 +316,12 @@ class ReglasEnPhp
     public static function bitacoraInmutable(string $cual, string $accion): never
     {
         $verbo = $accion === 'editar' ? 'edita' : 'borra';
+        // Lo mismo que dice el trigger de borrado: lo viejo no se borra, se archiva (Archivador).
+        $cierre = $accion === 'borrar' ? ' (Lo viejo se archiva con archivar:anual.)' : '';
 
         throw new RuntimeException($cual === 'auditoria'
-            ? "La bitácora no se {$verbo}: lo que pasó, pasó."
-            : "El kardex no se {$verbo}: un error se corrige con un movimiento nuevo.");
+            ? "La bitácora no se {$verbo}: lo que pasó, pasó.{$cierre}"
+            : "El kardex no se {$verbo}: un error se corrige con un movimiento nuevo.{$cierre}");
     }
 
     // =====================================================================

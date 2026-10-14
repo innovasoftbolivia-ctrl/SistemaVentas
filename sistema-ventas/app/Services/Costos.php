@@ -31,8 +31,8 @@ class Costos
             return null;
         }
 
-        $anterior = round((float) $producto->precio_compra, 2);
-        $nuevo = round($costo, 2);
+        $anterior = round((float) $producto->precio_compra, 4);
+        $nuevo = round($costo, 4);
 
         if ($anterior === $nuevo) {
             return null;

@@ -370,7 +370,7 @@
                              puesta encima pierde por orden de la hoja de estilos. --}}
                         <div class="flex gap-2">
                             <div class="min-w-0 flex-1">
-                                <x-form.input id="precio_compra" name="precio_compra" type="number" step="0.01"
+                                <x-form.input id="precio_compra" name="precio_compra" type="number" step="0.0001"
                                     min="0" :value="$producto->precio_compra ?? '0.00'" x-model.number="compra"
                                     required />
                             </div>
@@ -387,7 +387,7 @@
 
                         <p x-show="compraPorCaja && compra > 0" x-cloak
                             class="mt-1.5 text-theme-xs text-gray-500 dark:text-gray-400">
-                            = {{ $moneda }} <b x-text="compraUnidad.toFixed(2)"></b> por
+                            = {{ $moneda }} <b x-text="Number(compraUnidad).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4})"></b> por
                             <span x-text="unidadNombre"></span>, que es lo que se guarda
                         </p>
                     </x-form.campo>

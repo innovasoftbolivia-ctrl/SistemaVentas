@@ -212,7 +212,7 @@ class ComprasTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame('4.50', $producto->fresh()->precio_compra);
+        $this->assertSame('4.5000', $producto->fresh()->precio_compra);
     }
 
     public function test_sin_marcar_la_casilla_el_costo_del_producto_no_se_toca(): void
@@ -231,7 +231,7 @@ class ComprasTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame('4.00', $producto->fresh()->precio_compra);
+        $this->assertSame('4.0000', $producto->fresh()->precio_compra);
     }
 
     // ------------------------------------------------------------ lo que no

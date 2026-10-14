@@ -287,7 +287,7 @@ class EmpaqueDelProductoTest extends TestCase
             ]))
             ->assertRedirect();
 
-        $this->assertSame('4.00', Producto::where('codigo', 'P-9101')->firstOrFail()->precio_compra);
+        $this->assertSame('4.0000', Producto::where('codigo', 'P-9101')->firstOrFail()->precio_compra);
     }
 
     public function test_el_costo_del_alta_por_unidad_no_se_divide(): void
@@ -302,7 +302,7 @@ class EmpaqueDelProductoTest extends TestCase
             ]))
             ->assertRedirect();
 
-        $this->assertSame('4.00', Producto::where('codigo', 'P-9101')->firstOrFail()->precio_compra);
+        $this->assertSame('4.0000', Producto::where('codigo', 'P-9101')->firstOrFail()->precio_compra);
     }
 
     /** Sin empaque no hay entre qué dividir: el número se guarda como vino. */
@@ -317,7 +317,7 @@ class EmpaqueDelProductoTest extends TestCase
             ]))
             ->assertRedirect();
 
-        $this->assertSame('96.00', Producto::where('codigo', 'P-9101')->firstOrFail()->precio_compra);
+        $this->assertSame('96.0000', Producto::where('codigo', 'P-9101')->firstOrFail()->precio_compra);
     }
 
     // ------------------------------------------------- ingreso de mercadería
@@ -397,7 +397,7 @@ class EmpaqueDelProductoTest extends TestCase
             ->orderByDesc('id')
             ->firstOrFail();
 
-        $this->assertSame('4.00', $movimiento->costo_unitario);
+        $this->assertSame('4.0000', $movimiento->costo_unitario);
     }
 
     public function test_el_costo_escrito_por_unidad_no_se_divide(): void
@@ -416,7 +416,7 @@ class EmpaqueDelProductoTest extends TestCase
             ->orderByDesc('id')
             ->firstOrFail();
 
-        $this->assertSame('4.50', $movimiento->costo_unitario);
+        $this->assertSame('4.5000', $movimiento->costo_unitario);
     }
 
     /**
@@ -502,7 +502,7 @@ class EmpaqueDelProductoTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame('4.50', $producto->fresh()->precio_compra);
+        $this->assertSame('4.5000', $producto->fresh()->precio_compra);
     }
 
     /** Cambiar el costo mueve el margen de todos los reportes: queda auditado. */
@@ -545,14 +545,14 @@ class EmpaqueDelProductoTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame('4.00', $producto->fresh()->precio_compra);
+        $this->assertSame('4.0000', $producto->fresh()->precio_compra);
 
         // Pero el kardex sí guarda lo que costó ESA entrada.
         $movimiento = MovimientoInventario::where('producto_id', $producto->id)
             ->orderByDesc('id')
             ->firstOrFail();
 
-        $this->assertSame('9.00', $movimiento->costo_unitario);
+        $this->assertSame('9.0000', $movimiento->costo_unitario);
     }
 
     /** La ficha del producto ofrece lo mismo que el almacén. */
@@ -569,7 +569,7 @@ class EmpaqueDelProductoTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertSame('4.75', $producto->fresh()->precio_compra);
+        $this->assertSame('4.7500', $producto->fresh()->precio_compra);
     }
 
     // -------------------------------------------------- lo que se pesa y mide

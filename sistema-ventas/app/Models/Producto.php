@@ -52,7 +52,7 @@ class Producto extends Model
     protected function casts(): array
     {
         return [
-            'precio_compra' => 'decimal:2',
+            'precio_compra' => 'decimal:4',
             'precio_venta' => 'decimal:2',
             'precio_oferta' => 'decimal:2',
             'oferta_desde' => 'date:Y-m-d',

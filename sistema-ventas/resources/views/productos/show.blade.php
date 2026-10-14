@@ -183,18 +183,18 @@
                 @php
                     $filasDePrecio = Config::tasaImpuesto() > 0 && Config::preciosIncluyenImpuesto()
                         ? [
-                            'Precio de compra' => Config::importe($producto->precio_compra).' (sin impuesto)',
+                            'Precio de compra' => Config::costo($producto->precio_compra).' (sin impuesto)',
                             'Precio de venta' => Config::importe($producto->precio_venta).($producto->afecto_impuesto ? ' (IVA incluido)' : ' (exonerado)'),
                             'Precio sin IVA' => Config::importe($producto->precio_base),
                         ]
                         : (Config::tasaImpuesto() > 0
                         ? [
-                            'Precio de compra' => Config::importe($producto->precio_compra).' (sin impuesto)',
+                            'Precio de compra' => Config::costo($producto->precio_compra).' (sin impuesto)',
                             'Precio de venta base' => Config::importe($producto->precio_venta).' (sin impuesto)',
                             'Precio de estante' => Config::importe($producto->precio_estante),
                         ]
                         : [
-                            'Precio de compra' => Config::importe($producto->precio_compra),
+                            'Precio de compra' => Config::costo($producto->precio_compra),
                             'Precio de venta' => Config::importe($producto->precio_venta),
                             'Ganancia por unidad' => Config::importe($producto->margen)
                                 .($producto->margen_porcentaje !== null ? ' ('.$producto->margen_porcentaje.'% de margen)' : ''),
@@ -302,8 +302,12 @@
                             get costoNuevo() {
                                 const c = Number(this.costo) || 0;
                                 return this.costoPor === 'EMPAQUE' && this.contenido > 0
-                                    ? Math.round((c / this.contenido) * 100) / 100
+                                    ? Math.round((c / this.contenido) * 10000) / 10000
                                     : c;
+                            },
+                            /* Un costo se lee con los decimales que tiene: «4.50» o «2.9167». */
+                            costoTexto(n) {
+                                return Number(n).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 4});
                             },
                         }">
                         @csrf
@@ -327,7 +331,7 @@
                                 <div class="flex gap-2">
                                     <div class="min-w-0 flex-1">
                                         <x-form.input id="costo_unitario" name="costo_unitario" type="number"
-                                            step="0.01" min="0" :value="$producto->precio_compra"
+                                            step="0.0001" min="0" :value="$producto->precio_compra"
                                             x-model="costo" />
                                     </div>
 
@@ -352,7 +356,7 @@
                                     <x-form.check name="actualizar_costo" :checked="true" model="actualizarCosto">
                                         Actualizar el costo de este producto
                                         (<span x-text="actual.toFixed(2)"></span> →
-                                        <b x-text="costoNuevo.toFixed(2)"></b>)
+                                        <b x-text="costoTexto(costoNuevo)"></b>)
                                     </x-form.check>
                                 </div>
                             </x-form.campo>
