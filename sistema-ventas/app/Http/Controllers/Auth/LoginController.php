@@ -20,6 +20,9 @@ use Illuminate\View\View;
  */
 class LoginController extends Controller
 {
+    /** Hasta dónde cuenta `usuarios.intentos_fallidos` (SMALLINT UNSIGNED llega a 65.535). */
+    private const TOPE_INTENTOS = 60000;
+
     /** Cuántos intentos seguidos se toleran antes de bloquear temporalmente. */
     private const MAX_INTENTOS = 5;
 
@@ -74,7 +77,11 @@ class LoginController extends Controller
         if (! $cuenta || ! $claveValida) {
             RateLimiter::hit($this->claveThrottle($request), self::BLOQUEO_SEGUNDOS);
             RateLimiter::hit($this->claveCuenta($request), self::BLOQUEO_CUENTA_SEGUNDOS);
-            $cuenta?->increment('intentos_fallidos');
+            // SMALLINT: pasado el tope deja de contar en vez de reventar en un 500
+            // justo cuando alguien está probando claves.
+            if ($cuenta && $cuenta->intentos_fallidos < self::TOPE_INTENTOS) {
+                $cuenta->increment('intentos_fallidos');
+            }
 
             Auditor::registrar('LOGIN_FALLIDO', 'usuarios', $cuenta?->id, [
                 'usuario' => $datos['usuario'],

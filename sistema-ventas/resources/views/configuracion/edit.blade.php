@@ -141,6 +141,10 @@
                             <span x-show="incluido === '0'">Cada precio pasa a ser la base sin IVA; el mostrador le suma el impuesto al cobrar.</span>
                             Solo los productos afectos al impuesto. Sin ajustar, todos los precios del mostrador cambian.
                         </p>
+                        <p x-show="convertir" class="mt-1.5 text-theme-xs font-medium text-warning-700 dark:text-orange-400" data-aviso-bloqueo>
+                            Mientras se ajustan (unos segundos si el catálogo es grande) el mostrador queda esperando:
+                            conviene hacerlo fuera del horario de atención.
+                        </p>
                     </div>
 
                     <p x-show="!cambiaModo && incluido === '0' && cobra" x-cloak class="text-theme-xs text-gray-500 dark:text-gray-400">

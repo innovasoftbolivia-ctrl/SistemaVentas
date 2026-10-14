@@ -53,11 +53,13 @@ class LibroDeVentas
         $desde = CarbonImmutable::create($anio, $mes, 1)->startOfDay();
         $hasta = $desde->endOfMonth();
 
-        $facturas = DB::table('comprobantes as c')
+        $delMes = DB::table('comprobantes as c')
             ->join('series_comprobante as s', 's.id', '=', 'c.serie_id')
             ->join('tipos_comprobante as t', 't.id', '=', 's.tipo_comprobante_id')
             ->where('t.codigo', 'FAC')
-            ->whereBetween('c.fecha_emision', [$desde, $hasta])
+            ->whereBetween('c.fecha_emision', [$desde, $hasta]);
+
+        $facturas = (clone $delMes)
             ->orderBy('c.fecha_emision')
             ->orderBy('c.id')
             ->get([
@@ -72,7 +74,8 @@ class LibroDeVentas
         // IVA). Sin esta segunda condición el libro declaraba el 13 % de
         // facturas cuyo ticket no cobró ni un centavo de impuesto.
         $sinImpuesto = DB::table('venta_detalle')
-            ->whereIn('venta_id', $facturas->pluck('venta_id')->unique())
+            // Una subconsulta y no un `IN (…)` con las miles de facturas del mes escritas una por una.
+            ->whereIn('venta_id', (clone $delMes)->select('c.venta_id'))
             ->where(fn ($q) => $q->where('afecto_impuesto', 0)->orWhere('tasa_impuesto', 0))
             ->groupBy('venta_id')
             ->selectRaw('venta_id, SUM(importe) AS importe')

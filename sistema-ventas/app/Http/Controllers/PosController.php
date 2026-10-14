@@ -29,6 +29,12 @@ use Throwable;
  */
 class PosController extends Controller
 {
+    /** Productos distintos por venta: un ticket de 200 líneas ya es un error de dedo o un abuso. */
+    public const MAX_LINEAS = 200;
+
+    /** Pagos por venta: efectivo, tarjeta, QR… cinco medios en una misma venta sobran. */
+    public const MAX_PAGOS = 5;
+
     /** Cuántos clientes trae la lista del mostrador; el resto se busca. */
     private const CLIENTES_EN_LISTA = 50;
 
@@ -241,7 +247,7 @@ class PosController extends Controller
             'total_esperado' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'observacion' => ['nullable', 'string', 'max:255'],
 
-            'lineas' => ['required', 'array', 'min:1'],
+            'lineas' => ['required', 'array', 'min:1', 'max:'.self::MAX_LINEAS],
             // Un producto, una línea: el mostrador ya las agrupa, y repetidas
             // descuadraban el stock al anular con procedimientos.
             'lineas.*.producto_id' => ['required', 'distinct', Rule::exists('productos', 'id')],
@@ -250,7 +256,7 @@ class PosController extends Controller
             // El precio SIEMPRE sale del catálogo en `Ventas::registrar`, nunca
             // de aquí: no se valida ni se usa, aunque el formulario lo mande.
 
-            'pagos' => ['required', 'array', 'min:1'],
+            'pagos' => ['required', 'array', 'min:1', 'max:'.self::MAX_PAGOS],
             'pagos.*.metodo_pago_id' => ['required', Rule::exists('metodos_pago', 'id')->where('activo', 1)],
             // Sin importe significa «el resto»: lo calcula el servidor.
             'pagos.*.monto' => ['nullable', 'numeric', 'gt:0', 'max:9999999999', 'decimal:0,2'],
@@ -263,6 +269,8 @@ class PosController extends Controller
         ], [
             'lineas.required' => 'La venta no tiene productos.',
             'pagos.required' => 'Falta indicar cómo se pagó.',
+            'lineas.max' => 'Una venta no puede tener más de '.self::MAX_LINEAS.' productos distintos: divídela en dos.',
+            'pagos.max' => 'Una venta no admite más de '.self::MAX_PAGOS.' pagos.',
         ]);
 
         $cliente = isset($datos['cliente_id']) ? Cliente::find($datos['cliente_id']) : null;

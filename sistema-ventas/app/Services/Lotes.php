@@ -67,13 +67,15 @@ class Lotes
      * Una venta puede barrer varios lotes —quedan 5 del que vence el martes y
      * se llevan 12—, así que se va restando en orden hasta cubrir la cantidad.
      *
-     * Si los lotes no alcanzan, la diferencia se descuenta igual del último
-     * abierto y no se lanza ningún error. Parece raro pero es deliberado: el
-     * stock ya lo validó {@see Inventario} o el trigger de la venta, y hacer
-     * fallar aquí una venta legítima porque el reparto por lotes quedó
-     * incompleto —al encender el control con stock ya existente, por ejemplo—
-     * sería castigar al cajero por un descuadre que no es suyo. La cifra que
-     * manda es `stock_actual`, y los lotes se acomodan a ella.
+     * Si los lotes no alcanzan, lo que falta NO se descuenta de ningún lote
+     * (no se inventa una salida de uno que no la tuvo) y tampoco se lanza ningún
+     * error. Parece raro pero es deliberado: el stock ya lo validó
+     * {@see Inventario} o el trigger de la venta, y hacer fallar aquí una venta
+     * legítima porque el reparto por lotes quedó incompleto —al encender el
+     * control con stock ya existente, por ejemplo— sería castigar al cajero por
+     * un descuadre que no es suyo. La cifra que manda es `stock_actual`: los
+     * lotes pueden sumar menos que ella, y la pantalla de vencimientos lo
+     * muestra aparte como «sin fecha».
      */
     public static function consumir(
         Producto $producto,

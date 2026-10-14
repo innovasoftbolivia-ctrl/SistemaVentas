@@ -101,6 +101,7 @@ services:
       --collation-server=utf8mb4_0900_ai_ci
       --default-time-zone=-04:00
       --explicit_defaults_for_timestamp=OFF
+      --binlog-expire-logs-seconds=604800
     ports:
       # Publicado para conectar Workbench/DBeaver y para correr las pruebas
       # desde el host. La aplicación no usa este puerto: dentro de la red llega

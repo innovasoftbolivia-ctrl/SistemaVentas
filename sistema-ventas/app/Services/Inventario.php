@@ -302,6 +302,9 @@ class Inventario
     }
 
     /**
+     * Siempre se llama desde la transacción de un método público, que es el único que reintenta
+     * ante un deadlock: el reintento de una transacción anidada no hace nada.
+     *
      * @param  array<string, mixed>  $extra
      */
     private static function mover(
@@ -326,7 +329,7 @@ class Inventario
             }
 
             return self::registrar($producto, $cantidad, $tipo, $origen, $anterior, $resultante, $extra);
-        }, self::REINTENTOS);
+        });
     }
 
     /**

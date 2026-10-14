@@ -118,7 +118,7 @@ CREATE TABLE usuarios (
     debe_cambiar_password TINYINT(1) NOT NULL DEFAULT 0,
     activo              TINYINT(1)   NOT NULL DEFAULT 1,
     ultimo_acceso       DATETIME     NULL,
-    intentos_fallidos   TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    intentos_fallidos   SMALLINT UNSIGNED NOT NULL DEFAULT 0,
     creado_en           TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     actualizado_en      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
@@ -554,7 +554,7 @@ CREATE TABLE cobros_qr (
     venta_id            BIGINT UNSIGNED NULL,        -- BIGINT: `ventas.id` lo es
 
     monto               DECIMAL(12,2)   NOT NULL,
-    moneda              CHAR(3)         NOT NULL DEFAULT 'BOB',
+    moneda              VARCHAR(3)      NOT NULL DEFAULT 'BOB',
     glosa               VARCHAR(120)    NULL,
 
     pasarela            VARCHAR(30)     NOT NULL,    -- 'simulado' o el código del banco
@@ -2005,4 +2005,5 @@ INSERT INTO parches_aplicados (archivo) VALUES
     ('2026_10_09_descuadres_y_peso_del_qr.sql'),
     ('2026_10_09_indices_de_la_base.sql'),
     ('2026_10_09_restricciones_y_bitacora.sql'),
-    ('2026_10_12_ofertas_con_fechas.sql');
+    ('2026_10_12_ofertas_con_fechas.sql'),
+    ('2026_10_14_detalles_menores.sql');

@@ -261,7 +261,16 @@ contrario no ocurre: quitarle el acceso a alguien no lo despide.
   guard de sesión estándar de Laravel funciona sin cambios.
 - El acceso exige dos condiciones: la cuenta activa **y** el empleado con vínculo vigente
   (`Usuario::puedeIngresar()`).
-- Tras cinco intentos fallidos, ese usuario e IP quedan bloqueados un minuto.
+- Tras cinco intentos fallidos, ese usuario e IP quedan bloqueados un minuto. El contador de
+  `usuarios.intentos_fallidos` es `SMALLINT` y deja de contar a los 60.000: pasados los 255 de un
+  `TINYINT`, el ingreso daba error 500 justo cuando alguien probaba claves.
+- **Contraseñas**: mínimo 10 caracteres, y se rechaza lo que cualquiera probaría primero: el nombre
+  de usuario adentro, el nombre del negocio, «password», «contraseña», «12345678», «qwerty», una
+  clave de un solo carácter repetido… (`App\Support\Contrasena`; vale en el perfil, en el alta y
+  edición de cuentas y en `usuario:clave --pedir`).
+- La contraseña de la primera instalación queda en `storage/app/respaldos/PRIMER-ACCESO.txt`; el
+  sistema **lo borra solo** cuando `admin` pone una propia (en el perfil o con `usuario:clave`).
+  `scripts/zipear.php` tampoco lo empaqueta, ni el `.env`, ni los respaldos, ni `vendor`, ni `.git`.
 - `VerificarCuentaVigente` corta la sesión si la cuenta se deshabilita mientras la persona navega.
 
 ### Permisos
@@ -700,6 +709,10 @@ descuento → recalcular otra vez (el impuesto baja en la misma proporción).
 Lo que pasa alrededor del cobro, en la hora de más venta. Todo esto vive en el navegador de la caja
 salvo donde se dice.
 
+Una venta admite hasta **200 productos distintos y 5 pagos** (`PosController::MAX_LINEAS` y
+`MAX_PAGOS`): un ticket de 200 líneas ya es un error de dedo o un abuso, y el servidor lo rechaza
+con un mensaje en vez de procesarlo.
+
 - **Sin conexión.** Si se corta internet o el servidor no responde, aparece un aviso rojo («Sin
   conexión con el servidor») y el sistema reintenta solo cada 5 segundos. Mientras tanto no se puede
   cobrar, y un escaneo no decide nada: antes la pistola «dejaba de funcionar» sin decir por qué, y con la
@@ -906,8 +919,9 @@ modelos (`ReglasEnPhp`); las restricciones y la vista viven en las tablas y vale
 
 Para actualizar una base que ya está en un cliente se aplican los parches
 `2026_10_09_indices_de_la_base.sql`, `2026_10_09_restricciones_y_bitacora.sql`,
-`2026_10_09_descuadres_y_peso_del_qr.sql` y `2026_10_12_ofertas_con_fechas.sql`
-(`scripts/actualizar.sh` lo hace solo). Si alguna fila vieja
+`2026_10_09_descuadres_y_peso_del_qr.sql`, `2026_10_12_ofertas_con_fechas.sql` y
+`2026_10_14_detalles_menores.sql` (el contador de intentos a `SMALLINT` y `cobros_qr.moneda` a
+`VARCHAR(3)`; `scripts/actualizar.sh` lo hace solo). Si alguna fila vieja
 incumple una restricción, el parche **se detiene** y dice cuántas son
 (`Table '…DETENIDO: 3 fila(s) incumplen ck_movinv_cadena' doesn't exist`): se corrigen y se vuelve a
 correr. El de descuadres también vacía las imágenes de los QR ya cobrados (unos 33 KB cada una).
@@ -1393,7 +1407,9 @@ perdido), la restauración se hace con `restore-db.sh`, que crea la base si no e
 de seguridad— y que no avisan solas:
 
 1. **Los contenedores están corriendo.**
-2. **La aplicación responde y la base contesta.** Consulta `/up`, que no es el de fábrica: se le
+2. **La aplicación responde y la base contesta.** Consulta `/up` (con freno de 60 por minuto por
+   dirección y un cupo propio, para que un monitoreo insistente no deje a los cajeros fuera), que
+   no es el de fábrica: se le
    enganchó una consulta real a la base (`app/Listeners/ComprobarBaseDeDatos.php`). El `/up` que
    trae Laravel responde 200 en cuanto el framework arranca, sin tocar MySQL — o sea que decía
    «todo bien» con la base caída y nadie pudiendo cobrar.

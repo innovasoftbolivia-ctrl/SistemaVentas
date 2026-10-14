@@ -189,6 +189,7 @@ services:
       --collation-server=utf8mb4_0900_ai_ci
       --default-time-zone=-04:00
       --explicit_defaults_for_timestamp=OFF
+      --binlog-expire-logs-seconds=604800
     volumes:
       - ventas_data:/var/lib/mysql
       # Al primer arranque el contenedor ejecuta estos scripts en orden

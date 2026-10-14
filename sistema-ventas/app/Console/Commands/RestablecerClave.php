@@ -4,12 +4,12 @@ namespace App\Console\Commands;
 
 use App\Models\Usuario;
 use App\Services\Auditor;
+use App\Support\Contrasena;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rules\Password;
 
 /**
  * Devuelve el acceso a una cuenta cuando nadie puede entrar para arreglarlo.
@@ -64,7 +64,7 @@ class RestablecerClave extends Command
                 return self::FAILURE;
             }
 
-            $validacion = Validator::make(['clave' => $clave], ['clave' => [Password::min(8)]]);
+            $validacion = Validator::make(['clave' => $clave], ['clave' => Contrasena::reglas($cuenta->usuario)]);
 
             if ($validacion->fails()) {
                 $this->error($validacion->errors()->first('clave'));
@@ -88,6 +88,11 @@ class RestablecerClave extends Command
         }
 
         $cuenta->save();
+
+        // La clave de la primera instalación ya no vale: su archivo tampoco tiene que quedar.
+        if ($cuenta->usuario === 'admin') {
+            Contrasena::olvidarPrimerAcceso();
+        }
 
         // Un bloqueo por intentos fallidos no puede dejar fuera a quien acaba de
         // recuperar su clave. El de la dirección IP se vence solo en minutos.

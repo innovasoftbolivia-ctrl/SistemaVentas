@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Services\Auditor;
+use App\Support\Contrasena;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 use Illuminate\View\View;
 
 /**
@@ -30,7 +30,7 @@ class PerfilController extends Controller
     {
         $datos = $request->validate([
             'password_actual' => ['required', 'current_password'],
-            'password' => ['required', 'confirmed', 'different:password_actual', Password::min(8)],
+            'password' => ['required', 'confirmed', 'different:password_actual', ...Contrasena::reglas($request->user()->usuario)],
         ], [
             'password_actual.current_password' => 'La contraseña actual no es correcta.',
             'password.different' => 'La nueva contraseña tiene que ser distinta de la actual.',
@@ -48,6 +48,11 @@ class PerfilController extends Controller
         ])->save();
 
         Auditor::registrar('PASSWORD_CAMBIADA', 'usuarios', $usuario->id);
+
+        // La clave de la primera instalación ya no vale: el archivo que la guardaba tampoco tiene que quedar.
+        if ($usuario->usuario === 'admin') {
+            Contrasena::olvidarPrimerAcceso();
+        }
 
         return back()->with('exito', 'Tu contraseña fue actualizada.');
     }

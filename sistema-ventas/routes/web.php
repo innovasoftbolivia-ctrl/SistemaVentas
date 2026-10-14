@@ -32,6 +32,8 @@ use App\Http\Controllers\UsuarioController;
 use App\Http\Controllers\VencimientoController;
 use App\Http\Controllers\VentaController;
 use App\Support\Menu;
+use Illuminate\Foundation\Events\DiagnosingHealth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,6 +51,22 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:20,1')
         ->name('login.store');
 });
+
+// La ruta de salud: la comprueba el healthcheck de docker, el monitoreo y `revisar-salud.sh`.
+// Es pública y cada visita consulta la base (ver ComprobarBaseDeDatos), así que lleva freno
+// por dirección: 60 por minuto sobran para cualquier monitoreo y no dejan que un curioso
+// use esta dirección para martillar la base.
+Route::get('up', function () {
+    try {
+        Event::dispatch(new DiagnosingHealth);
+    } catch (Throwable $e) {
+        report($e);
+
+        return response('Sin conexión con la base de datos', 500);
+    }
+
+    return response('OK');
+})->middleware('throttle:salud')->name('salud');
 
 Route::post('logout', [LoginController::class, 'destroy'])
     ->middleware('auth')
@@ -453,10 +471,10 @@ Route::middleware(['auth', 'auth.session', 'cuenta.vigente', 'password.propia'])
 */
 
 Route::post('qr/aviso', [CobroQrController::class, 'aviso'])
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:30,1')
     ->name('qr.aviso');
 
 // La misma entrada en la dirección que Banco Económico espera del comercio.
 Route::post('api/qrsimple/notifyPaymentQR', [CobroQrController::class, 'aviso'])
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:30,1')
     ->name('qr.aviso.baneco');

@@ -7,10 +7,11 @@ return [
     | Dónde vive la lógica de negocio de la base
     |--------------------------------------------------------------------------
     |
-    | El esquema apoya reglas críticas en 6 procedimientos almacenados y 7
-    | triggers: descontar stock y escribir el kardex al vender, recalcular los
-    | totales, tomar el correlativo del comprobante con bloqueo de fila, y
-    | calcular el arqueo al cerrar caja.
+    | El esquema apoya reglas críticas en procedimientos almacenados y triggers
+    | (los cuenta `docs/sql/01_schema_mysql.sql`, no este comentario): descontar
+    | stock y escribir el kardex al vender, recalcular los totales, tomar el
+    | correlativo del comprobante con bloqueo de fila, calcular el arqueo al
+    | cerrar caja, y exigir turno abierto y responsable en cada movimiento.
     |
     | En un servidor propio eso es lo correcto: la regla se cumple aunque
     | alguien entre por fuera de la aplicación, y el bloqueo de fila lo hace el

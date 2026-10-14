@@ -44,7 +44,7 @@ cifrar** por la red del local. Marcar una:
 ## 3. Lo que se comprueba en el servidor
 
 - [ ] `docker compose -f docker-compose.prod.yml up -d --build` sin errores; el sistema abre en `http://…:8100`
-- [ ] Contraseña de `admin` cambiada; `PRIMER-ACCESO.txt` **borrado**
+- [ ] Contraseña de `admin` cambiada (10 caracteres como mínimo); `PRIMER-ACCESO.txt` **borrado** (el sistema lo borra solo al cambiarla; comprueba que ya no esté)
 - [ ] **Segundo administrador** creado (cuenta de respaldo guardada bajo llave). Si se olvida la clave: `php artisan usuario:clave admin`
 - [ ] Catálogo cargado: `catalogo:importar` revisado y luego con `--aplicar` — productos cargados: ________
 - [ ] Una venta de prueba cobrada, impresa y **anulada**; el stock volvió
