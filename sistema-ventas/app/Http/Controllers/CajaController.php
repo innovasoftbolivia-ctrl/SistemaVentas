@@ -226,7 +226,9 @@ class CajaController extends Controller
             // sin ella el cierre se saltaba el aviso de «entró una venta
             // mientras contabas» simplemente no mandando el campo.
             'huella' => ['required', 'string', 'max:100'],
-        ], [], [
+        ], [
+            'fondo_dejado.required' => 'Escribe cuánto queda en el cajón para el siguiente turno (0 si no queda nada).',
+        ], [
             'monto_declarado' => 'efectivo contado',
             'observacion' => 'observación',
             'fondo_dejado' => 'lo que queda en el cajón',

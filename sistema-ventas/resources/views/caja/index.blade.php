@@ -201,7 +201,7 @@
 
                         <x-form.campo label="Observación" for="observacion" name="observacion">
                             <x-form.input id="observacion" name="observacion" :value="old('observacion')"
-                                placeholder="Opcional" />
+                                placeholder="Opcional; obligatoria si empiezas con otro monto" />
                         </x-form.campo>
 
                         <div class="flex justify-end gap-3">

@@ -219,13 +219,13 @@ class VencimientoTest extends TestCase
     {
         $producto = $this->perecedero();
 
-        $this->cargar($producto, 30, '2026-12-31');
+        $this->cargar($producto, 30, $this->medio());
 
         $lote = Lote::where('producto_id', $producto->id)->firstOrFail();
 
         $this->assertSame('30.000', $lote->cantidad_inicial);
         $this->assertSame('30.000', $lote->cantidad_actual);
-        $this->assertSame('2026-12-31', $lote->fecha_vencimiento->toDateString());
+        $this->assertSame($this->medio(), $lote->fecha_vencimiento->toDateString());
         $this->assertSame('30.000', $producto->fresh()->stock_actual);
     }
 
@@ -237,9 +237,29 @@ class VencimientoTest extends TestCase
 
         $antes = Lote::where('producto_id', $producto->id)->count();
 
-        $this->cargar($producto->fresh(), 10, '2026-12-31');
+        $this->cargar($producto->fresh(), 10, $this->medio());
 
         $this->assertSame($antes, Lote::where('producto_id', $producto->id)->count());
+    }
+
+    // Fechas relativas a HOY: con una fecha escrita a mano, la prueba caducaba el día que esa fecha
+    // pasaba (el lote «que vence el 15 de octubre» ya venció, y el sistema lo trata como vencido).
+    // Se mantiene el orden: pronto < medio < tarde, y las tres están en el futuro.
+
+    /** Vence pronto, pero todavía no venció. */
+    private function pronto(): string
+    {
+        return now()->addDays(20)->toDateString();
+    }
+
+    private function medio(): string
+    {
+        return now()->addMonths(3)->toDateString();
+    }
+
+    private function tarde(): string
+    {
+        return now()->addMonths(8)->toDateString();
     }
 
     // ------------------------------------------------------------ FEFO
@@ -254,8 +274,8 @@ class VencimientoTest extends TestCase
 
         // Entra primero lo que vence TARDE, para que el orden de entrada no
         // pueda confundirse con el orden de salida.
-        $this->cargar($producto, 10, '2027-06-30');
-        $this->cargar($producto, 10, '2026-10-15');
+        $this->cargar($producto, 10, $this->tarde());
+        $this->cargar($producto, 10, $this->pronto());
 
         $sesion = $this->turno();
 
@@ -269,7 +289,7 @@ class VencimientoTest extends TestCase
         $lotes = Lote::where('producto_id', $producto->id)->enOrdenDeSalida()->get();
 
         // El que vence en octubre queda con 4; el de junio, intacto.
-        $this->assertSame('2026-10-15', $lotes[0]->fecha_vencimiento->toDateString());
+        $this->assertSame($this->pronto(), $lotes[0]->fecha_vencimiento->toDateString());
         $this->assertSame('4.000', $lotes[0]->cantidad_actual);
         $this->assertSame('10.000', $lotes[1]->cantidad_actual);
     }
@@ -279,8 +299,8 @@ class VencimientoTest extends TestCase
     {
         $producto = $this->perecedero();
 
-        $this->cargar($producto, 5, '2026-10-15');
-        $this->cargar($producto, 10, '2027-06-30');
+        $this->cargar($producto, 5, $this->pronto());
+        $this->cargar($producto, 10, $this->tarde());
 
         Ventas::registrar(
             sesion: $this->turno(),
@@ -303,8 +323,8 @@ class VencimientoTest extends TestCase
     {
         $producto = $this->perecedero();
 
-        $this->cargar($producto, 20, '2026-10-15');
-        $this->cargar($producto, 15, '2027-01-31');
+        $this->cargar($producto, 20, $this->pronto());
+        $this->cargar($producto, 15, $this->medio());
 
         Ventas::registrar(
             sesion: $this->turno(),
@@ -327,8 +347,8 @@ class VencimientoTest extends TestCase
     {
         $producto = $this->perecedero();
 
-        $this->cargar($producto, 10, '2026-10-15');
-        $this->cargar($producto, 10, '2027-06-30');
+        $this->cargar($producto, 10, $this->pronto());
+        $this->cargar($producto, 10, $this->tarde());
 
         $this->actingAs($this->almacenero());
         Inventario::ajuste($producto->fresh(), 25, 'Aparecieron 5 más');
@@ -370,7 +390,7 @@ class VencimientoTest extends TestCase
         $producto = $this->perecedero();
 
         $this->cargar($producto, 10, null);
-        $this->cargar($producto, 10, '2027-06-30');
+        $this->cargar($producto, 10, $this->tarde());
 
         Ventas::registrar(
             sesion: $this->turno(),
@@ -408,7 +428,7 @@ class VencimientoTest extends TestCase
         $this->actingAs($this->almacenero())->get(route('vencimientos.index'))->assertOk();
 
         $producto = $this->perecedero();
-        $this->cargar($producto, 5, '2026-12-31');
+        $this->cargar($producto, 5, $this->medio());
 
         $this->actingAs($this->almacenero())
             ->get(route('vencimientos.producto', $producto))
@@ -428,6 +448,8 @@ class VencimientoTest extends TestCase
     {
         $producto = $this->perecedero();
 
+        $vence = $this->tarde();
+
         $compra = Compras::registrar(
             usuario: $this->almacenero(),
             proveedor: Proveedor::activos()->firstOrFail(),
@@ -435,7 +457,7 @@ class VencimientoTest extends TestCase
                 'producto_id' => $producto->id,
                 'cantidad' => 24,
                 'costo_unitario' => 3.0,
-                'vence' => '2027-03-31',
+                'vence' => $vence,
                 'lote' => 'L-4417',
             ]],
             documentoExterno: 'F001-09999',
@@ -443,7 +465,7 @@ class VencimientoTest extends TestCase
 
         $lote = Lote::where('producto_id', $producto->id)->firstOrFail();
 
-        $this->assertSame('2027-03-31', $lote->fecha_vencimiento->toDateString());
+        $this->assertSame($vence, $lote->fecha_vencimiento->toDateString());
         $this->assertSame('L-4417', $lote->codigo);
         $this->assertSame('24.000', $lote->cantidad_actual);
 

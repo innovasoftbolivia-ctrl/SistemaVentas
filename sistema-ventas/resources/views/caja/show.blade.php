@@ -385,10 +385,13 @@
                                     placeholder="Sin novedad / faltó vuelto de una venta / …" />
                             </x-form.campo>
 
-                            <x-form.campo label="Queda en el cajón para el siguiente turno" for="fondo_dejado" name="fondo_dejado"
-                                help="El fondo de cambio que no se retira. El próximo turno de esta caja empieza con este monto.">
+                            {{-- Obligatorio, y la pantalla lo dice: el servidor lo exige (sin él el turno
+                                 siguiente abre con el monto que sea), y antes el campo decía «Opcional»
+                                 para rechazarlo después. Si no queda nada, se escribe 0. --}}
+                            <x-form.campo label="Queda en el cajón para el siguiente turno" for="fondo_dejado" name="fondo_dejado" required
+                                help="El fondo de cambio que no se retira. El próximo turno de esta caja empieza con este monto. Si no queda nada, escribe 0.">
                                 <x-form.input id="fondo_dejado" name="fondo_dejado" type="number" step="0.01" min="0"
-                                    placeholder="Opcional" />
+                                    placeholder="Cuánto queda (0 si nada)" required />
                             </x-form.campo>
 
                             <div class="flex justify-end gap-3">

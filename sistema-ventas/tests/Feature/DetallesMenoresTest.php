@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Caja;
+use App\Models\SesionCaja;
 use App\Models\Usuario;
 use App\Services\Cajas;
 use App\Services\LibroDeVentas;
@@ -348,5 +349,44 @@ class DetallesMenoresTest extends TestCase
         $this->actingAs($this->u('admin'))->get(route('configuracion.edit'))->assertOk()
             ->assertSee('data-aviso-bloqueo', false)
             ->assertSee('fuera del horario de atención');
+    }
+
+    // ============================================================ el formulario de cierre no miente
+
+    /** Una caja abierta por el administrador, que es quien ve el formulario de cierre. */
+    private function turnoDelAdministrador(): SesionCaja
+    {
+        $admin = $this->u('admin');
+
+        return Cajas::sesionDe($admin) ?? Cajas::abrir(Caja::orderBy('id')->firstOrFail(), $admin, 100, 'Apertura de prueba');
+    }
+
+    /**
+     * El campo «Queda en el cajón» decía «Opcional» y el servidor lo exigía: se escribía
+     * el cierre, se rechazaba, y no había forma de saber por qué.
+     */
+    public function test_el_formulario_de_cierre_dice_que_lo_que_queda_en_el_cajon_es_obligatorio(): void
+    {
+        $sesion = $this->turnoDelAdministrador();
+
+        $html = $this->actingAs($this->u('admin'))->get(route('caja.show', $sesion))->assertOk()->getContent();
+
+        preg_match('/<input[^>]*name="fondo_dejado"[^>]*>/s', $html, $campo);
+        $this->assertNotEmpty($campo, 'el campo está en el formulario');
+        $this->assertStringContainsString('required', $campo[0]);
+        $this->assertStringNotContainsString('Opcional', $campo[0], 'antes decía «Opcional» y el servidor lo exigía');
+        $this->assertStringContainsString('escribe 0', $html, 'y se dice qué poner si no queda nada');
+    }
+
+    public function test_cerrar_sin_decir_cuanto_queda_se_rechaza_con_un_mensaje_que_lo_explica(): void
+    {
+        $sesion = $this->turnoDelAdministrador();
+
+        $this->actingAs($this->u('admin'))->post(route('caja.cerrar', $sesion), [
+            'monto_declarado' => (float) $sesion->fresh()->efectivoEsperado(), 'huella' => 'x',
+        ])->assertSessionHasErrors('fondo_dejado');
+
+        $this->assertStringContainsString('0 si no queda nada', session('errors')->first('fondo_dejado'));
+        $this->assertSame('ABIERTA', $sesion->fresh()->estado, 'y no se cerró');
     }
 }
